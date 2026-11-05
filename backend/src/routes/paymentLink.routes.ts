@@ -25,6 +25,8 @@ import {
   tokenFromPublicCode
 } from '../security/links.js';
 import { evaluateRisk } from '../security/risk.js';
+import { annulCoupon, ensureCoupon } from '../security/pay360Links.js';
+import { Pay360Error } from '../integrations/pay360.js';
 import { addHours, formatSoles, nowIso } from '../security/time.js';
 
 export const paymentLinkRouter = Router();
@@ -95,7 +97,8 @@ paymentLinkRouter.get(
       concept: link.concept,
       amount_cents: link.amount_cents,
       currency: link.currency ?? 'PEN',
-      expires_at: link.expires_at
+      expires_at: link.expires_at,
+      payment_code: link.pay360_coupon_code
     });
   }
 );
@@ -232,6 +235,16 @@ paymentLinkRouter.post('/:id/issue', async (req, res) => {
     return fail(res, 409, 'LINK_ON_HOLD', 'Este cobro está en revisión de seguridad. Te avisaremos cuando se active.');
   }
   if (link.status === 'DRAFT') {
+    // Con 360pay activo, el link se emite solo si su cupón quedó creado.
+    try {
+      await ensureCoupon(link, (await getMerchant(auth.merchantId))!);
+    } catch (e) {
+      if (e instanceof Pay360Error) {
+        await audit({ actorType: 'SYSTEM', action: 'PAY360_COUPON_CREATED', target: link.id, result: 'FAILED', details: { status: e.status, error: e.message } });
+        return fail(res, 502, 'PAY360_UNAVAILABLE', 'No pudimos registrar el cobro en 360pay. Inténtalo en unos minutos.');
+      }
+      throw e;
+    }
     await db.prepare("UPDATE payment_links SET status = 'ACTIVE', issued_at = ? WHERE id = ? AND status = 'DRAFT'").run(nowIso(), link.id);
     await paymentEvent(link.id, 'ISSUED');
     await audit({ actorType: 'MERCHANT', actorId: auth.merchantId, action: 'LINK_ISSUED', target: link.id, result: 'OK', ip: clientIp(req), deviceId: auth.deviceId });
@@ -254,6 +267,7 @@ paymentLinkRouter.post('/:id/cancel', async (req, res) => {
   }
   await db.prepare("UPDATE payment_links SET status = 'CANCELLED', cancelled_at = ? WHERE id = ? AND status IN ('DRAFT', 'ACTIVE', 'ON_HOLD')").run(nowIso(), link.id);
   await paymentEvent(link.id, 'CANCELLED', { by: 'MERCHANT' });
+  await annulCoupon(link);
   await audit({ actorType: 'MERCHANT', actorId: auth.merchantId, action: 'LINK_CANCELLED', target: link.id, result: 'OK', ip: clientIp(req), deviceId: auth.deviceId });
   res.json(await ownerView((await getLinkById(link.id))!));
 });

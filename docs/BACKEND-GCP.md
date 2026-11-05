@@ -10,7 +10,7 @@ La decisión es **Postgres para el dinero y Firebase para identidad, dispositivo
 | 2 | SQLite → Postgres | ✅ | Migraciones versionadas en `backend/migrations/`. PGlite para desarrollo y pruebas; `pg` (Cloud SQL) para producción. 40 pruebas en verde sobre PGlite y sobre Postgres 16 real. Comparé 56 respuestas de la API con la versión SQLite y son equivalentes. |
 | 3 | Firebase Auth + App Check | ⏳ | Necesita el proyecto de Firebase (ver abajo). |
 | 4 | FCM (push) | ⏳ | Usa el mismo proyecto de Firebase. Las alertas ya se registran en `payments.merchant_alerts`. |
-| 5 | API real de 360pay | ⏳ | Necesita la documentación y las credenciales de sandbox de 360pay. El webhook ya usa su formato de firma. |
+| 5 | API real de 360pay | 🟡 | Integrado según su documentación: cada link crea un cupón (`POST /coupons`, monto en soles, `external_ref` = id del link) y cancelarlo lo anula. El webhook `PAYMENT_PAID` usa su formato real: array, `X-360Pay-Signature` sobre timestamp ISO + "." + cuerpo, `X-360Pay-Event-Id` y `X-360Pay-Hook-Id`. Probado contra un 360pay simulado; falta la API key de sandbox para probarlo contra el real. |
 | 6 | CI y despliegue | ✅ / ⏳ | `.github/workflows/ci.yml` corre tipos, pruebas en PGlite y en Postgres 16, auditoría y build. El despliegue a Cloud Run está escrito pero apagado hasta configurar GCP. |
 
 ## Arquitectura

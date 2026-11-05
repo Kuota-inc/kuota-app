@@ -331,6 +331,12 @@ export const PaymentLinkScreen: React.FC<PaymentLinkScreenProps> = ({ onBack, on
                   </span>
                 </div>
 
+                {link.payment_code && (
+                  <div className="p-2.5 rounded-xl bg-[#eff3ff] text-[11px] text-[#304670]">
+                    Código de pago 360pay (bancos y agentes): <strong className="font-mono text-[#0b2545]">{link.payment_code}</strong>
+                  </div>
+                )}
+
                 <div className="p-2.5 bg-slate-50 rounded-xl text-[11px] font-mono text-slate-700 flex items-center justify-between gap-2">
                   <span className="truncate">{link.url}</span>
                   <div className="flex items-center gap-1 shrink-0">

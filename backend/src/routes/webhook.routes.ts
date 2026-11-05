@@ -20,9 +20,10 @@ webhookRouter.post('/360pay', rateLimit({ name: 'webhook', windowMs: 60_000, max
   if (!req.rawBody) return fail(res, 415, 'JSON_REQUIRED', 'Se espera un cuerpo application/json.');
   const result = await handleGatewayWebhook({
     rawBody: req.rawBody,
-    signature: headerString(req, 'x-signature-256'),
+    signature: headerString(req, 'x-360pay-signature'),
     timestamp: headerString(req, 'x-360pay-timestamp'),
     eventId: headerString(req, 'x-360pay-event-id'),
+    hookId: headerString(req, 'x-360pay-hook-id'),
     ip: clientIp(req)
   });
   res.status(result.status).json(result.body);
@@ -67,27 +68,45 @@ sandboxRouter.post(
       return fail(res, 403, 'RISK_BLOCKED', 'No pudimos procesar este pago. Inténtalo más tarde.');
     }
 
-    const event = {
-      type: outcome === 'reject' ? 'payment_rejected' : 'payment_captured',
-      payment: {
-        reference: publicCode(link.token),
-        amount_minor: link.amount_cents,
-        currency: link.currency ?? 'PEN',
-        method,
-        gateway_ref: `GW-${randomToken(9)}`,
-        payer_fingerprint: payer,
-        ...(outcome === 'reject' ? { reason: 'INSUFFICIENT_FUNDS' } : {})
+    if (outcome === 'reject') {
+      // 360pay solo notifica pagos confirmados: un intento fallido queda registrado aquí.
+      await db.prepare('INSERT INTO payment_attempts (id, link_id, payer_fingerprint, result, reason, created_at) VALUES (?, ?, ?, ?, ?, ?)').run(
+        randomId('att', 8),
+        link.id,
+        payer,
+        'FAILED',
+        'INSUFFICIENT_FUNDS',
+        nowIso()
+      );
+      return res.json({ sandbox: true, webhook: { status: 'REJECTED', reason: 'INSUFFICIENT_FUNDS' } });
+    }
+
+    // Mismo formato y firma que el webhook PAYMENT_PAID real de 360pay.
+    const items = [
+      {
+        event: 'ticket.paid',
+        _id: link.pay360_coupon_id ?? `sbx${randomToken(12)}`,
+        external_ref: link.id,
+        payment_reference: link.pay360_coupon_code ?? publicCode(link.token),
+        amount: link.amount_cents / 100,
+        status: 'paid',
+        paid_at: nowIso(),
+        operation_number: `SBX-${randomToken(6)}`,
+        bank_tx_id: 'SANDBOX',
+        payment_method: method
       }
-    };
-    const raw = JSON.stringify(event);
-    const ts = String(Math.floor(Date.now() / 1000));
+    ];
+    const raw = JSON.stringify(items);
+    const ts = new Date().toISOString();
     const result = await handleGatewayWebhook({
       rawBody: raw,
       signature: signWebhookBody(raw, ts),
       timestamp: ts,
       eventId: `evt_${randomToken(12)}`,
+      hookId: process.env.KUOTA_360PAY_HOOK_ID,
       ip
     });
-    res.status(result.status).json({ sandbox: true, webhook: result.body });
+    const first = Array.isArray(result.body.results) ? (result.body.results[0] as Record<string, unknown>) : result.body;
+    res.status(result.status).json({ sandbox: true, webhook: first });
   }
 );

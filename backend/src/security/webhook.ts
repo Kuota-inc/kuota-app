@@ -1,21 +1,23 @@
-// Webhooks de 360pay. Mismo esquema que el sandbox de 360pay (rail-go):
-//   X-Signature-256:    sha256=<hex HMAC-SHA256(secreto, "<timestamp>.<cuerpo>")>
-//   X-360pay-Timestamp: segundos Unix (ventana de 300 s contra repeticiones)
-//   X-360pay-Event-ID:  id único del evento (idempotencia: se procesa una vez)
+// Webhooks de 360pay (https://api.360pay.pe/docs/webhooks), hook PAYMENT_PAID:
+//   X-360Pay-Signature: sha256=<hex HMAC-SHA256(signing_secret, "<timestamp>.<cuerpo crudo>")>
+//   X-360Pay-Timestamp: fecha ISO usada en la firma (ventana de 5 min contra repeticiones)
+//   X-360Pay-Event-Id:  id estable del evento (entrega at-least-once: se procesa una vez)
+//   X-360Pay-Hook-Id:   hook que lo envió (si se configura KUOTA_360PAY_HOOK_ID, debe coincidir)
 //
-// Cuerpo: { "type": "payment_captured" | "payment_rejected",
-//           "payment": { "reference": "<código público del link>", "amount_minor": 5000,
-//                        "currency": "PEN", "method": "YAPE", "gateway_ref": "GW-…",
-//                        "payer_fingerprint": "…" } }
+// El cuerpo SIEMPRE es un array de cupones pagados:
+//   [{ "event": "ticket.paid", "_id": "<cupón>", "external_ref": "<id del link>", "payment_reference": "…",
+//      "amount": 50, "status": "paid", "paid_at": "…", "operation_number": "…", "bank_tx_id": "BCP" }]
+// `amount` está en soles. KUOTA_WEBHOOK_SECRET es el signing_secret (whsec_…) del hook.
 import { paymentsDb as db } from '../db/client.js';
 import { config, secrets } from './config.js';
 import { hmac, randomId, safeEqual, sha256Hex } from './crypto.js';
 import { audit } from './audit.js';
 import { alertMerchant, featureEnabled, paymentEvent } from './events.js';
-import { getLinkByToken, linkSignatureValid, refreshStatus, tokenFromPublicCode, type LinkRow } from './links.js';
+import { getLinkById, getLinkByToken, linkSignatureValid, refreshStatus, tokenFromPublicCode, type LinkRow } from './links.js';
 import { formatSoles, nowIso } from './time.js';
+import { solesToCents } from '../integrations/pay360.js';
 
-export const signWebhookBody = (rawBody: string, timestamp: number | string) =>
+export const signWebhookBody = (rawBody: string, timestamp: string) =>
   `sha256=${hmac(secrets.webhookSecret, `${timestamp}.${rawBody}`)}`;
 
 export interface WebhookInput {
@@ -23,6 +25,7 @@ export interface WebhookInput {
   signature?: string;
   timestamp?: string;
   eventId?: string;
+  hookId?: string;
   ip: string;
 }
 
@@ -31,9 +34,47 @@ export interface WebhookResult {
   body: Record<string, unknown>;
 }
 
-const EVENT_ID = /^[A-Za-z0-9_.:-]{8,100}$/;
+const EVENT_ID = /^[A-Za-z0-9_.:-]{6,100}$/;
 const GATEWAY_REF = /^[A-Za-z0-9_-]{6,64}$/;
-const METHODS = new Set(['YAPE', 'PLIN', 'CARD']);
+const METHODS = new Set(['YAPE', 'PLIN', 'CARD', 'BANK']);
+
+/** Cupón pagado tal como lo manda 360pay. */
+export interface Pay360PaidItem {
+  event?: unknown;
+  _id?: unknown;
+  external_ref?: unknown;
+  payment_reference?: unknown;
+  amount?: unknown;
+  status?: unknown;
+  paid_at?: unknown;
+  operation_number?: unknown;
+  bank_tx_id?: unknown;
+  payment_method?: unknown; // solo lo envía el simulador local
+}
+
+/** Evento normalizado que procesa Kuota. */
+interface NormalizedEvent {
+  type: 'payment_captured' | 'payment_rejected' | 'unknown';
+  payment: Record<string, unknown>;
+}
+
+function normalize(item: Pay360PaidItem): NormalizedEvent {
+  const paid = item.status === 'paid' || item.event === 'ticket.paid';
+  const amount = typeof item.amount === 'number' && Number.isFinite(item.amount) ? solesToCents(item.amount) : null;
+  return {
+    type: paid ? 'payment_captured' : 'unknown',
+    payment: {
+      link_id: typeof item.external_ref === 'string' ? item.external_ref : null,
+      amount_minor: amount,
+      currency: 'PEN',
+      method: typeof item.payment_method === 'string' && METHODS.has(item.payment_method) ? item.payment_method : 'BANK',
+      gateway_ref: typeof item._id === 'string' ? item._id : null,
+      payment_reference: typeof item.payment_reference === 'string' ? item.payment_reference.slice(0, 64) : null,
+      operation_number: typeof item.operation_number === 'string' ? item.operation_number.slice(0, 64) : null,
+      bank: typeof item.bank_tx_id === 'string' ? item.bank_tx_id.slice(0, 32) : null
+    }
+  };
+}
 
 async function deny(status: number, code: string, message: string, ip: string, details: Record<string, unknown> = {}): Promise<WebhookResult> {
   await audit({ actorType: 'GATEWAY', actorId: '360pay', action: 'WEBHOOK_REJECTED', result: 'DENIED', ip, details: { code, ...details } });
@@ -41,43 +82,56 @@ async function deny(status: number, code: string, message: string, ip: string, d
 }
 
 export async function handleGatewayWebhook(input: WebhookInput): Promise<WebhookResult> {
-  if (!await featureEnabled('WEBHOOK_PROCESSING')) {
+  if (!(await featureEnabled('WEBHOOK_PROCESSING'))) {
     // 503: 360pay reintenta más tarde; no se pierde el evento.
     return { status: 503, body: { error: { code: 'FEATURE_DISABLED', message: 'Procesamiento de webhooks pausado.' } } };
   }
   const raw = typeof input.rawBody === 'string' ? input.rawBody : input.rawBody.toString('utf8');
 
   const ts = input.timestamp ?? '';
-  if (!/^\d{1,12}$/.test(ts) || Math.abs(Date.now() / 1000 - Number(ts)) > config.webhookToleranceSec) {
+  const tsMs = Date.parse(ts);
+  if (!ts || Number.isNaN(tsMs) || Math.abs(Date.now() - tsMs) > config.webhookToleranceSec * 1000) {
     return deny(401, 'STALE_OR_INVALID_TIMESTAMP', 'Firma fuera de la ventana temporal.', input.ip);
   }
   if (!input.signature || !safeEqual(input.signature, signWebhookBody(raw, ts))) {
     return deny(401, 'INVALID_SIGNATURE', 'Firma inválida.', input.ip);
   }
+  const expectedHook = process.env.KUOTA_360PAY_HOOK_ID;
+  if (expectedHook && input.hookId !== expectedHook) {
+    return deny(401, 'UNKNOWN_HOOK', 'Hook no reconocido.', input.ip, { hook_id: input.hookId ?? null });
+  }
   const eventId = input.eventId ?? '';
-  if (!EVENT_ID.test(eventId)) return deny(400, 'EVENT_ID_REQUIRED', 'Falta X-360pay-Event-ID.', input.ip);
+  if (!EVENT_ID.test(eventId)) return deny(400, 'EVENT_ID_REQUIRED', 'Falta X-360Pay-Event-Id.', input.ip);
 
   const payloadHash = sha256Hex(raw);
-  let event: { type?: unknown; payment?: Record<string, unknown> };
+  let parsed: unknown;
   try {
-    event = JSON.parse(raw);
+    parsed = JSON.parse(raw);
   } catch {
-    event = {};
+    parsed = [];
   }
+  const items = (Array.isArray(parsed) ? parsed : [parsed]).filter((x) => x && typeof x === 'object') as Pay360PaidItem[];
+  if (!items.length || items.length > 200) return deny(400, 'INVALID_PAYLOAD', 'Se espera un array de cupones pagados.', input.ip);
 
   // Todo el evento en una transacción, serializado por id de evento: dos entregas
-  // simultáneas del mismo evento no se procesan dos veces.
+  // simultáneas del mismo evento no se procesan dos veces. Cada cupón del array
+  // queda en webhook_events como "<eventId>:<nnn>".
+  const itemId = (i: number) => `${eventId}:${String(i).padStart(3, '0')}`;
   const result = await db.tx(async () => {
     await db.lock(`webhook:${eventId}`);
-    const prior = await db.get<{ payload_sha256: string; response_json: string }>(
-      'SELECT payload_sha256, response_json FROM webhook_events WHERE event_id = ?',
-      eventId
+    const prior = await db.all<{ payload_sha256: string; response_json: string }>(
+      'SELECT payload_sha256, response_json FROM webhook_events WHERE event_id LIKE ? ORDER BY event_id',
+      `${eventId}:%`
     );
-    if (prior) {
-      if (prior.payload_sha256 !== payloadHash) return 'REUSED' as const;
-      return { status: 200, body: { ...JSON.parse(prior.response_json), duplicate: true } };
+    if (prior.length) {
+      if (prior[0].payload_sha256 !== payloadHash) return 'REUSED' as const;
+      return { status: 200, body: { received: true, event_id: eventId, duplicate: true, results: prior.map((r) => JSON.parse(r.response_json)) } };
     }
-    return processEvent(eventId, payloadHash, event, input.ip);
+    const results: Record<string, unknown>[] = [];
+    for (let i = 0; i < items.length; i++) {
+      results.push((await processEvent(itemId(i), payloadHash, normalize(items[i]), input.ip)).body);
+    }
+    return { status: 200, body: { received: true, event_id: eventId, results } };
   });
   if (result === 'REUSED') {
     return deny(409, 'EVENT_ID_REUSED', 'El id de evento ya se usó con otro contenido.', input.ip, { event_id: eventId });
@@ -88,11 +142,11 @@ export async function handleGatewayWebhook(input: WebhookInput): Promise<Webhook
 async function processEvent(
   eventId: string,
   payloadHash: string,
-  event: { type?: unknown; payment?: Record<string, unknown> },
+  event: NormalizedEvent,
   ip: string
 ): Promise<WebhookResult> {
   const p = event.payment ?? {};
-  const type = typeof event.type === 'string' ? event.type : 'unknown';
+  const type = event.type;
   const amount = Number.isInteger(p.amount_minor) ? (p.amount_minor as number) : null;
   const gatewayRef = typeof p.gateway_ref === 'string' && GATEWAY_REF.test(p.gateway_ref) ? p.gateway_ref : null;
 
@@ -110,8 +164,9 @@ async function processEvent(
 
   if (type !== 'payment_captured' && type !== 'payment_rejected') return record('IGNORED', 'UNSUPPORTED_TYPE', null);
 
-  const token = tokenFromPublicCode(p.reference);
-  const found = token ? await getLinkByToken(token) : null;
+  // 360pay identifica el link por external_ref (= id del link); el simulador puede usar el código público.
+  const token = p.link_id ? null : tokenFromPublicCode(p.reference);
+  const found = typeof p.link_id === 'string' ? await getLinkById(p.link_id) : token ? await getLinkByToken(token) : null;
   if (!found) return record('REJECTED', 'UNKNOWN_LINK', null);
   if (!linkSignatureValid(found)) {
     await paymentEvent(found.id, 'TAMPER_DETECTED', { event_id: eventId });
@@ -160,7 +215,14 @@ async function processEvent(
   await db.prepare(`
     INSERT INTO payments (id, payment_link_id, method, gateway_ref, amount_cents, status, raw_webhook_json)
     VALUES (?, ?, ?, ?, ?, 'SUCCESS', ?)
-  `).run(paymentId, link.id, p.method, gatewayRef, link.amount_cents, JSON.stringify({ event_id: eventId, payload_sha256: payloadHash }));
+  `).run(
+    paymentId,
+    link.id,
+    p.method,
+    gatewayRef,
+    link.amount_cents,
+    JSON.stringify({ event_id: eventId, payload_sha256: payloadHash, payment_reference: p.payment_reference, operation_number: p.operation_number, bank: p.bank })
+  );
 
   // Doble partida: entra el cobro bruto; se reparte en abono neto al comercio y comisión.
   const ledger = db.prepare('INSERT INTO ledger_entries (id, payment_id, account, type, amount_cents, description) VALUES (?, ?, ?, ?, ?, ?)');

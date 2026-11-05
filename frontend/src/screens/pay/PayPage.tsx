@@ -118,6 +118,13 @@ export const PayPage: React.FC<{ code: string }> = ({ code }) => {
                 </p>
               </div>
 
+              {state.link.payment_code && (
+                <p className="p-3 rounded-2xl bg-[#eff3ff] text-[11px] text-[#304670] text-center">
+                  También puedes pagar en bancos y agentes con el código{' '}
+                  <strong className="font-mono text-[#0b2545]">{state.link.payment_code}</strong>
+                </p>
+              )}
+
               <fieldset className="space-y-2">
                 <legend className="text-[11px] font-bold text-[#4a5f7e] mb-1">Medio de pago</legend>
                 <div className="grid grid-cols-3 gap-2">

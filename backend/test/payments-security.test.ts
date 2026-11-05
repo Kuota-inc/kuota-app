@@ -107,20 +107,36 @@ async function createActiveLink(s: Session, amount: number) {
   return issued.body as Json & { id: string; code: string };
 }
 
-function webhook(payload: unknown, opts: { eventId?: string; ts?: number; signature?: string } = {}) {
+/** Webhook PAYMENT_PAID con el formato y la firma reales de 360pay. */
+async function webhook(payload: unknown, opts: { eventId?: string; ts?: string; signature?: string } = {}) {
   const raw = JSON.stringify(payload);
-  const ts = opts.ts ?? Math.floor(Date.now() / 1000);
-  return call('POST', '/webhooks/360pay', raw, {
-    'X-Signature-256': opts.signature ?? signWebhookBody(raw, ts),
-    'X-360pay-Timestamp': String(ts),
-    'X-360pay-Event-ID': opts.eventId ?? `evt_${crypto.randomBytes(8).toString('hex')}`
+  const ts = opts.ts ?? new Date().toISOString();
+  const r = await call('POST', '/webhooks/360pay', raw, {
+    'X-360Pay-Signature': opts.signature ?? signWebhookBody(raw, ts),
+    'X-360Pay-Timestamp': ts,
+    'X-360Pay-Event-Id': opts.eventId ?? `evt_${crypto.randomBytes(8).toString('hex')}`,
+    'X-360Pay-Hook-Id': 'hook_test',
+    'X-360Pay-Attempt': '1'
   });
+  // Un cupón por evento en estas pruebas: se expone su resultado en el primer nivel.
+  if (Array.isArray(r.body.results)) r.body = { ...r.body, ...r.body.results[0] };
+  return r;
 }
 
-const captured = (code: string, amount: number, gatewayRef = `GW-${crypto.randomBytes(6).toString('hex')}`) => ({
-  type: 'payment_captured',
-  payment: { reference: code, amount_minor: amount, currency: 'PEN', method: 'YAPE', gateway_ref: gatewayRef }
-});
+/** Cupón pagado (array de 360pay): external_ref = id del link, amount en soles. */
+const captured = (linkId: string, amountCents: number, couponId = `cpn${crypto.randomBytes(8).toString('hex')}`) => [
+  {
+    event: 'ticket.paid',
+    _id: couponId,
+    external_ref: linkId,
+    payment_reference: 'KTA-0001',
+    amount: amountCents / 100,
+    status: 'paid',
+    paid_at: new Date().toISOString(),
+    operation_number: 'OP-BANCO-1',
+    bank_tx_id: 'BCP'
+  }
+];
 
 
 // ------------------------------------------------------------------ pruebas
@@ -243,7 +259,7 @@ describe('Links de cobro', () => {
     `).run({ ...fields, sig: signLink(fields) });
     const view = await call('GET', `/payment-links/public/${publicCode(fields.token)}`);
     assert.equal(view.status, 410);
-    const pay = await webhook(captured(publicCode(fields.token), 1500));
+    const pay = await webhook(captured(fields.id, 1500));
     assert.equal(pay.body.status, 'REJECTED');
     assert.equal(pay.body.reason, 'LINK_EXPIRED');
   });
@@ -331,11 +347,11 @@ describe('Webhook firmado de 360pay', () => {
   test('sin firma, con firma inválida o fuera de la ventana: 401', async () => {
     const s = await login();
     const link = await createActiveLink(s, 2200);
-    const payload = captured(link.code, 2200);
+    const payload = captured(link.id, 2200);
     assert.equal((await webhook(payload, { signature: 'sha256=00' })).status, 401);
-    assert.equal((await webhook(payload, { ts: Math.floor(Date.now() / 1000) - 3600 })).status, 401);
+    assert.equal((await webhook(payload, { ts: new Date(Date.now() - 3_600_000).toISOString() })).status, 401);
     const raw = JSON.stringify(payload);
-    const noSig = await call('POST', '/webhooks/360pay', raw, { 'X-360pay-Timestamp': String(Math.floor(Date.now() / 1000)), 'X-360pay-Event-ID': 'evt_sinfirma01' });
+    const noSig = await call('POST', '/webhooks/360pay', raw, { 'X-360Pay-Timestamp': new Date().toISOString(), 'X-360Pay-Event-Id': 'evt_sinfirma01' });
     assert.equal(noSig.status, 401);
   });
 
@@ -343,7 +359,7 @@ describe('Webhook firmado de 360pay', () => {
     const s = await login();
     const link = await createActiveLink(s, 5000);
     const eventId = 'evt_pago_valido_01';
-    const payload = captured(link.code, 5000, 'GW-valido01');
+    const payload = captured(link.id, 5000, 'cpnvalido01');
     const first = await webhook(payload, { eventId });
     assert.equal(first.status, 200);
     assert.equal(first.body.status, 'PROCESSED');
@@ -360,17 +376,17 @@ describe('Webhook firmado de 360pay', () => {
     const count = await db.prepare('SELECT COUNT(*) AS n FROM payments WHERE payment_link_id = ?').get(link.id) as { n: number };
     assert.equal(count.n, 1, 'la repetición no crea otro pago');
 
-    const sameIdOtherBody = await webhook(captured(link.code, 9999), { eventId });
+    const sameIdOtherBody = await webhook(captured(link.id, 9999), { eventId });
     assert.equal(sameIdOtherBody.status, 409);
 
-    const secondCapture = await webhook(captured(link.code, 5000));
+    const secondCapture = await webhook(captured(link.id, 5000));
     assert.equal(secondCapture.body.reason, 'ALREADY_PAID', 'uso único');
   });
 
   test('monto distinto al del link: se rechaza y alerta al comercio', async () => {
     const s = await login();
     const link = await createActiveLink(s, 3300);
-    const r = await webhook(captured(link.code, 33));
+    const r = await webhook(captured(link.id, 33));
     assert.equal(r.body.status, 'REJECTED');
     assert.equal(r.body.reason, 'AMOUNT_MISMATCH');
     const row = await db.prepare('SELECT status FROM payment_links WHERE id = ?').get(link.id) as { status: string };
@@ -385,7 +401,7 @@ describe('Webhook firmado de 360pay', () => {
     await db.prepare('UPDATE payment_links SET amount_cents = 270000, net_cents = 270000 - fee_cents WHERE id = ?').run(link.id);
     const view = await call('GET', `/payment-links/public/${link.code}`);
     assert.equal(view.status, 404);
-    const pay = await webhook(captured(link.code, 270000));
+    const pay = await webhook(captured(link.id, 270000));
     assert.equal(pay.body.reason, 'LINK_TAMPERED');
     await db.prepare('DELETE FROM payment_links WHERE id = ?').run(link.id);
     await db.exec(
@@ -471,11 +487,11 @@ describe('Bitácora y conciliación', () => {
   test('conciliación: detecta capturas no abonadas y diferencias con 360pay', async () => {
     const s = await login();
     const link = await createActiveLink(s, 4100);
-    await webhook(captured(link.code, 4100, 'GW-recon0001'));
+    await webhook(captured(link.id, 4100, 'GWrecon0001'));
     const ours = await db.prepare('SELECT gateway_ref, amount_cents FROM payments').all() as { gateway_ref: string; amount_cents: number }[];
     const report = [
-      ...ours.filter((p) => p.gateway_ref !== 'GW-recon0001').map((p) => ({ gateway_ref: p.gateway_ref, amount_minor: p.amount_cents, status: 'CAPTURED' })),
-      { gateway_ref: 'GW-recon0001', amount_minor: 4000, status: 'CAPTURED' },
+      ...ours.filter((p) => p.gateway_ref !== 'GWrecon0001').map((p) => ({ gateway_ref: p.gateway_ref, amount_minor: p.amount_cents, status: 'CAPTURED' })),
+      { gateway_ref: 'GWrecon0001', amount_minor: 4000, status: 'CAPTURED' },
       { gateway_ref: 'GW-fantasma01', amount_minor: 900, status: 'CAPTURED' }
     ];
     const r = await call('POST', '/internal/reconciliation/run', { provider_report: report }, admin);

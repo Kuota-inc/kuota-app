@@ -46,3 +46,6 @@ desktop.ini
 .vscode/*
 !.vscode/extensions.json
 .idea/
+
+# Config de Firebase (no es secreta, pero se mantiene fuera del repo)
+google-services.json

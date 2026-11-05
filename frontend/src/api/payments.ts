@@ -160,6 +160,8 @@ export interface PaymentLink {
   paid_at: string | null;
   url: string | null;
   code?: string;
+  /** Código de 360pay para pagar en bancos y agentes. */
+  payment_code?: string | null;
   risk?: { decision: 'APPROVE' | 'REVIEW' };
 }
 
@@ -170,6 +172,7 @@ export interface PublicLink {
   amount_cents: number;
   currency: string;
   expires_at: string;
+  payment_code?: string | null;
 }
 
 export interface PaymentLimits {

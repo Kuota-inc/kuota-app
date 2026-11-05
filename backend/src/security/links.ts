@@ -34,6 +34,8 @@ export interface LinkRow {
   issued_at: string | null;
   cancelled_at: string | null;
   risk_decision_id: string | null;
+  pay360_coupon_id: string | null;
+  pay360_coupon_code: string | null;
   created_at: string;
 }
 
@@ -99,7 +101,9 @@ export async function ownerView(l: LinkRow) {
     expires_at: link.expires_at,
     created_at: link.created_at,
     paid_at: link.paid_at,
-    url: link.status === 'ACTIVE' ? payUrl(link.token) : null
+    url: link.status === 'ACTIVE' ? payUrl(link.token) : null,
+    // Código de 360pay para pagar en bancos y agentes (si la integración está activa).
+    payment_code: link.pay360_coupon_code
   };
 }
 

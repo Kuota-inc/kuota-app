@@ -59,7 +59,20 @@ El resto del checklist (política, contratos, SIEM, pentest, capacitación, PCI,
 
 ## Contrato del webhook de 360pay
 
-Es el mismo esquema del sandbox de 360pay (`rail-go/webhook.go`).
+Según https://api.360pay.pe/docs/webhooks (hook `PAYMENT_PAID`). El bloque de abajo describe la versión anterior; la vigente es:
+
+```
+POST /api/v1/webhooks/360pay
+X-360Pay-Signature: sha256=<hex HMAC-SHA256(signing_secret, "<timestamp ISO>.<cuerpo crudo>")>
+X-360Pay-Timestamp: <fecha ISO>       (se rechaza fuera de ±5 min)
+X-360Pay-Event-Id:  <id estable>      (entrega at-least-once: repetido, sin efecto)
+X-360Pay-Hook-Id:   <hook>            (debe coincidir con KUOTA_360PAY_HOOK_ID si está definido)
+
+[{ "event": "ticket.paid", "_id": "<cupón>", "external_ref": "<id del link>", "amount": 50,
+   "status": "paid", "paid_at": "…", "operation_number": "…", "bank_tx_id": "BCP" }]
+```
+
+Versión anterior (sandbox local `rail-go`, ya no se usa):
 
 ```
 POST /api/v1/webhooks/360pay
