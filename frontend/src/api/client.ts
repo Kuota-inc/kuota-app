@@ -1,6 +1,12 @@
 // URL del backend: VITE_API_BASE (p. ej. la IP de la PC en la red Wi-Fi para el APK,
-// ver .env.android); por defecto el backend local de desarrollo.
-export const API_BASE = ((import.meta.env.VITE_API_BASE as string | undefined) || 'http://localhost:3001/api/v1').replace(/\/+$/, '');
+// ver .env.android). Sin ella, el backend de desarrollo en el mismo host que sirvió la
+// página: así la página de pago abierta en otro celular (http://<ip-pc>:5173/pay/…)
+// llega al backend de la PC y no a su propio localhost.
+function defaultApiBase(): string {
+  const host = typeof window !== 'undefined' ? window.location.hostname : '';
+  return `http://${host && /^[\w.-]+$/.test(host) ? host : 'localhost'}:3001/api/v1`;
+}
+export const API_BASE = ((import.meta.env.VITE_API_BASE as string | undefined) || defaultApiBase()).replace(/\/+$/, '');
 
 // Sin timeout, un backend inalcanzable (celular fuera de la red) dejaría las
 // pantallas cargando indefinidamente.
