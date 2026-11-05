@@ -1,5 +1,8 @@
 import { useEffect, useRef, type RefObject } from 'react';
 
+/** Pila de diálogos abiertos (el último es el que está encima). */
+const openDialogs: symbol[] = [];
+
 const FOCUSABLE =
   'button:not([disabled]), [href], input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
@@ -32,8 +35,12 @@ export function useDialog(
     if (target && !target.hasAttribute('tabindex') && target === container) container?.setAttribute('tabindex', '-1');
     target?.focus({ preventScroll: true });
 
+    const id = Symbol('dialog');
+    openDialogs.push(id);
+
     const onKeyDown = (e: KeyboardEvent) => {
-      if (!container) return;
+      // Con diálogos apilados (p. ej. el PIN sobre un modal) solo responde el de arriba.
+      if (!container || openDialogs[openDialogs.length - 1] !== id) return;
       if (e.key === 'Escape') {
         e.stopPropagation();
         onCloseRef.current();
@@ -61,6 +68,7 @@ export function useDialog(
     document.addEventListener('keydown', onKeyDown, true);
     return () => {
       document.removeEventListener('keydown', onKeyDown, true);
+      openDialogs.splice(openDialogs.indexOf(id), 1);
       if (previous && document.contains(previous)) previous.focus({ preventScroll: true });
     };
   }, [enabled, containerRef, initialFocus]);

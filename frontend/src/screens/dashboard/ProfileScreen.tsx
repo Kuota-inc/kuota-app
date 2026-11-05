@@ -7,7 +7,6 @@ import {
   Shield,
   BookOpen,
   Smartphone,
-  Laptop,
   X,
   AlertTriangle,
   Send,
@@ -22,9 +21,12 @@ import {
   BarChart3,
   Package,
   Radio,
-  Info
+  Info,
+  Gauge,
+  BellRing
 } from 'lucide-react';
 import { useDialog } from '../../hooks/useDialog';
+import { ChangePinPanel, DevicesPanel, LimitsPanel, SecurityActivityPanel } from './PaymentSecurityPanels';
 
 interface ProfileScreenProps {
   onBack: () => void;
@@ -41,7 +43,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onLogout }
   const [rubro, setRubro] = useState<string>('Textil y Confección');
   const [zona, setZona] = useState<string>('Gamarra (La Victoria)');
   const [isListenerActive, setIsListenerActive] = useState<boolean>(true);
-  const [pinDigits, setPinDigits] = useState<string[]>(['', '', '', '', '', '']);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const showToast = (msg: string) => {
@@ -52,24 +53,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onLogout }
   const closeModal = () => setActiveModal(null);
   const modalRef = useRef<HTMLDivElement>(null);
   useDialog(modalRef, closeModal, { enabled: !!activeModal });
-
-  const handlePinChange = (idx: number, val: string) => {
-    const digit = val.replace(/\D/g, '').slice(-1);
-    const newPins = [...pinDigits];
-    newPins[idx] = digit;
-    setPinDigits(newPins);
-    if (digit && idx < 5) {
-      const nextInput = document.getElementById(`pin-input-${idx + 1}`);
-      nextInput?.focus();
-    }
-  };
-
-  const handlePinKeyDown = (idx: number, e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Backspace' && !pinDigits[idx] && idx > 0) {
-      const prevInput = document.getElementById(`pin-input-${idx - 1}`);
-      prevInput?.focus();
-    }
-  };
 
   return (
     <div className="flex-1 flex flex-col bg-[#f9f9ff] text-[#151c27] relative pb-10">
@@ -424,8 +407,43 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onLogout }
                   <Smartphone size={18} />
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-[#151c27]">Dispositivos con sesión activa</p>
-                  <p className="text-[10px] text-[#4a5f7e]">2 terminales autorizados</p>
+                  <p className="text-xs font-bold text-[#151c27]">Dispositivos vinculados</p>
+                  <p className="text-[10px] text-[#4a5f7e]">Revisa y desvincula los que no reconozcas</p>
+                </div>
+              </div>
+              <ChevronRight size={16} className="text-[#4a5f7e]" />
+            </button>
+            {/* Límites de cobro */}
+            <button
+              type="button"
+              onClick={() => setActiveModal('modal-limites')}
+              className="w-full flex items-center justify-between p-3 rounded-2xl bg-[#eff3ff] hover:bg-[#e7eefe] active:scale-[0.99] transition text-left cursor-pointer border border-transparent hover:border-blue-200"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-xl bg-[#d8e2ff] text-[#00248b] flex items-center justify-center">
+                  <Gauge size={18} />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-[#151c27]">Límites de cobro</p>
+                  <p className="text-[10px] text-[#4a5f7e]">Por cobro, por día y número de cobros</p>
+                </div>
+              </div>
+              <ChevronRight size={16} className="text-[#4a5f7e]" />
+            </button>
+
+            {/* Actividad de seguridad */}
+            <button
+              type="button"
+              onClick={() => setActiveModal('modal-actividad')}
+              className="w-full flex items-center justify-between p-3 rounded-2xl bg-[#eff3ff] hover:bg-[#e7eefe] active:scale-[0.99] transition text-left cursor-pointer border border-transparent hover:border-blue-200"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-xl bg-[#d8e2ff] text-[#00248b] flex items-center justify-center">
+                  <BellRing size={18} />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-[#151c27]">Actividad de seguridad</p>
+                  <p className="text-[10px] text-[#4a5f7e]">Cobros, dispositivos nuevos y cambios</p>
                 </div>
               </div>
               <ChevronRight size={16} className="text-[#4a5f7e]" />
@@ -695,99 +713,13 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onLogout }
                 </div>
               )}
 
-              {/* 4. Modal PIN */}
-              {activeModal === 'modal-pin' && (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-base font-black text-[#151c27]">Cambiar PIN Kuota</h4>
-                    <button
-                      onClick={closeModal}
-                      className="w-7 h-7 rounded-full bg-[#eff3ff] flex items-center justify-center text-[#4a5f7e]"
-                    >
-                      <X size={16} />
-                    </button>
-                  </div>
-                  <p className="text-xs text-[#4a5f7e]">Ingresa tu nuevo PIN de 6 dígitos numéricos.</p>
-                  <div className="flex justify-between gap-1.5 py-2">
-                    {pinDigits.map((digit, idx) => (
-                      <input
-                        key={idx}
-                        id={`pin-input-${idx}`}
-                        type="password"
-                        inputMode="numeric"
-                        maxLength={1}
-                        value={digit}
-                        onChange={(e) => handlePinChange(idx, e.target.value)}
-                        onKeyDown={(e) => handlePinKeyDown(idx, e)}
-                        className="w-11 h-13 text-center text-lg font-bold rounded-xl bg-[#eff3ff] border border-[#c5c5d6] focus:border-[#00248b] focus:outline-none transition-colors"
-                      />
-                    ))}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      showToast('Nuevo PIN de seguridad registrado');
-                      closeModal();
-                    }}
-                    className="w-full h-12 rounded-full bg-[#1a3bb0] hover:bg-[#00248b] text-white text-xs font-bold shadow-md active:scale-95 transition cursor-pointer"
-                  >
-                    Confirmar Nuevo PIN
-                  </button>
-                </div>
-              )}
+              {/* 4. Cambiar PIN (backend real) */}
+              {activeModal === 'modal-pin' && <ChangePinPanel onClose={closeModal} />}
 
-              {/* 5. Modal Dispositivos */}
-              {activeModal === 'modal-dispositivos' && (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-base font-black text-[#151c27]">Dispositivos Activos</h4>
-                    <button
-                      onClick={closeModal}
-                      className="w-7 h-7 rounded-full bg-[#eff3ff] flex items-center justify-center text-[#4a5f7e]"
-                    >
-                      <X size={16} />
-                    </button>
-                  </div>
-                  <div className="space-y-2.5">
-                    <div className="p-3 rounded-2xl bg-[#eff3ff] flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <Smartphone size={24} className="text-[#00248b]" />
-                        <div>
-                          <p className="text-xs font-bold text-[#151c27]">Samsung Galaxy S23 (Este teléfono)</p>
-                          <p className="text-[10px] text-[#4a5f7e]">Gamarra, Lima · Activo ahora</p>
-                        </div>
-                      </div>
-                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
-                    </div>
-
-                    <div className="p-3 rounded-2xl bg-[#eff3ff] flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <Laptop size={24} className="text-[#4a5f7e]" />
-                        <div>
-                          <p className="text-xs font-bold text-[#151c27]">Chrome Web Desktop</p>
-                          <p className="text-[10px] text-[#4a5f7e]">Lima · Última vez ayer 5:20 PM</p>
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => showToast('Sesión de Chrome Web finalizada')}
-                        className="text-red-600 text-[11px] font-bold"
-                      >
-                        Cerrar
-                      </button>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      showToast('Todas las demás sesiones fueron cerradas');
-                      closeModal();
-                    }}
-                    className="w-full h-12 rounded-full bg-red-600 hover:bg-red-700 text-white text-xs font-bold shadow-md active:scale-95 transition cursor-pointer"
-                  >
-                    Cerrar todas las sesiones
-                  </button>
-                </div>
-              )}
+              {/* 5. Dispositivos, límites y actividad de Kuota Payments */}
+              {activeModal === 'modal-dispositivos' && <DevicesPanel onClose={closeModal} />}
+              {activeModal === 'modal-limites' && <LimitsPanel onClose={closeModal} />}
+              {activeModal === 'modal-actividad' && <SecurityActivityPanel onClose={closeModal} />}
 
               {/* 6. Modal Historial Pagos */}
               {activeModal === 'modal-pagos' && (

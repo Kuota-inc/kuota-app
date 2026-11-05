@@ -1,8 +1,9 @@
 import Database from 'better-sqlite3';
 import path from 'path';
-import fs from 'fs';
+import { initSecuritySchema } from '../security/schema.js';
 
-const DB_PATH = path.resolve(process.cwd(), 'kuota.db');
+// KUOTA_DB_PATH permite una base aparte (p. ej. en las pruebas automatizadas).
+const DB_PATH = process.env.KUOTA_DB_PATH || path.resolve(process.cwd(), 'kuota.db');
 export const db = new Database(DB_PATH);
 
 // Enable WAL mode for high performance concurrency
@@ -390,6 +391,7 @@ export function initDatabase() {
 
   seedData();
   seedSunatData();
+  initSecuritySchema(db);
 }
 
 function seedSunatData() {

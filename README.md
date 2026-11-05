@@ -87,6 +87,24 @@ npm run apk
 El APK de depuración sirve para instalarlo directo en el celular (no para la Play Store). El
 backend debe estar corriendo en la misma red; sin conexión, la app muestra datos de ejemplo.
 
+### 2c. Seguridad de cobros (Kuota Payments)
+Cobrar con link o QR exige sesión con PIN ligada al dispositivo. Los montos altos, subir
+límites y desvincular dispositivos piden el PIN otra vez. El webhook de pago de 360pay va
+firmado (HMAC, anti-repetición e idempotencia), y hay límites por nivel, reglas antifraude,
+bitácora inmutable y conciliación. El detalle punto por punto frente al plan de seguridad está
+en [docs/SEGURIDAD-PAYMENTS.md](docs/SEGURIDAD-PAYMENTS.md).
+
+- **PIN de la cuenta demo** (`mer_carlos`): es la constante `DEMO_MERCHANT_PIN` de
+  `backend/src/security/schema.ts`. Solo existe fuera de producción y se puede cambiar con
+  `KUOTA_DEMO_PIN`.
+- **Secretos:** en desarrollo se generan solos en `backend/.dev-secrets.json` (no se versiona).
+  Ahí también está el token de las rutas `/api/v1/internal/*`. Las variables están en
+  `backend/.env.example`.
+- **QR desde el celular:** para que el QR abra la página de pago en el celular, define
+  `KUOTA_PAY_BASE_URL=http://<ip-de-tu-pc>:5173/pay` en `backend/.env` y arranca el frontend
+  con `npm run dev -- --host`.
+- **Pruebas de seguridad:** `npm --prefix backend test`.
+
 ### 3. Probar los Endpoints del Backend con cURL o PowerShell
 ```powershell
 # Estado del servicio

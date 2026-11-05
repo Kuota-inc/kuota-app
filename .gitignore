@@ -23,6 +23,7 @@ __pycache__/
 *.key
 *.keystore
 *.jks
+.dev-secrets.json
 
 # Logs
 logs/

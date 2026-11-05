@@ -1,208 +1,248 @@
+// Kuota Payments: links de cobro (PRD 08) con los controles del plan de seguridad:
+// sesión ligada al dispositivo, dueño verificado en cada operación, monto fijo
+// firmado, vencimiento y uso único, límites por nivel, antifraude graduado,
+// confirmación con PIN, idempotencia, eventos inmutables y bitácora.
 import { Router } from 'express';
-import { v4 as uuidv4 } from 'uuid';
 import { db } from '../db/database.js';
+import { config } from '../security/config.js';
+import { randomId, randomToken } from '../security/crypto.js';
+import { audit } from '../security/audit.js';
+import { consumeStepUp, getMerchant, requireMerchant, stepUpRequired } from '../security/auth.js';
+import { alertMerchant, paymentEvent, requireFeature } from '../security/events.js';
+import { idempotent, rateLimit } from '../security/guards.js';
+import { clientIp, fail } from '../security/http.js';
+import { checkLinkLimits } from '../security/limits.js';
+import {
+  getLinkById,
+  getLinkByToken,
+  linkSignatureValid,
+  merchantPublicIdentity,
+  ownerView,
+  payUrl,
+  publicCode,
+  refreshStatus,
+  signLink,
+  tokenFromPublicCode
+} from '../security/links.js';
+import { evaluateRisk } from '../security/risk.js';
+import { addHours, formatSoles, nowIso } from '../security/time.js';
 
 export const paymentLinkRouter = Router();
 
-function getMerchantProfile(req: any) {
-  const merchantId = req.headers['x-merchant-id'] as string;
-  if (merchantId) {
-    const m = db.prepare('SELECT * FROM merchant_profiles WHERE id = ?').get(merchantId);
-    if (m) return m as any;
-  }
-  let profile = db.prepare("SELECT * FROM merchant_profiles WHERE id = 'mer_carlos'").get() as any;
-  if (!profile) {
-    profile = db.prepare("SELECT * FROM merchant_profiles LIMIT 1").get() as any;
-  }
-  if (!profile) {
-    const newId = 'mer_carlos';
-    db.prepare(`
-      INSERT INTO merchant_profiles (id, dni, full_name, phone, business_name, category, seniority_range, kyc_status)
-      VALUES (?, '47891234', 'CARLOS ALBERTO MENDOZA QUISPE', '987654321', 'Bodega San Martín', 'FOOD', 'CONSOLIDATED', 'APPROVED')
-    `).run(newId);
-    profile = db.prepare("SELECT * FROM merchant_profiles WHERE id = 'mer_carlos'").get() as any;
-  }
-  return profile;
+const FEE_BPS = 100; // 1.00 %
+const MIN_AMOUNT = 100; // S/ 1.00
+const MAX_AMOUNT = 10_000_000; // S/ 100 000.00 (techo técnico; rigen los límites del comercio)
+
+function parseAmount(v: unknown): number | null {
+  return Number.isInteger(v) && (v as number) >= MIN_AMOUNT && (v as number) <= MAX_AMOUNT ? (v as number) : null;
 }
 
-// PRD 08: Cotización de cobro
+/** Texto libre sin caracteres de control ni marcado, recortado. */
+function cleanText(v: unknown, max: number): string | null {
+  if (typeof v !== 'string') return null;
+  const s = v.replace(/[\u0000-\u001f\u007f<>]/g, '').trim().slice(0, max);
+  return s || null;
+}
+
+const fees = (amount: number) => {
+  const fee = Math.ceil((amount * FEE_BPS) / 10_000);
+  return { fee, net: amount - fee };
+};
+
+// PRD 08: cotización (sin efectos; no requiere sesión)
 paymentLinkRouter.post('/quote', (req, res) => {
-  const { amount_cents } = req.body;
-  if (!amount_cents || amount_cents <= 0) {
-    return res.status(422).json({ error: { code: 'AMOUNT_INVALID', message: 'Ingresa un monto mayor a S/ 0.' } });
-  }
-
-  // 1% fee, rounded UP to nearest cent
-  const feeCents = Math.ceil((amount_cents * 100) / 10000); // 100 bps = 1.00%
-  const netCents = amount_cents - feeCents;
-
-  // Reputación: 1 punto por cada S/ 10 cobrados
-  const estimatedPoints = Math.max(1, Math.floor(amount_cents / 1000));
-
+  const amount = parseAmount(req.body?.amount_cents);
+  if (!amount) return fail(res, 422, 'AMOUNT_INVALID', 'Ingresa un monto desde S/ 1.00.');
+  const { fee, net } = fees(amount);
   res.json({
-    amount_cents,
-    fee_cents: feeCents,
-    fee_pct: 1.0,
-    net_cents: netCents,
-    estimated_points: estimatedPoints
+    amount_cents: amount,
+    fee_cents: fee,
+    fee_pct: FEE_BPS / 100,
+    net_cents: net,
+    estimated_points: Math.max(1, Math.floor(amount / 1000))
   });
 });
 
-// PRD 08: Crear borrador de link de pago
-paymentLinkRouter.post('/', (req, res) => {
-  const merchant = getMerchantProfile(req);
-  const { amount_cents, concept, product_id, quantity } = req.body;
+// El endpoint anterior aceptaba pagos sin firma: queda retirado.
+paymentLinkRouter.post('/webhook', (_req, res) =>
+  fail(res, 410, 'ENDPOINT_RETIRED', 'Los pagos se notifican solo por el webhook firmado de 360pay (/api/v1/webhooks/360pay).')
+);
 
-  if (!amount_cents || amount_cents <= 0) {
-    return res.status(422).json({ error: { code: 'AMOUNT_INVALID', message: 'Ingresa un monto mayor a S/ 0.' } });
+// Consulta pública del link (pantalla previa al pago). Código con MAC: los
+// códigos inventados se rechazan sin consultar la base.
+paymentLinkRouter.get(
+  '/public/:code',
+  rateLimit({ name: 'public-link', windowMs: 60_000, max: 30 }),
+  requireFeature('PUBLIC_PAY'),
+  (req, res) => {
+    const notFound = () => fail(res, 404, 'LINK_NOT_FOUND', 'Este link de pago no existe o caducó.');
+    const token = tokenFromPublicCode(req.params.code);
+    if (!token) return notFound();
+    const found = getLinkByToken(token);
+    if (!found) return notFound();
+    if (!linkSignatureValid(found)) {
+      paymentEvent(found.id, 'TAMPER_DETECTED', { via: 'public_view' });
+      audit({ actorType: 'PAYER', action: 'LINK_TAMPER_DETECTED', target: found.id, result: 'DENIED', ip: clientIp(req) });
+      return notFound();
+    }
+    const link = refreshStatus(found);
+    if (link.status === 'PAID') return fail(res, 409, 'LINK_ALREADY_PAID', 'Este cobro ya fue pagado.');
+    if (link.status !== 'ACTIVE') return fail(res, 410, 'LINK_UNAVAILABLE', 'Este link de pago ya no está disponible.');
+    const merchant = getMerchant(link.merchant_id);
+    res.json({
+      code: publicCode(link.token),
+      merchant: merchantPublicIdentity(merchant ?? { business_name: null, kyc_status: null, ruc: null, city: null }),
+      concept: link.concept,
+      amount_cents: link.amount_cents,
+      currency: link.currency ?? 'PEN',
+      expires_at: link.expires_at
+    });
+  }
+);
+
+// ---------------------------------------------------------- rutas del comercio
+paymentLinkRouter.use(requireMerchant);
+
+// PRD 08: crear link (borrador). Límites, antifraude y PIN antes de crear.
+paymentLinkRouter.post('/', requireFeature('LINK_CREATE'), idempotent, (req, res) => {
+  const auth = req.auth!;
+  const merchant = getMerchant(auth.merchantId);
+  if (!merchant) return fail(res, 404, 'MERCHANT_NOT_FOUND', 'Comercio no encontrado.');
+  const amount = parseAmount(req.body?.amount_cents);
+  if (!amount) return fail(res, 422, 'AMOUNT_INVALID', 'Ingresa un monto desde S/ 1.00.');
+  const concept = cleanText(req.body?.concept, 80) ?? 'Cobro Kuota';
+  const productId = cleanText(req.body?.product_id, 40);
+  const quantity = Number.isInteger(req.body?.quantity) && req.body.quantity > 0 && req.body.quantity <= 999 ? req.body.quantity : 1;
+  const ip = clientIp(req);
+
+  const { problem, limits } = checkLinkLimits(merchant, auth.deviceId, amount);
+  if (problem) {
+    audit({ actorType: 'MERCHANT', actorId: merchant.id, action: 'LINK_CREATE', result: 'DENIED', ip, deviceId: auth.deviceId, details: { reason: problem.code, amount_cents: amount } });
+    return fail(res, 422, problem.code, problem.message, { limits });
   }
 
-  const feeCents = Math.ceil((amount_cents * 100) / 10000);
-  const netCents = amount_cents - feeCents;
-  const linkId = 'lnk_' + uuidv4().substring(0, 10);
-  const token = uuidv4().replace(/-/g, '').substring(0, 24);
-  const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString();
+  const risk = evaluateRisk({ kind: 'LINK_CREATE', merchant, deviceId: auth.deviceId, ip, amountCents: amount, limits });
+  if (risk.decision === 'BLOCK') {
+    audit({ actorType: 'MERCHANT', actorId: merchant.id, action: 'LINK_CREATE', result: 'DENIED', ip, deviceId: auth.deviceId, details: { risk_decision_id: risk.id } });
+    // Sin detallar la regla: no se le enseña al atacante qué evitar.
+    return fail(res, 403, 'RISK_BLOCKED', 'No pudimos crear este cobro. Si crees que es un error, escríbenos por el WhatsApp oficial de Kuota.');
+  }
+  let consentId: string | null = null;
+  if (risk.decision === 'STEP_UP') {
+    consentId = consumeStepUp(req, 'CREATE_LINK', { amount_cents: amount });
+    if (!consentId) return stepUpRequired(res, 'CREATE_LINK', { amount_cents: amount }, risk.reasons[0]?.rule);
+  }
 
-  db.prepare(`
-    INSERT INTO payment_links (id, merchant_id, token, amount_cents, fee_cents, net_cents, fee_bps, concept, product_id, quantity, status, expires_at)
-    VALUES (?, ?, ?, ?, ?, ?, 100, ?, ?, ?, 'DRAFT', ?)
-  `).run(linkId, merchant.id, token, amount_cents, feeCents, netCents, concept || 'Cobro Kuota', product_id, quantity || 1, expiresAt);
+  const { fee, net } = fees(amount);
+  const fields = {
+    id: randomId('lnk', 8),
+    merchant_id: merchant.id,
+    token: randomToken(16),
+    amount_cents: amount,
+    fee_cents: fee,
+    net_cents: net,
+    currency: 'PEN',
+    expires_at: addHours(new Date(), config.linkTtlHours).toISOString()
+  };
+  const status = risk.decision === 'REVIEW' ? 'ON_HOLD' : 'DRAFT';
+
+  db.transaction(() => {
+    db.prepare(`
+      INSERT INTO payment_links (id, merchant_id, token, amount_cents, fee_cents, net_cents, fee_bps, currency, concept, product_id,
+                                 quantity, status, expires_at, sig, device_id, risk_decision_id)
+      VALUES (@id, @merchant_id, @token, @amount_cents, @fee_cents, @net_cents, ${FEE_BPS}, @currency, @concept, @product_id,
+              @quantity, @status, @expires_at, @sig, @device_id, @risk_decision_id)
+    `).run({ ...fields, concept, product_id: productId, quantity, status, sig: signLink(fields), device_id: auth.deviceId, risk_decision_id: risk.id });
+    paymentEvent(fields.id, 'CREATED', { amount_cents: amount, risk: risk.decision, consent_id: consentId });
+    if (status === 'ON_HOLD') {
+      db.prepare('INSERT INTO risk_reviews (link_id, decision_id, merchant_id, opened_at) VALUES (?, ?, ?, ?)').run(fields.id, risk.id, merchant.id, nowIso());
+      paymentEvent(fields.id, 'HELD_FOR_REVIEW', { reasons: risk.reasons.map((r) => r.rule) });
+      alertMerchant(merchant.id, 'LINK_HELD', `Revisamos tu cobro de ${formatSoles(amount)}`, 'Por seguridad lo validamos antes de activarlo. Te avisaremos en minutos.', fields.id);
+    }
+    audit({
+      actorType: 'MERCHANT',
+      actorId: merchant.id,
+      action: 'LINK_CREATED',
+      target: fields.id,
+      result: 'OK',
+      ip,
+      deviceId: auth.deviceId,
+      details: { amount_cents: amount, status, risk_decision_id: risk.id, consent_id: consentId }
+    });
+  })();
 
   res.status(201).json({
-    id: linkId,
-    token,
-    amount_cents,
-    fee_cents: feeCents,
-    net_cents: netCents,
-    status: 'DRAFT',
-    expires_at: expiresAt
+    ...ownerView(getLinkById(fields.id)!),
+    risk: { decision: risk.decision === 'STEP_UP' ? 'APPROVE' : risk.decision }
   });
 });
 
-// PRD 08: Completar datos del cliente
+/** Link del comercio autenticado; para otro comercio responde como inexistente. */
+function ownedLink(id: string, merchantId: string) {
+  const link = getLinkById(id);
+  return link && link.merchant_id === merchantId ? link : null;
+}
+
+paymentLinkRouter.get('/', (req, res) => {
+  const rows = db
+    .prepare('SELECT * FROM payment_links WHERE merchant_id = ? ORDER BY created_at DESC LIMIT 20')
+    .all(req.auth!.merchantId) as Parameters<typeof ownerView>[0][];
+  res.json({ data: rows.map(ownerView) });
+});
+
+paymentLinkRouter.get('/:id', (req, res) => {
+  const link = ownedLink(req.params.id, req.auth!.merchantId);
+  if (!link) return fail(res, 404, 'LINK_NOT_FOUND', 'Link no encontrado.');
+  res.json(ownerView(link));
+});
+
+// PRD 08: datos del cliente (solo en borrador y solo el dueño)
 paymentLinkRouter.patch('/:id/customer', (req, res) => {
-  const linkId = req.params.id;
-  const { customer_name, customer_phone, customer_email } = req.body;
-
-  db.prepare(`
-    UPDATE payment_links
-    SET customer_name = ?, customer_phone = ?, customer_email = ?
-    WHERE id = ?
-  `).run(customer_name, customer_phone, customer_email, linkId);
-
-  res.json({ success: true, id: linkId });
+  const link = ownedLink(req.params.id, req.auth!.merchantId);
+  if (!link) return fail(res, 404, 'LINK_NOT_FOUND', 'Link no encontrado.');
+  if (refreshStatus(link).status !== 'DRAFT') return fail(res, 409, 'LINK_NOT_EDITABLE', 'Solo se editan links en borrador.');
+  const name = cleanText(req.body?.customer_name, 80);
+  const phone = typeof req.body?.customer_phone === 'string' ? req.body.customer_phone.replace(/[\s-]/g, '') : null;
+  const email = typeof req.body?.customer_email === 'string' ? req.body.customer_email.trim().toLowerCase() : null;
+  if (phone && !/^\+?\d{9,12}$/.test(phone)) return fail(res, 422, 'PHONE_INVALID', 'Teléfono inválido.');
+  if (email && (email.length > 120 || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email))) return fail(res, 422, 'EMAIL_INVALID', 'Correo inválido.');
+  db.prepare('UPDATE payment_links SET customer_name = ?, customer_phone = ?, customer_email = ? WHERE id = ?').run(name, phone, email, link.id);
+  res.json({ success: true, id: link.id });
 });
 
-// PRD 08: Emitir / Activar link
+// PRD 08: emitir (activar). Repetirlo sobre un link activo devuelve lo mismo.
 paymentLinkRouter.post('/:id/issue', (req, res) => {
-  const linkId = req.params.id;
-  const link = db.prepare('SELECT * FROM payment_links WHERE id = ?').get(linkId) as any;
-
-  if (!link) {
-    return res.status(404).json({ error: { code: 'LINK_NOT_FOUND', message: 'Link no encontrado.' } });
+  const auth = req.auth!;
+  const found = ownedLink(req.params.id, auth.merchantId);
+  if (!found) return fail(res, 404, 'LINK_NOT_FOUND', 'Link no encontrado.');
+  if (!linkSignatureValid(found)) return fail(res, 409, 'LINK_INVALID', 'Este link no es válido. Genera uno nuevo.');
+  const link = refreshStatus(found);
+  if (link.status === 'ON_HOLD') {
+    return fail(res, 409, 'LINK_ON_HOLD', 'Este cobro está en revisión de seguridad. Te avisaremos cuando se active.');
   }
-
-  db.prepare("UPDATE payment_links SET status = 'ACTIVE' WHERE id = ?").run(linkId);
-
-  const publicUrl = `http://localhost:5173/pay/${link.token}`;
-  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(publicUrl)}`;
-
-  res.json({
-    id: linkId,
-    token: link.token,
-    url: publicUrl,
-    qr_url: qrUrl,
-    expires_at: link.expires_at,
-    status: 'ACTIVE'
-  });
+  if (link.status === 'DRAFT') {
+    db.prepare("UPDATE payment_links SET status = 'ACTIVE', issued_at = ? WHERE id = ? AND status = 'DRAFT'").run(nowIso(), link.id);
+    paymentEvent(link.id, 'ISSUED');
+    audit({ actorType: 'MERCHANT', actorId: auth.merchantId, action: 'LINK_ISSUED', target: link.id, result: 'OK', ip: clientIp(req), deviceId: auth.deviceId });
+    alertMerchant(auth.merchantId, 'LINK_CREATED', `Generaste un link de cobro por ${formatSoles(link.amount_cents)}`, 'Si no fuiste tú, cancélalo y cambia tu PIN.', link.id);
+  } else if (link.status !== 'ACTIVE') {
+    return fail(res, 409, 'LINK_UNAVAILABLE', `Este link está ${link.status === 'PAID' ? 'pagado' : 'cerrado'}.`);
+  }
+  const fresh = getLinkById(link.id)!;
+  res.json({ ...ownerView(fresh), url: payUrl(fresh.token), code: publicCode(fresh.token) });
 });
 
-// Consultar link público (para la pantalla de pago del cliente)
-paymentLinkRouter.get('/public/:token', (req, res) => {
-  const link = db.prepare(`
-    SELECT l.*, m.business_name, m.city
-    FROM payment_links l
-    JOIN merchant_profiles m ON l.merchant_id = m.id
-    WHERE l.token = ?
-  `).get(req.params.token) as any;
-
-  if (!link) {
-    return res.status(404).json({ error: { code: 'LINK_NOT_FOUND', message: 'Este link de pago no existe o caducó.' } });
+paymentLinkRouter.post('/:id/cancel', (req, res) => {
+  const auth = req.auth!;
+  const found = ownedLink(req.params.id, auth.merchantId);
+  if (!found) return fail(res, 404, 'LINK_NOT_FOUND', 'Link no encontrado.');
+  const link = refreshStatus(found);
+  if (link.status === 'CANCELLED') return res.json(ownerView(link));
+  if (!['DRAFT', 'ACTIVE', 'ON_HOLD'].includes(link.status)) {
+    return fail(res, 409, 'LINK_NOT_CANCELLABLE', link.status === 'PAID' ? 'Un cobro pagado no se cancela; solicita un reembolso.' : 'Este link ya está cerrado.');
   }
-  if (link.status === 'PAID') {
-    return res.status(409).json({ error: { code: 'LINK_ALREADY_PAID', message: 'Este cobro ya fue pagado.' } });
-  }
-
-  res.json({
-    token: link.token,
-    merchant_name: link.business_name,
-    concept: link.concept,
-    amount_cents: link.amount_cents,
-    status: link.status,
-    expires_at: link.expires_at
-  });
-});
-
-// Simulación de Webhook de Pasarela de Pagos (Yape / Plin / Tarjeta)
-paymentLinkRouter.post('/webhook', (req, res) => {
-  const { token, method = 'YAPE' } = req.body;
-  const link = db.prepare('SELECT * FROM payment_links WHERE token = ?').get(token) as any;
-
-  if (!link) {
-    return res.status(404).json({ error: { code: 'LINK_NOT_FOUND', message: 'Link no encontrado.' } });
-  }
-  if (link.status === 'PAID') {
-    return res.json({ message: 'Ya registrado como pagado.' });
-  }
-
-  const paymentId = 'pay_' + uuidv4().substring(0, 10);
-  const gatewayRef = 'GW-' + Math.floor(10000000 + Math.random() * 90000000);
-
-  // 1. Mark link as PAID
-  db.prepare(`
-    UPDATE payment_links SET status = 'PAID', paid_at = datetime('now'), gateway_ref = ? WHERE id = ?
-  `).run(gatewayRef, link.id);
-
-  // 2. Record payment
-  db.prepare(`
-    INSERT INTO payments (id, payment_link_id, method, gateway_ref, amount_cents, status)
-    VALUES (?, ?, ?, ?, ?, 'SUCCESS')
-  `).run(paymentId, link.id, method, gatewayRef, link.amount_cents);
-
-  // 3. Double-entry ledger entries
-  const insertLedger = db.prepare(`
-    INSERT INTO ledger_entries (id, payment_id, account, type, amount_cents, description)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `);
-  // Cash Inflow: +amount_cents
-  insertLedger.run('led_' + uuidv4().substring(0, 8), paymentId, 'GATEWAY_CLEARING', 'DEBIT', link.amount_cents, 'Cobro ingresado');
-  // Merchant Payable: -net_cents
-  insertLedger.run('led_' + uuidv4().substring(0, 8), paymentId, 'MERCHANT_WALLET', 'CREDIT', link.net_cents, 'Abono neto a comercio');
-  // Kuota Revenue (1% Fee): -fee_cents
-  insertLedger.run('led_' + uuidv4().substring(0, 8), paymentId, 'KUOTA_FEE_REVENUE', 'CREDIT', link.fee_cents, 'Comisión 1%');
-
-  // 4. Record as verified sale in merchant sales
-  const saleId = 'sale_' + uuidv4().substring(0, 10);
-  db.prepare(`
-    INSERT INTO sales (id, merchant_id, source, amount_cents, concept, operation_ref, verified, occurred_at)
-    VALUES (?, ?, 'PAYMENT_LINK', ?, ?, ?, 1, datetime('now'))
-  `).run(saleId, link.merchant_id, link.amount_cents, link.concept, gatewayRef);
-
-  // 5. Emit score points
-  const points = Math.max(5, Math.floor(link.amount_cents / 1000));
-  db.prepare(`
-    INSERT INTO score_events (id, merchant_id, type, points, ref_id)
-    VALUES (?, ?, 'VERIFIED_SALE', ?, ?)
-  `).run('sev_' + uuidv4().substring(0, 10), link.merchant_id, points, saleId);
-
-  db.prepare('UPDATE credit_scores SET score = min(850, score + ?) WHERE merchant_id = ?').run(points, link.merchant_id);
-
-  res.json({
-    success: true,
-    payment_id: paymentId,
-    status: 'PAID',
-    net_credited_cents: link.net_cents,
-    fee_charged_cents: link.fee_cents,
-    points_awarded: points
-  });
+  db.prepare("UPDATE payment_links SET status = 'CANCELLED', cancelled_at = ? WHERE id = ? AND status IN ('DRAFT', 'ACTIVE', 'ON_HOLD')").run(nowIso(), link.id);
+  paymentEvent(link.id, 'CANCELLED', { by: 'MERCHANT' });
+  audit({ actorType: 'MERCHANT', actorId: auth.merchantId, action: 'LINK_CANCELLED', target: link.id, result: 'OK', ip: clientIp(req), deviceId: auth.deviceId });
+  res.json(ownerView(getLinkById(link.id)!));
 });

@@ -6,6 +6,20 @@ export const API_BASE = ((import.meta.env.VITE_API_BASE as string | undefined) |
 // pantallas cargando indefinidamente.
 const TIMEOUT_MS = 8000;
 
+/** Error de la API con el código del backend ({ error: { code, message } }). */
+export class ApiError extends Error {
+  readonly status: number;
+  readonly code: string;
+  readonly data: any;
+  constructor(status: number, code: string, message: string, data: any = null) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.code = code;
+    this.data = data;
+  }
+}
+
 export async function apiRequest<T = any>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const url = `${API_BASE}${endpoint}`;
   const headers = {
@@ -17,15 +31,19 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestInit
 
   try {
     const res = await fetch(url, { ...options, headers, signal: options.signal ?? controller.signal });
-    const data = await res.json().catch(() => null);
+    const data = res.status === 204 ? null : await res.json().catch(() => null);
     if (!res.ok) {
-      throw new Error(data?.error?.message || `Error ${res.status}: ${res.statusText}`);
+      throw new ApiError(res.status, data?.error?.code ?? `HTTP_${res.status}`, data?.error?.message || `Error ${res.status}: ${res.statusText}`, data);
     }
     return data as T;
   } catch (err: any) {
-    console.error(`API Call failed: ${endpoint}`, err);
+    // Solo fallas inesperadas (red o servidor); los 4xx son flujos que maneja la interfaz
+    // (PIN, límites, confirmaciones). Sin el cuerpo: puede traer datos del comercio.
+    if (!(err instanceof ApiError) || err.status >= 500) {
+      console.error(`API Call failed: ${endpoint}`, err?.code ?? err?.name ?? 'error');
+    }
     if (err?.name === 'AbortError' || err instanceof TypeError) {
-      throw new Error('No pudimos conectar con Kuota. Revisa tu conexión e inténtalo otra vez.');
+      throw new ApiError(0, 'NETWORK', 'No pudimos conectar con Kuota. Revisa tu conexión e inténtalo otra vez.');
     }
     throw err;
   } finally {
@@ -150,25 +168,11 @@ export const api = {
       method: 'POST'
     }),
 
-  // Payment Links
+  // Payment Links: cotización pública; el resto (con sesión y PIN) está en api/payments.ts
   quotePaymentLink: (amount_cents: number) =>
     apiRequest('/payment-links/quote', {
       method: 'POST',
       body: JSON.stringify({ amount_cents })
-    }),
-  createPaymentLink: (data: { amount_cents: number; concept?: string; product_id?: string }) =>
-    apiRequest('/payment-links', {
-      method: 'POST',
-      body: JSON.stringify(data)
-    }),
-  issuePaymentLink: (linkId: string) =>
-    apiRequest(`/payment-links/${linkId}/issue`, {
-      method: 'POST'
-    }),
-  simulateWebhookPayment: (token: string, method: string = 'YAPE') =>
-    apiRequest('/payment-links/webhook', {
-      method: 'POST',
-      body: JSON.stringify({ token, method })
     }),
 
   // Provider & Business RUC Recognition (SUNAT)

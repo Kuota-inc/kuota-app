@@ -8,6 +8,7 @@ import { HomeScreen } from './screens/dashboard/HomeScreen';
 import { KuotearModal } from './screens/dashboard/KuotearModal';
 import { NotificationsSheet } from './screens/dashboard/NotificationsSheet';
 import { ToastProvider, ToastViewport } from './components/Toast';
+import { PinPromptHost, PinPromptProvider } from './components/PinPrompt';
 import { RotateCcw, Store, Building2, KeyRound, UserCircle } from 'lucide-react';
 
 // Pantallas que no son la inicial se cargan bajo demanda (bundle inicial más liviano).
@@ -425,6 +426,7 @@ function AppShell() {
               }
             }}
           />
+          <PinPromptHost />
           <ToastViewport />
         </PhoneSimulator>
       </div>
@@ -718,7 +720,9 @@ function AppShell() {
 export function App() {
   return (
     <ToastProvider>
-      <AppShell />
+      <PinPromptProvider>
+        <AppShell />
+      </PinPromptProvider>
     </ToastProvider>
   );
 }

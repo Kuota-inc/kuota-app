@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { db } from '../db/database.js';
 import { sunatService } from '../services/sunat.service.js';
+import { hashPin, pinProblem } from '../security/crypto.js';
 
 export const onboardingRouter = Router();
 
@@ -566,30 +567,38 @@ onboardingRouter.post('/sessions/:id/complete', (req, res) => {
 // PRD Security: Crear y confirmar PIN de seguridad de 6 dígitos
 onboardingRouter.post('/sessions/:id/security-pin', (req, res) => {
   const sessionId = req.params.id;
-  const { pin } = req.body;
+  const { pin } = req.body ?? {};
 
-  if (!pin || pin.length !== 6 || !/^\d{6}$/.test(pin)) {
+  if (typeof pin !== 'string' || !/^\d{6}$/.test(pin)) {
     return res.status(422).json({
       error: { code: 'INVALID_PIN', message: 'El PIN de seguridad debe contener exactamente 6 dígitos numéricos.' }
     });
   }
-
-  const weakPins = ['123456', '654321', '000000', '111111', '222222', '333333', '444444', '555555', '666666', '777777', '888888', '999999'];
-  if (weakPins.includes(pin)) {
-    return res.status(422).json({
-      error: { code: 'WEAK_PIN', message: 'Por tu seguridad, no uses combinaciones obvias como 123456 o números repetidos.' }
-    });
+  const problem = pinProblem(pin);
+  if (problem) {
+    return res.status(422).json({ error: { code: 'WEAK_PIN', message: problem } });
   }
 
-  try {
-    db.prepare('UPDATE onboarding_sessions SET security_pin = ?, current_step = ? WHERE id = ?').run(pin, 'PIN_CONFIGURED', sessionId);
-    const session = db.prepare('SELECT user_id FROM onboarding_sessions WHERE id = ?').get(sessionId) as any;
-    if (session?.user_id) {
-      db.prepare('UPDATE users SET security_pin = ? WHERE id = ?').run(pin, session.user_id);
+  const session = db.prepare('SELECT id, user_id FROM onboarding_sessions WHERE id = ?').get(sessionId) as any;
+  if (!session) {
+    return res.status(404).json({ error: { code: 'SESSION_NOT_FOUND', message: 'Sesión de registro no encontrada.' } });
+  }
+  // El PIN nunca se guarda en texto plano: scrypt con pimienta (ver security/crypto.ts).
+  const pinHash = hashPin(pin);
+  db.transaction(() => {
+    db.prepare('UPDATE onboarding_sessions SET security_pin = ?, current_step = ? WHERE id = ?').run(pinHash, 'PIN_CONFIGURED', sessionId);
+    if (session.user_id) {
+      db.prepare('UPDATE users SET security_pin = ? WHERE id = ?').run(pinHash, session.user_id);
     }
-  } catch (err: any) {
-    console.error('Error guardando PIN:', err.message);
-  }
+    const merchant = db.prepare('SELECT id FROM merchant_profiles WHERE session_id = ?').get(sessionId) as any;
+    if (merchant) {
+      db.prepare(`
+        INSERT INTO merchant_credentials (merchant_id, pin_hash, pin_updated_at) VALUES (?, ?, ?)
+        ON CONFLICT(merchant_id) DO UPDATE SET pin_hash = excluded.pin_hash, pin_updated_at = excluded.pin_updated_at,
+          failed_attempts = 0, locked_until = NULL
+      `).run(merchant.id, pinHash, new Date().toISOString());
+    }
+  })();
 
   res.status(200).json({
     success: true,

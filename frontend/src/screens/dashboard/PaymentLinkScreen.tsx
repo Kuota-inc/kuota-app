@@ -1,13 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { api } from '../../api/client';
-import { Delete, ArrowRight, CheckCircle2, Copy, ArrowLeft } from 'lucide-react';
+import { api, ApiError } from '../../api/client';
+import { isCancelled, newIdempotencyKey, paymentsApi, type PaymentLink } from '../../api/payments';
+import { Delete, ArrowRight, CheckCircle2, Copy, ArrowLeft, ShieldCheck, Clock, XCircle, Hourglass, Share2 } from 'lucide-react';
 import { useToast } from '../../components/toast-context';
+import { QrCode } from '../../components/QrCode';
 
 interface PaymentLinkScreenProps {
   onBack: () => void;
   onNavigateTab: (tab: string) => void;
 }
+
+const formatSoles = (cents: number) => `S/ ${(cents / 100).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const formatWhen = (iso: string) =>
+  new Date(iso).toLocaleString('es-PE', { timeZone: 'America/Lima', weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
 
 export const PaymentLinkScreen: React.FC<PaymentLinkScreenProps> = ({ onBack, onNavigateTab }) => {
   const toast = useToast();
@@ -15,16 +21,19 @@ export const PaymentLinkScreen: React.FC<PaymentLinkScreenProps> = ({ onBack, on
   const [concept, setConcept] = useState<string>('');
   // Cotización del backend, etiquetada con el monto que se pidió.
   const [apiQuote, setApiQuote] = useState<{ amount_cents: number; fee_cents: number; net_cents: number } | null>(null);
-  const [issuedLink, setIssuedLink] = useState<any>(null);
+  const [link, setLink] = useState<PaymentLink | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
+  const [paying, setPaying] = useState<boolean>(false);
   const [paymentSuccess, setPaymentSuccess] = useState<boolean>(false);
+  // Misma clave mientras no cambie el cobro: un reintento tras un corte de red no lo duplica.
+  const pendingKey = useRef<{ fingerprint: string; key: string } | null>(null);
 
   const amountNumber = parseFloat(amountStr) || 0;
   const amountCents = Math.round(amountNumber * 100);
 
   // Cotización local inmediata (1%) mientras responde el backend; solo se usa la
   // respuesta de la API si corresponde al monto actual (evita respuestas fuera de orden).
-  const localFee = Math.round(amountCents * 0.01);
+  const localFee = Math.ceil(amountCents * 0.01);
   const quote =
     amountCents <= 0
       ? null
@@ -33,13 +42,13 @@ export const PaymentLinkScreen: React.FC<PaymentLinkScreenProps> = ({ onBack, on
         : { amount_cents: amountCents, fee_cents: localFee, net_cents: amountCents - localFee };
 
   useEffect(() => {
-    if (amountCents <= 0) return;
+    if (amountCents < 100) return;
     let alive = true;
     const t = window.setTimeout(() => {
       api
         .quotePaymentLink(amountCents)
         .then((q) => alive && setApiQuote({ ...q, amount_cents: q.amount_cents ?? amountCents }))
-        .catch(console.error);
+        .catch(() => {});
     }, 200);
     return () => {
       alive = false;
@@ -47,9 +56,29 @@ export const PaymentLinkScreen: React.FC<PaymentLinkScreenProps> = ({ onBack, on
     };
   }, [amountCents]);
 
+  // El cliente paga desde su celular: se consulta el estado para confirmar el cobro al vendedor.
+  const linkId = link?.id;
+  const watching = !!link && link.status === 'ACTIVE' && !paymentSuccess;
+  useEffect(() => {
+    if (!watching || !linkId) return;
+    const timer = window.setInterval(() => {
+      paymentsApi
+        .pollLink(linkId)
+        .then((l) => {
+          if (l.status === 'PAID') setPaymentSuccess(true);
+          else if (l.status === 'EXPIRED' || l.status === 'CANCELLED') {
+            toast.info(l.status === 'EXPIRED' ? 'El link venció sin pago.' : 'El link fue cancelado.');
+            setLink(null);
+          }
+        })
+        .catch(() => {});
+    }, 4000);
+    return () => clearInterval(timer);
+  }, [watching, linkId, toast]);
+
   const handleKeyPress = (num: string) => {
     if (amountStr === '0') {
-      setAmountStr(num);
+      setAmountStr(num === '00' ? '0' : num);
     } else if (amountStr.length < 6) {
       setAmountStr(amountStr + num);
     }
@@ -68,32 +97,88 @@ export const PaymentLinkScreen: React.FC<PaymentLinkScreenProps> = ({ onBack, on
     setAmountStr(String(current + val));
   };
 
+  const reportError = (err: unknown, fallback: string) => {
+    if (isCancelled(err)) return;
+    toast.error(err instanceof Error && err.message ? err.message : fallback);
+  };
+
   const handleCreateAndIssue = async () => {
-    if (amountCents <= 0) return;
+    if (amountCents < 100) return;
+    const finalConcept = concept.trim() || 'Cobro de venta';
+    const fingerprint = `${amountCents}|${finalConcept}`;
+    if (pendingKey.current?.fingerprint !== fingerprint) pendingKey.current = { fingerprint, key: newIdempotencyKey() };
     setLoading(true);
     try {
-      const draft = await api.createPaymentLink({
-        amount_cents: amountCents,
-        concept: concept || 'Cobro de venta'
-      });
-      const issued = await api.issuePaymentLink(draft.id);
-      setIssuedLink({ ...draft, ...issued });
-    } catch (err: any) {
-      toast.error(err.message || 'Error al generar link');
+      const draft = await paymentsApi.createLink({ amount_cents: amountCents, concept: finalConcept }, pendingKey.current.key);
+      if (draft.status === 'ON_HOLD') {
+        setLink(draft);
+        pendingKey.current = null;
+        return;
+      }
+      const issued = await paymentsApi.issueLink(draft.id);
+      setLink(issued);
+      pendingKey.current = null;
+    } catch (err) {
+      reportError(err, 'No pudimos generar el link.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSimulateClientPay = async () => {
-    if (!issuedLink?.token) return;
+  const handleCopy = async () => {
+    if (!link?.url) return;
     try {
-      await api.simulateWebhookPayment(issuedLink.token, 'YAPE');
-      setPaymentSuccess(true);
-    } catch (err: any) {
-      toast.error(err.message || 'Error al procesar pago simulado');
+      await navigator.clipboard.writeText(link.url);
+      toast.success('Link copiado');
+    } catch {
+      toast.error('No se pudo copiar. Mantén presionado el link para copiarlo.');
     }
   };
+
+  const handleShare = async () => {
+    if (!link?.url) return;
+    try {
+      await navigator.share({ title: 'Cobro Kuota', text: `${link.concept ?? 'Cobro'} · ${formatSoles(link.amount_cents)}`, url: link.url });
+    } catch {
+      /* el usuario cerró el menú de compartir */
+    }
+  };
+
+  const handleCancel = async () => {
+    if (!link) return;
+    try {
+      await paymentsApi.cancelLink(link.id);
+      toast.info('Cancelaste el link. Ya no se puede pagar.');
+      setLink(null);
+    } catch (err) {
+      reportError(err, 'No pudimos cancelar el link.');
+    }
+  };
+
+  const handleSimulateClientPay = async () => {
+    if (!link?.code) return;
+    setPaying(true);
+    try {
+      const r = await paymentsApi.sandboxPay(link.code, 'YAPE');
+      if (r.webhook.status === 'PROCESSED') setPaymentSuccess(true);
+      else toast.error(`El pago fue rechazado (${r.webhook.reason ?? 'sin detalle'}).`);
+    } catch (err) {
+      if (err instanceof ApiError && err.code === 'LINK_ALREADY_PAID') {
+        setPaymentSuccess(true);
+        return;
+      }
+      reportError(err, 'Error al procesar el pago simulado.');
+    } finally {
+      setPaying(false);
+    }
+  };
+
+  const resetFlow = () => {
+    setLink(null);
+    setPaymentSuccess(false);
+  };
+
+  const canShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
 
   return (
     <div className="flex-1 p-4 space-y-4 bg-[#f9f9ff] flex flex-col justify-between">
@@ -119,7 +204,7 @@ export const PaymentLinkScreen: React.FC<PaymentLinkScreenProps> = ({ onBack, on
           </span>
         </div>
 
-        {!issuedLink ? (
+        {!link ? (
           <>
             {/* Amount Display */}
             <div className="p-4 bg-white rounded-3xl border border-[#e1e8f8] shadow-sm text-center space-y-1">
@@ -197,63 +282,103 @@ export const PaymentLinkScreen: React.FC<PaymentLinkScreenProps> = ({ onBack, on
               </motion.button>
             </div>
           </>
+        ) : link.status === 'ON_HOLD' ? (
+          /* Retenido por el motor antifraude */
+          <div className="p-5 bg-white rounded-3xl border border-amber-200 shadow-md space-y-3 text-center">
+            <div className="w-12 h-12 mx-auto rounded-full bg-amber-100 text-amber-700 flex items-center justify-center">
+              <Hourglass size={26} aria-hidden="true" />
+            </div>
+            <h2 className="text-base font-black text-[#0b2545]">Estamos revisando este cobro</h2>
+            <p className="text-xs text-[#4a5f7e] leading-relaxed">
+              Por tu seguridad validamos el cobro de <strong className="text-[#0b2545]">{formatSoles(link.amount_cents)}</strong> antes de
+              activarlo. Te avisaremos en minutos; no necesitas hacer nada.
+            </p>
+            <div className="flex gap-2">
+              <button type="button" onClick={resetFlow} className="flex-1 h-10 rounded-full bg-[#eff3ff] text-[#1a3bb0] text-xs font-bold cursor-pointer">
+                Entendido
+              </button>
+              <button type="button" onClick={handleCancel} className="flex-1 h-10 rounded-full text-red-600 text-xs font-bold cursor-pointer">
+                Cancelar cobro
+              </button>
+            </div>
+          </div>
         ) : (
           /* Issued Link View */
           <div className="p-4 bg-white rounded-3xl border border-blue-100 shadow-md space-y-4 text-center">
             {!paymentSuccess ? (
               <>
                 <div className="w-12 h-12 mx-auto rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center">
-                  <CheckCircle2 size={28} />
+                  <CheckCircle2 size={28} aria-hidden="true" />
                 </div>
                 <div>
                   <h2 className="text-base font-black text-[#0b2545]">¡Link de Cobro Listo!</h2>
-                  <div className="text-2xl font-black text-[#1a3bb0] mt-1">
-                    S/ {(issuedLink.amount_cents / 100).toFixed(2)}
+                  <div className="text-2xl font-black text-[#1a3bb0] mt-1">{formatSoles(link.amount_cents)}</div>
+                  {link.concept && <p className="text-[11px] text-[#4a5f7e] mt-0.5">{link.concept}</p>}
+                </div>
+
+                {link.url && (
+                  <div className="flex justify-center p-2 bg-slate-50 rounded-2xl border border-slate-100">
+                    <QrCode value={link.url} label={`QR para pagar ${formatSoles(link.amount_cents)}`} />
+                  </div>
+                )}
+
+                <div className="flex items-center justify-center gap-3 text-[10px] text-[#4a5f7e]">
+                  <span className="inline-flex items-center gap-1">
+                    <ShieldCheck size={12} className="text-emerald-600" aria-hidden="true" /> Monto fijo · un solo pago
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <Clock size={12} aria-hidden="true" /> Vence {formatWhen(link.expires_at)}
+                  </span>
+                </div>
+
+                <div className="p-2.5 bg-slate-50 rounded-xl text-[11px] font-mono text-slate-700 flex items-center justify-between gap-2">
+                  <span className="truncate">{link.url}</span>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button type="button" onClick={handleCopy} aria-label="Copiar link de cobro" className="w-7 h-7 rounded-lg flex items-center justify-center text-[#1a3bb0] hover:bg-white cursor-pointer">
+                      <Copy size={14} aria-hidden="true" />
+                    </button>
+                    {canShare && (
+                      <button type="button" onClick={handleShare} aria-label="Compartir link de cobro" className="w-7 h-7 rounded-lg flex items-center justify-center text-[#1a3bb0] hover:bg-white cursor-pointer">
+                        <Share2 size={14} aria-hidden="true" />
+                      </button>
+                    )}
                   </div>
                 </div>
 
-                <div className="flex justify-center p-2 bg-slate-50 rounded-2xl border border-slate-100">
-                  <img
-                    src={issuedLink.qr_url}
-                    alt="QR Cobro"
-                    className="w-40 h-40 rounded-xl shadow-sm"
-                  />
-                </div>
-
-                <div className="p-2.5 bg-slate-50 rounded-xl text-[11px] font-mono break-all text-slate-700 flex items-center justify-between">
-                  <span className="truncate">{issuedLink.url}</span>
-                  <Copy size={14} className="text-[#1a3bb0] shrink-0 ml-1 cursor-pointer" />
-                </div>
-
-                {/* Simulation button */}
+                {/* Simulación de la página de pago de 360pay (solo desarrollo) */}
                 <button
+                  type="button"
                   onClick={handleSimulateClientPay}
-                  className="w-full py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl text-xs font-bold shadow-md hover:opacity-95 flex items-center justify-center gap-2 cursor-pointer active:scale-98 transition"
+                  disabled={paying}
+                  className="w-full py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl text-xs font-bold shadow-md hover:opacity-95 flex items-center justify-center gap-2 cursor-pointer active:scale-98 transition disabled:opacity-60"
                 >
-                  <img
-                    src="/brand/yape-official.png"
-                    alt="Yape"
-                    className="w-4 h-4 rounded-md object-cover inline shadow-xs"
-                  />
-                  <span>Simular pago del cliente con Yape</span>
+                  <img src="/brand/yape-official.png" alt="" className="w-4 h-4 rounded-md object-cover inline shadow-xs" />
+                  <span>{paying ? 'Procesando pago…' : 'Simular pago del cliente con Yape'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCancel}
+                  className="w-full inline-flex items-center justify-center gap-1.5 text-[11px] font-bold text-red-600 cursor-pointer"
+                >
+                  <XCircle size={13} aria-hidden="true" /> Cancelar este link
                 </button>
               </>
             ) : (
               <div className="space-y-3 py-4">
                 <div className="w-14 h-14 mx-auto rounded-full bg-emerald-500 text-white flex items-center justify-center">
-                  <CheckCircle2 size={32} />
+                  <CheckCircle2 size={32} aria-hidden="true" />
                 </div>
                 <h3 className="text-base font-black text-[#0b2545]">¡Cobro Exitoso Acreditado!</h3>
                 <p className="text-xs text-[#4a5f7e]">
-                  Se acreditaron S/ {(issuedLink.net_cents / 100).toFixed(2)} a tu cuenta y sumaste puntos a tu Score.
+                  Se acreditaron {formatSoles(link.net_cents)} a tu cuenta y sumaste puntos a tu Score.
                 </p>
                 <button
+                  type="button"
                   onClick={() => {
-                    setIssuedLink(null);
-                    setPaymentSuccess(false);
+                    resetFlow();
                     onNavigateTab('ventas');
                   }}
-                  className="px-4 py-2 bg-[#1a3bb0] text-white rounded-xl text-xs font-bold"
+                  className="px-4 py-2 bg-[#1a3bb0] text-white rounded-xl text-xs font-bold cursor-pointer"
                 >
                   Ver en Ventas
                 </button>
@@ -264,16 +389,18 @@ export const PaymentLinkScreen: React.FC<PaymentLinkScreenProps> = ({ onBack, on
       </div>
 
       {/* Footer Submit Button */}
-      {!issuedLink && (
-        <div className="pt-2">
+      {!link && (
+        <div className="pt-2 space-y-2">
           <button
+            type="button"
             onClick={handleCreateAndIssue}
-            disabled={loading || amountCents <= 0}
+            disabled={loading || amountCents < 100}
             className="w-full py-3.5 px-4 bg-gradient-to-r from-[#00248b] to-[#1a3bb0] hover:from-[#1a3bb0] hover:to-[#00248b] text-white rounded-2xl font-bold text-sm shadow-lg shadow-blue-900/20 active:scale-[0.98] transition flex items-center justify-center gap-2 disabled:opacity-50"
           >
             <span>{loading ? 'Generando link...' : 'Generar Link y QR de Cobro'}</span>
-            <ArrowRight size={16} />
+            <ArrowRight size={16} aria-hidden="true" />
           </button>
+          <p className="text-[10px] text-center text-[#4a5f7e]">Tus clientes verán el nombre de tu negocio y el monto antes de pagar.</p>
         </div>
       )}
     </div>
