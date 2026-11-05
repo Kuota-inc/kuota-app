@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+
+<html class="h-full" lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"/><meta content="mobile_stack" name="shell-type"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;display=swap" rel="stylesheet"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        "colors": {
+          "scrim": "rgba(11, 37, 69, 0.40)",
+          "on-error": "#ffffff",
+          "tertiary-fixed": "#d5e3ff",
+          "surface-container-high": "#e1e8f8",
+          "on-secondary-fixed-variant": "#304670",
+          "on-background": "#151c27",
+          "surface-dim": "#d3daea",
+          "on-primary": "#ffffff",
+          "on-primary-fixed": "#001356",
+          "surface-white": "#FFFEFF",
+          "on-tertiary-container": "#a2b8e0",
+          "primary-fixed-dim": "#b8c3ff",
+          "surface": "#f9f9ff",
+          "on-surface": "#151c27",
+          "surface-bright": "#f9f9ff",
+          "surface-container-low": "#eff3ff",
+          "surface-tint": "#3754c7",
+          "on-secondary": "#ffffff",
+          "outline": "#757685",
+          "on-tertiary-fixed-variant": "#314769",
+          "primary": "#00248b",
+          "text-secondary": "#4A5F7E",
+          "inverse-surface": "#29313d",
+          "surface-container-highest": "#dce3f2",
+          "surface-variant": "#dce3f2",
+          "decorative-overlay": "rgba(175, 197, 246, 0.25)",
+          "secondary-fixed": "#d8e2ff",
+          "on-primary-fixed-variant": "#1839af",
+          "inverse-primary": "#b8c3ff",
+          "on-tertiary": "#ffffff",
+          "on-secondary-container": "#405680",
+          "surface-container": "#e7eefe",
+          "error": "#ba1a1a",
+          "on-error-container": "#93000a",
+          "surface-container-lowest": "#ffffff",
+          "primary-fixed": "#dde1ff",
+          "on-primary-container": "#a4b3ff",
+          "disabled-content": "rgba(11, 37, 69, 0.50)",
+          "secondary-container": "#b6ccfd",
+          "error-container": "#ffdad6",
+          "secondary": "#495e89",
+          "tertiary": "#1b3253",
+          "on-surface-variant": "#444653",
+          "background": "#f9f9ff",
+          "on-tertiary-fixed": "#001c3b",
+          "outline-variant": "#c5c5d6",
+          "inverse-on-surface": "#ebf1ff",
+          "secondary-fixed-dim": "#b1c7f8",
+          "disabled-track": "rgba(175, 197, 246, 0.50)",
+          "tertiary-fixed-dim": "#b1c7f0",
+          "primary-container": "#1a3bb0",
+          "on-secondary-fixed": "#001a41",
+          "pressed-state": "rgba(11, 37, 69, 0.08)",
+          "tertiary-container": "#33496b"
+        },
+        "borderRadius": {
+          "DEFAULT": "0.25rem",
+          "lg": "0.5rem",
+          "xl": "0.75rem",
+          "full": "9999px"
+        },
+        "spacing": {
+          "space-sm": "0.5rem",
+          "margin": "1.25rem",
+          "gutter": "0.75rem",
+          "space-md": "0.75rem",
+          "space-lg": "1rem",
+          "space-xl": "1.5rem",
+          "space-xs": "0.25rem"
+        },
+        "fontFamily": {
+          "display": ["Plus Jakarta Sans"],
+          "headline-lg": ["Plus Jakarta Sans"],
+          "body-lg": ["Inter"],
+          "title": ["Plus Jakarta Sans"],
+          "metric": ["Plus Jakarta Sans"],
+          "body-md": ["Inter"],
+          "headline-md": ["Plus Jakarta Sans"],
+          "label": ["Plus Jakarta Sans"],
+          "button": ["Plus Jakarta Sans"],
+          "caption": ["Inter"],
+          "data": ["Inter"]
+        },
+        "fontSize": {
+          "display": ["40px", {"lineHeight": "44px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+          "headline-lg": ["28px", {"lineHeight": "34px", "letterSpacing": "-0.01em", "fontWeight": "700"}],
+          "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+          "title": ["17px", {"lineHeight": "24px", "fontWeight": "600"}],
+          "metric": ["48px", {"lineHeight": "52px", "fontWeight": "700"}],
+          "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+          "headline-md": ["22px", {"lineHeight": "28px", "fontWeight": "600"}],
+          "label": ["13px", {"lineHeight": "16px", "letterSpacing": "0.01em", "fontWeight": "600"}],
+          "button": ["16px", {"lineHeight": "20px", "fontWeight": "600"}],
+          "caption": ["12px", {"lineHeight": "16px", "fontWeight": "400"}],
+          "data": ["14px", {"lineHeight": "20px", "fontWeight": "500"}]
+        }
+      }
+    }
+  };</script><style>@layer base{html,body{width:100vw;min-height:100%;margin:0;padding:0;background-color:#f9f9ff;}body{overscroll-behavior-y:none;-webkit-tap-highlight-color:transparent;}.pb-safe{padding-bottom:env(safe-area-inset-bottom,0px);}.pt-safe{padding-top:env(safe-area-inset-top,0px);}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head><body class="bg-surface font-body-md text-on-surface antialiased flex flex-col min-h-screen"><header class="fixed top-0 inset-x-0 z-50 bg-surface/80 backdrop-blur-xl pt-safe shadow-[0_1px_8px_rgba(11,37,69,0.04)]"><div class="h-14 px-margin flex items-center justify-between"><button aria-label="Go back" class="w-11 h-11 -ml-space-xs rounded-full flex items-center justify-center text-on-surface hover:bg-pressed-state active:scale-[0.98] transition-all" onclick="history.back()" type="button"><span class="material-symbols-outlined text-[22px]">arrow_back</span></button><h1 class="font-title text-title text-on-surface tracking-tight text-center truncate max-w-[200px]">Personal Profile</h1><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center shrink-0"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></header><main class="flex-1 flex flex-col relative w-full bg-surface pt-14 pb-safe"><div class="flex flex-col w-full pb-32">
+<div class="px-margin pt-4 pb-2">
+<div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-secondary-container text-on-secondary-container font-label text-label mb-2">
+<span class="material-symbols-outlined text-[16px]">inventory_2</span>
+<span>Configuración de ventas</span>
+</div>
+<p class="font-body-md text-body-md text-text-secondary leading-relaxed">
+      Añade los productos o servicios frecuentes que vendes para agilizar tus cobros y calcular tu financiamiento.
+    </p>
+</div>
+<div class="px-margin mt-3">
+<div class="bg-surface-white rounded-xl p-space-md shadow-sm">
+<div class="grid grid-cols-12 gap-gutter px-2 pb-2 text-text-secondary font-label text-label uppercase tracking-wider">
+<div class="col-span-7 flex items-center gap-1">
+<span>Producto / Servicio</span>
+</div>
+<div class="col-span-4 text-right">
+<span>Precio (S/)</span>
+</div>
+<div class="col-span-1"></div>
+</div>
+<div class="space-y-space-sm" id="product-rows-container">
+<div class="product-row grid grid-cols-12 gap-gutter items-center p-2 rounded-lg bg-surface-container-low transition-all">
+<div class="col-span-7">
+<input class="w-full bg-transparent font-data text-data text-on-surface focus:outline-none placeholder:text-text-secondary/60" placeholder="Ej. Blusa lino" type="text" value="Polo de algodón Jersey"/>
+</div>
+<div class="col-span-4 flex items-center justify-end bg-surface-white px-2.5 py-1.5 rounded-lg shadow-sm">
+<span class="font-caption text-caption text-text-secondary mr-1">S/</span>
+<input class="w-16 text-right font-data text-data text-on-surface bg-transparent focus:outline-none" step="0.50" type="number" value="35.00"/>
+</div>
+<div class="col-span-1 flex justify-center">
+<button aria-label="Eliminar fila" class="w-8 h-8 rounded-full flex items-center justify-center text-text-secondary hover:text-error hover:bg-error-container/40 active:scale-95 transition-all" onclick="removeRow(this)" type="button">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+</div>
+<div class="product-row grid grid-cols-12 gap-gutter items-center p-2 rounded-lg bg-surface-container-low transition-all">
+<div class="col-span-7">
+<input class="w-full bg-transparent font-data text-data text-on-surface focus:outline-none placeholder:text-text-secondary/60" placeholder="Ej. Calzado" type="text" value="Pantalón jean clásico"/>
+</div>
+<div class="col-span-4 flex items-center justify-end bg-surface-white px-2.5 py-1.5 rounded-lg shadow-sm">
+<span class="font-caption text-caption text-text-secondary mr-1">S/</span>
+<input class="w-16 text-right font-data text-data text-on-surface bg-transparent focus:outline-none" step="0.50" type="number" value="79.90"/>
+</div>
+<div class="col-span-1 flex justify-center">
+<button aria-label="Eliminar fila" class="w-8 h-8 rounded-full flex items-center justify-center text-text-secondary hover:text-error hover:bg-error-container/40 active:scale-95 transition-all" onclick="removeRow(this)" type="button">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+</div>
+<div class="product-row grid grid-cols-12 gap-gutter items-center p-2 rounded-lg bg-surface-container-high transition-all">
+<div class="col-span-7">
+<input class="w-full bg-transparent font-data text-data text-primary focus:outline-none font-medium" placeholder="Nombre del artículo" type="text" value="Vestido estampado floral"/>
+</div>
+<div class="col-span-4 flex items-center justify-end bg-surface-white px-2.5 py-1.5 rounded-lg shadow-sm">
+<span class="font-caption text-caption text-text-secondary mr-1">S/</span>
+<input class="w-16 text-right font-data text-data text-primary font-medium bg-transparent focus:outline-none" step="0.50" type="number" value="45.00"/>
+</div>
+<div class="col-span-1 flex justify-center">
+<button aria-label="Eliminar fila" class="w-8 h-8 rounded-full flex items-center justify-center text-text-secondary hover:text-error hover:bg-error-container/40 active:scale-95 transition-all" onclick="removeRow(this)" type="button">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+</div>
+</div>
+<div class="mt-space-md pt-2">
+<button class="w-full h-12 rounded-full bg-secondary-fixed text-on-secondary-fixed flex items-center justify-center gap-2 font-button text-button hover:bg-secondary-fixed-dim active:scale-[0.98] transition-all shadow-sm" id="btn-add-product" onclick="addProductRow()" type="button">
+<span class="material-symbols-outlined text-[20px]">add_circle</span>
+<span>Añadir otro producto</span>
+</button>
+</div>
+</div>
+</div>
+<div class="px-margin mt-4 flex items-center justify-between">
+<div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-container text-on-secondary-container">
+<span class="material-symbols-outlined text-[16px] text-primary">sell</span>
+<span class="font-label text-label" id="badge-count">3 productos registrados</span>
+</div>
+<div class="flex items-center gap-1.5 text-text-secondary">
+<span class="material-symbols-outlined text-[16px] text-secondary">verified_user</span>
+<span class="font-caption text-caption">Guardado automático</span>
+</div>
+</div>
+<div class="px-margin mt-5">
+<div class="p-space-md rounded-xl bg-surface-container-low flex items-start gap-3">
+<div class="w-9 h-9 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[20px]">tips_and_updates</span>
+</div>
+<div>
+<p class="font-title text-title text-on-surface text-[14px] leading-tight">Consejo comercial</p>
+<p class="font-caption text-caption text-text-secondary mt-0.5">
+          Tener tus precios listados aumenta en un 38% la velocidad de cierre por cobro rápido QR y POS móvil.
+        </p>
+</div>
+</div>
+</div>
+<div class="fixed bottom-0 inset-x-0 bg-surface/90 backdrop-blur-md p-margin pb-safe z-40 shadow-lg">
+<button class="w-full h-14 rounded-full bg-primary-container text-on-primary font-button text-button flex items-center justify-center gap-2 shadow-md hover:bg-primary active:scale-[0.98] transition-all" type="button">
+<span>Comenzar</span>
+<span class="material-symbols-outlined text-[20px]">arrow_forward</span>
+</button>
+</div>
+</div>
+<script>
+  function updateProductCount() {
+    const rows = document.querySelectorAll('.product-row');
+    const badge = document.getElementById('badge-count');
+    if (badge) {
+      badge.textContent = `${rows.length} ${rows.length === 1 ? 'producto registrado' : 'productos registrados'}`;
+    }
+  }
+
+  function removeRow(btn) {
+    const row = btn.closest('.product-row');
+    if (row) {
+      row.style.opacity = '0';
+      row.style.transform = 'scale(0.95)';
+      setTimeout(() => {
+        row.remove();
+        updateProductCount();
+      }, 150);
+    }
+  }
+
+  function addProductRow() {
+    const container = document.getElementById('product-rows-container');
+    if (!container) return;
+
+    const newRow = document.createElement('div');
+    newRow.className = 'product-row grid grid-cols-12 gap-gutter items-center p-2 rounded-lg bg-surface-container-high transition-all opacity-0 translate-y-1';
+    newRow.innerHTML = `
+      <div class="col-span-7">
+        <input type="text" placeholder="Nuevo producto o servicio" class="w-full bg-transparent font-data text-data text-primary focus:outline-none font-medium placeholder:text-text-secondary/60">
+      </div>
+      <div class="col-span-4 flex items-center justify-end bg-surface-white px-2.5 py-1.5 rounded-lg shadow-sm">
+        <span class="font-caption text-caption text-text-secondary mr-1">S/</span>
+        <input type="number" step="0.50" placeholder="0.00" class="w-16 text-right font-data text-data text-primary font-medium bg-transparent focus:outline-none">
+      </div>
+      <div class="col-span-1 flex justify-center">
+        <button type="button" onclick="removeRow(this)" aria-label="Eliminar fila" class="w-8 h-8 rounded-full flex items-center justify-center text-text-secondary hover:text-error hover:bg-error-container/40 active:scale-95 transition-all">
+          <span class="material-symbols-outlined text-[18px]">delete</span>
+        </button>
+      </div>
+    `;
+
+    container.appendChild(newRow);
+    requestAnimationFrame(() => {
+      newRow.style.opacity = '1';
+      newRow.style.transform = 'translateY(0)';
+    });
+
+    const textInput = newRow.querySelector('input[type="text"]');
+    if (textInput) textInput.focus();
+
+    updateProductCount();
+  }
+</script></main></body></html>

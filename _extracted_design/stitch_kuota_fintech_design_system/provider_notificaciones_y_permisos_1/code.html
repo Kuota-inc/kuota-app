@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+
+<html class="h-full" lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"/><meta content="mobile_stack" name="shell-type"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;display=swap" rel="stylesheet"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        "colors": {
+          "scrim": "rgba(11, 37, 69, 0.40)",
+          "on-error": "#ffffff",
+          "tertiary-fixed": "#d5e3ff",
+          "surface-container-high": "#e1e8f8",
+          "on-secondary-fixed-variant": "#304670",
+          "on-background": "#151c27",
+          "surface-dim": "#d3daea",
+          "on-primary": "#ffffff",
+          "on-primary-fixed": "#001356",
+          "surface-white": "#FFFEFF",
+          "on-tertiary-container": "#a2b8e0",
+          "primary-fixed-dim": "#b8c3ff",
+          "surface": "#f9f9ff",
+          "on-surface": "#151c27",
+          "surface-bright": "#f9f9ff",
+          "surface-container-low": "#eff3ff",
+          "surface-tint": "#3754c7",
+          "on-secondary": "#ffffff",
+          "outline": "#757685",
+          "on-tertiary-fixed-variant": "#314769",
+          "primary": "#00248b",
+          "text-secondary": "#4A5F7E",
+          "inverse-surface": "#29313d",
+          "surface-container-highest": "#dce3f2",
+          "surface-variant": "#dce3f2",
+          "decorative-overlay": "rgba(175, 197, 246, 0.25)",
+          "secondary-fixed": "#d8e2ff",
+          "on-primary-fixed-variant": "#1839af",
+          "inverse-primary": "#b8c3ff",
+          "on-tertiary": "#ffffff",
+          "on-secondary-container": "#405680",
+          "surface-container": "#e7eefe",
+          "error": "#ba1a1a",
+          "on-error-container": "#93000a",
+          "surface-container-lowest": "#ffffff",
+          "primary-fixed": "#dde1ff",
+          "on-primary-container": "#a4b3ff",
+          "disabled-content": "rgba(11, 37, 69, 0.50)",
+          "secondary-container": "#b6ccfd",
+          "error-container": "#ffdad6",
+          "secondary": "#495e89",
+          "tertiary": "#1b3253",
+          "on-surface-variant": "#444653",
+          "background": "#f9f9ff",
+          "on-tertiary-fixed": "#001c3b",
+          "outline-variant": "#c5c5d6",
+          "inverse-on-surface": "#ebf1ff",
+          "secondary-fixed-dim": "#b1c7f8",
+          "disabled-track": "rgba(175, 197, 246, 0.50)",
+          "tertiary-fixed-dim": "#b1c7f0",
+          "primary-container": "#1a3bb0",
+          "on-secondary-fixed": "#001a41",
+          "pressed-state": "rgba(11, 37, 69, 0.08)",
+          "tertiary-container": "#33496b"
+        },
+        "borderRadius": {
+          "DEFAULT": "0.25rem",
+          "lg": "0.5rem",
+          "xl": "0.75rem",
+          "full": "9999px"
+        },
+        "spacing": {
+          "space-sm": "0.5rem",
+          "margin": "1.25rem",
+          "gutter": "0.75rem",
+          "space-md": "0.75rem",
+          "space-lg": "1rem",
+          "space-xl": "1.5rem",
+          "space-xs": "0.25rem"
+        },
+        "fontFamily": {
+          "display": ["Plus Jakarta Sans"],
+          "headline-lg": ["Plus Jakarta Sans"],
+          "body-lg": ["Inter"],
+          "title": ["Plus Jakarta Sans"],
+          "metric": ["Plus Jakarta Sans"],
+          "body-md": ["Inter"],
+          "headline-md": ["Plus Jakarta Sans"],
+          "label": ["Plus Jakarta Sans"],
+          "button": ["Plus Jakarta Sans"],
+          "caption": ["Inter"],
+          "data": ["Inter"]
+        },
+        "fontSize": {
+          "display": ["40px", {"lineHeight": "44px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+          "headline-lg": ["28px", {"lineHeight": "34px", "letterSpacing": "-0.01em", "fontWeight": "700"}],
+          "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+          "title": ["17px", {"lineHeight": "24px", "fontWeight": "600"}],
+          "metric": ["48px", {"lineHeight": "52px", "fontWeight": "700"}],
+          "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+          "headline-md": ["22px", {"lineHeight": "28px", "fontWeight": "600"}],
+          "label": ["13px", {"lineHeight": "16px", "letterSpacing": "0.01em", "fontWeight": "600"}],
+          "button": ["16px", {"lineHeight": "20px", "fontWeight": "600"}],
+          "caption": ["12px", {"lineHeight": "16px", "fontWeight": "400"}],
+          "data": ["14px", {"lineHeight": "20px", "fontWeight": "500"}]
+        }
+      }
+    }
+  };</script><style>@layer base{html,body{width:100vw;min-height:100%;margin:0;padding:0;background-color:#f9f9ff;}body{overscroll-behavior-y:none;-webkit-tap-highlight-color:transparent;}.pb-safe{padding-bottom:env(safe-area-inset-bottom,0px);}.pt-safe{padding-top:env(safe-area-inset-top,0px);}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head><body class="bg-surface font-body-md text-on-surface antialiased flex flex-col min-h-screen"><header class="fixed top-0 inset-x-0 z-50 bg-surface/80 backdrop-blur-xl pt-safe shadow-[0_1px_8px_rgba(11,37,69,0.04)]"><div class="h-14 px-margin flex items-center justify-between"><button aria-label="Go back" class="w-11 h-11 -ml-space-xs rounded-full flex items-center justify-center text-on-surface hover:bg-pressed-state active:scale-[0.98] transition-all" onclick="history.back()" type="button"><span class="material-symbols-outlined text-[22px]">arrow_back</span></button><h1 class="font-title text-title text-on-surface tracking-tight text-center truncate max-w-[200px]">Notifications Consent</h1><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center shrink-0"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></header><main class="flex-1 flex flex-col relative w-full bg-surface pt-14 pb-safe"><div class="flex flex-col w-full relative overflow-hidden">
+<!-- Subtle decorative ambient background elements -->
+<div class="absolute -top-12 -right-12 w-64 h-64 rounded-full bg-secondary-fixed/40 blur-3xl pointer-events-none"></div>
+<div class="absolute top-1/3 -left-16 w-56 h-56 rounded-full bg-primary-fixed/30 blur-2xl pointer-events-none"></div>
+<!-- Background Onboarding Completed / Preparation View (Semi-blurred / Scrimmed) -->
+<div aria-hidden="true" class="w-full px-margin pt-space-md pb-8 flex flex-col space-y-space-xl opacity-60 filter blur-[1.5px] pointer-events-none select-none">
+<!-- Store & Provider Header Mockup -->
+<div class="flex items-center justify-between">
+<div class="flex items-center space-x-space-md">
+<div class="w-12 h-12 rounded-full bg-secondary-container flex items-center justify-center text-on-secondary-container">
+<span class="material-symbols-outlined text-[24px]">storefront</span>
+</div>
+<div>
+<span class="font-label text-label text-text-secondary uppercase tracking-wider block">Panel de Proveedor</span>
+<p class="font-headline-md text-headline-md text-on-surface font-semibold">Distribuidora Central</p>
+</div>
+</div>
+<span class="inline-flex items-center gap-1 px-space-md py-1 rounded-full bg-secondary-fixed text-on-secondary-fixed-variant font-label text-caption">
+<span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
+        Sincronizando
+      </span>
+</div>
+<!-- Ready Metrics Preview Cards -->
+<div class="grid grid-cols-2 gap-gutter">
+<div class="bg-surface-white rounded-[24px] p-space-lg shadow-sm flex flex-col space-y-space-xs">
+<div class="w-9 h-9 rounded-full bg-surface-container flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[20px]">payments</span>
+</div>
+<span class="font-caption text-caption text-text-secondary pt-2">Límite Aprobado</span>
+<span class="font-title text-title text-on-surface">$12,500.00</span>
+</div>
+<div class="bg-surface-white rounded-[24px] p-space-lg shadow-sm flex flex-col space-y-space-xs">
+<div class="w-9 h-9 rounded-full bg-surface-container flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined text-[20px]">groups</span>
+</div>
+<span class="font-caption text-caption text-text-secondary pt-2">Comercios Asociados</span>
+<span class="font-title text-title text-on-surface">38 clientes</span>
+</div>
+</div>
+<!-- Sample Recent Activity List in Background -->
+<div class="bg-surface-white rounded-[24px] p-space-lg shadow-sm flex flex-col space-y-space-md">
+<div class="flex justify-between items-center pb-2">
+<span class="font-title text-title text-on-surface">Operaciones de Crédito</span>
+<span class="font-caption text-caption text-text-secondary">En vivo</span>
+</div>
+<div class="flex items-center space-x-space-md py-1">
+<div class="w-10 h-10 rounded-full bg-surface-container-low flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[20px]">receipt_long</span>
+</div>
+<div class="flex-1 min-w-0">
+<p class="font-body-md text-body-md text-on-surface font-medium truncate">Abarrotes San Juan</p>
+<p class="font-caption text-caption text-text-secondary">Orden #KQ-8912 • Cuota 1 de 3</p>
+</div>
+<span class="font-label text-label text-on-surface">$340.00</span>
+</div>
+</div>
+</div>
+<!-- Persistent Modal / Floating Island & Loader Container -->
+<div class="px-margin -mt-24 pb-12 flex flex-col items-center relative z-20 space-y-space-lg">
+<!-- Progress Indicator Badge -->
+<div class="w-full max-w-sm bg-surface-white/90 backdrop-blur-md rounded-full px-space-lg py-2.5 shadow-sm flex items-center space-x-space-md">
+<div class="w-5 h-5 flex items-center justify-center text-primary animate-spin">
+<span class="material-symbols-outlined text-[18px]">progress_activity</span>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex justify-between items-center mb-1">
+<span class="font-label text-caption text-text-secondary truncate">Configurando tu cuenta de Provider...</span>
+<span class="font-label text-caption font-semibold text-primary pl-2">95%</span>
+</div>
+<div class="w-full bg-secondary-fixed/50 h-1.5 rounded-full overflow-hidden">
+<div class="bg-primary h-full rounded-full transition-all duration-700 ease-out" style="width: 95%;"></div>
+</div>
+</div>
+</div>
+<!-- Main Delight Floating Dialog Card -->
+<div class="w-full max-w-sm bg-surface-white rounded-[24px] p-6 shadow-[0_12px_36px_rgba(11,37,69,0.14)] flex flex-col items-center text-center transform transition-all duration-300" id="permissionModal">
+<!-- Protagonist Badge Icon: Persian Blue circular with Bell + Shield badge -->
+<div class="relative mb-5 flex items-center justify-center">
+<!-- Main Circular Disc -->
+<div class="w-20 h-20 rounded-full bg-primary-container flex items-center justify-center text-surface-white shadow-[0_8px_20px_rgba(26,59,176,0.30)]">
+<span class="material-symbols-outlined text-[36px]" style="font-variation-settings: 'FILL' 1;">notifications_active</span>
+</div>
+<!-- Secondary Shield Trust Badge overlay -->
+<div class="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-secondary-fixed text-primary flex items-center justify-center shadow-md">
+<span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">verified_user</span>
+</div>
+</div>
+<!-- Modal Title -->
+<h2 class="font-headline-md text-headline-md text-on-surface font-bold tracking-tight mb-2">
+        Activa las notificaciones para ventas al instante
+      </h2>
+<!-- Modal Description -->
+<p class="font-body-md text-body-md text-text-secondary mb-6 leading-relaxed">
+        Permite que Kuota te notifique cuando un comerciante solicite una compra a crédito o pague una cuota en tiempo real.
+      </p>
+<!-- Mini Feature Highlights Pill -->
+<div class="w-full bg-surface-container-low rounded-xl p-space-md mb-6 flex items-center justify-around">
+<div class="flex items-center space-x-1.5 text-text-secondary">
+<span class="material-symbols-outlined text-primary text-[18px]">bolt</span>
+<span class="font-caption text-caption font-medium">Alertas 0s</span>
+</div>
+<div class="w-1 h-3 rounded-full bg-outline-variant/60"></div>
+<div class="flex items-center space-x-1.5 text-text-secondary">
+<span class="material-symbols-outlined text-primary text-[18px]">lock</span>
+<span class="font-caption text-caption font-medium">100% Seguro</span>
+</div>
+<div class="w-1 h-3 rounded-full bg-outline-variant/60"></div>
+<div class="flex items-center space-x-1.5 text-text-secondary">
+<span class="material-symbols-outlined text-primary text-[18px]">verified</span>
+<span class="font-caption text-caption font-medium">Sin spam</span>
+</div>
+</div>
+<!-- Action CTAs -->
+<div class="w-full flex flex-col space-y-space-md">
+<!-- Primary Action -->
+<button class="w-full h-14 rounded-full bg-primary-container text-surface-white font-button text-button flex items-center justify-center space-x-space-sm shadow-md active:scale-[0.98] transition-all duration-150 hover:opacity-95" id="btnAllowNotifications" type="button">
+<span class="material-symbols-outlined text-[20px]">notifications</span>
+<span>Permitir notificaciones</span>
+</button>
+<!-- Secondary Action -->
+<button class="w-full h-11 rounded-full text-text-secondary font-button text-button hover:text-on-surface active:scale-[0.98] transition-all flex items-center justify-center" id="btnDismissNotifications" type="button">
+          Ahora no, configurar luego
+        </button>
+</div>
+</div>
+<!-- Small Trust / Privacy Microcopy -->
+<div class="flex items-center space-x-1.5 text-text-secondary/80">
+<span class="material-symbols-outlined text-[14px]">shield</span>
+<span class="font-caption text-caption">Puedes cambiar tus preferencias desde tu perfil en cualquier momento</span>
+</div>
+</div>
+</div>
+<script>
+  (function() {
+    const btnAllow = document.getElementById('btnAllowNotifications');
+    const btnDismiss = document.getElementById('btnDismissNotifications');
+    const modal = document.getElementById('permissionModal');
+
+    function triggerConfirmation(actionType) {
+      if (!modal) return;
+      modal.style.transform = 'scale(0.96)';
+      modal.style.opacity = '0.7';
+
+      setTimeout(() => {
+        modal.innerHTML = `
+          <div class="py-6 flex flex-col items-center text-center animate-fade-in">
+            <div class="w-16 h-16 rounded-full bg-secondary-fixed text-primary flex items-center justify-center mb-3">
+              <span class="material-symbols-outlined text-[32px]">${actionType === 'allowed' ? 'check_circle' : 'schedule'}</span>
+            </div>
+            <h3 class="font-headline-md text-headline-md text-on-surface font-bold">
+              ${actionType === 'allowed' ? '¡Todo Listo!' : 'Configuración guardada'}
+            </h3>
+            <p class="font-body-md text-body-md text-text-secondary mt-1">
+              ${actionType === 'allowed' ? 'Te notificaremos cuando recibas una solicitud.' : 'Puedes activarlas más tarde en Ajustes.'}
+            </p>
+          </div>
+        `;
+        modal.style.transform = 'scale(1)';
+        modal.style.opacity = '1';
+      }, 200);
+    }
+
+    if (btnAllow) {
+      btnAllow.addEventListener('click', () => triggerConfirmation('allowed'));
+    }
+
+    if (btnDismiss) {
+      btnDismiss.addEventListener('click', () => triggerConfirmation('deferred'));
+    }
+  })();
+</script></main></body></html>

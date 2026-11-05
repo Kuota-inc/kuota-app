@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+
+<html class="light" lang="es"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"/><meta content="mobile_stack" name="shell-type"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Plus+Jakarta+Sans:wght@600;700;800&amp;display=swap" rel="stylesheet"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { "colors": { "tertiary-container": "#33496b", "on-error-container": "#93000a", "inverse-primary": "#b8c3ff", "on-primary-fixed": "#001356", "surface-variant": "#dce3f2", "tertiary": "#1b3253", "primary-fixed": "#dde1ff", "primary-fixed-dim": "#b8c3ff", "surface-container-low": "#eff3ff", "inverse-on-surface": "#ebf1ff", "on-primary-container": "#a4b3ff", "on-secondary": "#ffffff", "primary-container": "#1a3bb0", "disabled-content": "rgba(11, 37, 69, 0.50)", "pressed-state": "rgba(11, 37, 69, 0.08)", "on-tertiary-fixed": "#001c3b", "text-secondary": "#4A5F7E", "tertiary-fixed": "#d5e3ff", "background": "#E6EDFD", "surface-container": "#e7eefe", "error": "#ba1a1a", "on-secondary-fixed": "#001a41", "on-surface-variant": "#444653", "on-surface": "#0B2545", "secondary-fixed-dim": "#b1c7f8", "surface-dim": "#d3daea", "surface-container-high": "#e1e8f8", "scrim": "rgba(11, 37, 69, 0.40)", "primary": "#1A3BB0", "tertiary-fixed-dim": "#b1c7f0", "inverse-surface": "#29313d", "on-tertiary-fixed-variant": "#314769", "error-container": "#ffdad6", "disabled-track": "rgba(175, 197, 246, 0.50)", "on-secondary-container": "#405680", "surface-tint": "#3754c7", "secondary-fixed": "#d8e2ff", "on-primary": "#ffffff", "on-secondary-fixed-variant": "#304670", "on-tertiary": "#ffffff", "secondary": "#495e89", "outline": "#757685", "decorative-overlay": "rgba(175, 197, 246, 0.25)", "secondary-container": "#b6ccfd", "surface-white": "#FFFEFF", "on-tertiary-container": "#a2b8e0", "surface-container-highest": "#dce3f2", "surface-bright": "#f9f9ff", "on-primary-fixed-variant": "#1839af", "outline-variant": "#AFC5F6", "on-background": "#0B2545", "surface": "#FFFEFF", "on-error": "#ffffff", "surface-container-lowest": "#ffffff" }, "borderRadius": { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" }, "spacing": { "space-lg": "1rem", "margin": "1.25rem", "space-sm": "0.5rem", "gutter": "0.75rem", "space-xs": "0.25rem", "space-xl": "1.5rem", "space-md": "0.75rem" }, "fontFamily": { "headline-lg": ["Plus Jakarta Sans"], "metric": ["Plus Jakarta Sans"], "title": ["Plus Jakarta Sans"], "label": ["Plus Jakarta Sans"], "button": ["Plus Jakarta Sans"], "display": ["Plus Jakarta Sans"], "headline-md": ["Plus Jakarta Sans"], "body-md": ["Inter"], "data": ["Inter"], "body-lg": ["Inter"], "caption": ["Inter"] }, "fontSize": { "headline-lg": ["28px", { "lineHeight": "34px", "letterSpacing": "-0.01em", "fontWeight": "700" }], "metric": ["44px", { "lineHeight": "48px", "fontWeight": "800" }], "title": ["17px", { "lineHeight": "24px", "fontWeight": "600" }], "label": ["13px", { "lineHeight": "16px", "letterSpacing": "0.01em", "fontWeight": "600" }], "button": ["16px", { "lineHeight": "20px", "fontWeight": "600" }], "display": ["32px", { "lineHeight": "38px", "letterSpacing": "-0.02em", "fontWeight": "700" }], "headline-md": ["22px", { "lineHeight": "28px", "fontWeight": "700" }], "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }], "data": ["14px", { "lineHeight": "20px", "fontWeight": "500" }], "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }], "caption": ["12px", { "lineHeight": "16px", "fontWeight": "400" }] } } } };</script><style>@layer base{html,body{width:100vw;min-height:100vh;margin:0;padding:0;}body{overscroll-behavior-y:none;-webkit-tap-highlight-color:transparent;}.pb-safe{padding-bottom:env(safe-area-inset-bottom,0px);}.pt-safe{padding-top:env(safe-area-inset-top,0px);}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><style>
+    body {
+      min-height: max(884px, 100dvh);
+      background-color: #E6EDFD;
+    }
+  </style>
+</head><body class="bg-[#E6EDFD] font-body-md text-on-surface flex flex-col min-h-screen antialiased"><header class="fixed top-0 inset-x-0 z-50 bg-[#E6EDFD]/90 backdrop-blur-xl border-b border-outline-variant/40 pt-safe"><div class="h-16 px-margin flex items-center justify-between"><div class="flex items-center gap-space-xs"><button aria-label="Volver" class="w-10 h-10 flex items-center justify-center rounded-full text-on-surface hover:bg-pressed-state active:scale-[0.98] transition-all" onclick="history.back()" type="button"><span class="material-symbols-outlined text-[24px]">arrow_back</span></button><h1 class="font-title text-title text-on-surface tracking-tight truncate">Planes y Tarifas</h1></div><div class="flex items-center gap-space-xs"><button aria-label="Ayuda e Información" class="w-10 h-10 flex items-center justify-center rounded-full text-text-secondary hover:bg-pressed-state active:scale-[0.98] transition-all" type="button"><span class="material-symbols-outlined text-[22px]">help_outline</span></button><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center shadow-sm text-surface-white"><span class="material-symbols-outlined text-surface-white text-[18px]">person</span></div></div></div></header><main class="flex-1 flex flex-col relative w-full pt-16 pb-safe bg-[#E6EDFD] px-margin"><div class="flex flex-col w-full pb-12 pt-4">
+<!-- Main Catchy Title & Subtitle -->
+<div class="mb-5">
+<h2 class="font-headline-lg text-[25px] leading-tight text-[#0B2545] font-extrabold tracking-tight">
+    Acepta compras con tarjeta y vende aKuotas!
+  </h2>
+<p class="font-body-md text-text-secondary text-[14px] mt-1.5 font-medium">
+    con la comisión más baja de mercado
+  </p>
+</div>
+<!-- Plan Chips (Exactly 3 horizontal chips, compact, price + small description) -->
+<div class="w-full mb-6">
+<div class="grid grid-cols-3 gap-2">
+<!-- Chip 1: Plan Basic -->
+<button class="plan-chip p-2.5 rounded-2xl bg-surface-white border border-[#AFC5F6] flex flex-col justify-between text-left transition-all active:scale-[0.97] shadow-sm" id="chip-basic" onclick="selectPlan('basic')" type="button">
+<div class="flex items-center justify-between w-full">
+<span class="font-headline-md text-[15px] font-bold text-[#0B2545] leading-none">S/ 80.00</span>
+</div>
+<p class="font-caption text-[11px] text-text-secondary leading-tight mt-1.5 line-clamp-2">
+        Hasta S/ 5,000 por transacción, QR y Link
+      </p>
+</button>
+<!-- Chip 2: Plan Open (Featured / Recommended) -->
+<button class="plan-chip p-2.5 rounded-2xl bg-primary border-2 border-primary text-surface-white flex flex-col justify-between text-left transition-all active:scale-[0.97] shadow-md relative overflow-hidden" id="chip-open" onclick="selectPlan('open')" type="button">
+<div class="flex items-center justify-between w-full">
+<span class="font-headline-md text-[15px] font-bold text-surface-white leading-none">S/ 99.00</span>
+<span class="w-2 h-2 rounded-full bg-[#AFC5F6] shrink-0"></span>
+</div>
+<p class="font-caption text-[11px] text-[#dde1ff] leading-tight mt-1.5 line-clamp-2 font-medium">
+        Venta en cuotas sin riesgo de impago
+      </p>
+</button>
+<!-- Chip 3: Plan Pro -->
+<button class="plan-chip p-2.5 rounded-2xl bg-surface-white border border-[#AFC5F6] flex flex-col justify-between text-left transition-all active:scale-[0.97] shadow-sm" id="chip-pro" onclick="selectPlan('pro')" type="button">
+<div class="flex items-center justify-between w-full">
+<span class="font-headline-md text-[15px] font-bold text-[#0B2545] leading-none">S/ 120.00</span>
+</div>
+<p class="font-caption text-[11px] text-text-secondary leading-tight mt-1.5 line-clamp-2">
+        Más de S/ 5,000 tx, cobranza masiva, 5 usuarios
+      </p>
+</button>
+</div>
+</div>
+<!-- Plan Switch Script -->
+<script>
+  function selectPlan(planKey) {
+    const cards = {
+      basic: document.getElementById('card-basic'),
+      open: document.getElementById('card-open'),
+      pro: document.getElementById('card-pro')
+    };
+    
+    // Update chip styling
+    const chips = {
+      basic: document.getElementById('chip-basic'),
+      open: document.getElementById('chip-open'),
+      pro: document.getElementById('chip-pro')
+    };
+
+    ['basic', 'open', 'pro'].forEach(key => {
+      const chip = chips[key];
+      const isCurrent = key === planKey;
+      if (isCurrent) {
+        chip.className = "plan-chip p-2.5 rounded-2xl bg-primary border-2 border-primary text-surface-white flex flex-col justify-between text-left transition-all active:scale-[0.97] shadow-md";
+        chip.querySelector('.font-headline-md').className = "font-headline-md text-[15px] font-bold text-surface-white leading-none";
+        chip.querySelector('p').className = "font-caption text-[11px] text-[#dde1ff] leading-tight mt-1.5 line-clamp-2 font-medium";
+      } else {
+        chip.className = "plan-chip p-2.5 rounded-2xl bg-surface-white border border-[#AFC5F6] flex flex-col justify-between text-left transition-all active:scale-[0.97] shadow-sm";
+        chip.querySelector('.font-headline-md').className = "font-headline-md text-[15px] font-bold text-[#0B2545] leading-none";
+        chip.querySelector('p').className = "font-caption text-[11px] text-text-secondary leading-tight mt-1.5 line-clamp-2";
+      }
+    });
+
+    // Scroll to the card smoothly
+    if (cards[planKey]) {
+      cards[planKey].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }
+</script>
+<!-- Detailed Plan Cards Stack -->
+<div class="flex flex-col gap-space-lg w-full mb-space-xl">
+<!-- CARD 1: PLAN OPEN (aKuotas!) - HERO FEATURED CARD -->
+<div class="relative rounded-[28px] bg-primary text-surface-white p-space-xl shadow-xl overflow-hidden flex flex-col justify-between border border-primary/20" id="card-open">
+<div class="absolute -right-8 -top-8 w-36 h-36 rounded-full bg-surface-tint opacity-30 pointer-events-none blur-2xl"></div>
+<div class="absolute right-4 bottom-12 w-24 h-48 rounded-full bg-secondary opacity-15 pointer-events-none rotate-45"></div>
+<div class="relative z-10 flex flex-col gap-space-md">
+<!-- Badges -->
+<div class="flex items-center justify-between">
+<div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface-white text-primary font-label text-caption shadow-sm">
+<span class="material-symbols-outlined text-[15px]" style="font-variation-settings: 'FILL' 1;">local_fire_department</span>
+<span class="font-bold">🔥 Vende en cuotas</span>
+</div>
+<span class="font-label text-caption text-[#d5e3ff] bg-[#3754c7]/40 px-2.5 py-1 rounded-full font-semibold">
+          Recomendado
+        </span>
+</div>
+<!-- Plan Title -->
+<div>
+<h3 class="font-headline-md text-[22px] text-surface-white font-bold tracking-tight">Plan Open (aKuotas!)</h3>
+<p class="font-body-md text-caption text-[#dde1ff] mt-0.5">El único plan con financiamiento directo al comprador</p>
+</div>
+<!-- Price -->
+<div class="flex items-baseline gap-space-xs mt-1">
+<span class="font-metric text-metric text-surface-white tracking-tight">S/ 99.00</span>
+<span class="font-label text-label text-[#d5e3ff]">/ mes + IGV</span>
+</div>
+<!-- Badges Rate & USP -->
+<div class="flex flex-wrap gap-2 pt-1">
+<span class="inline-flex items-center px-3 py-1 rounded-full bg-[#3754c7]/50 text-surface-white font-label text-caption">
+          2% comisión (mín. S/ 5.00)
+        </span>
+<span class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-[#dde1ff] text-[#001356] font-label text-caption font-semibold">
+<span class="material-symbols-outlined text-[14px]">shield</span>
+          0% riesgo de impago para tu negocio
+        </span>
+</div>
+<div class="h-px w-full bg-[#ffffff]/20 my-space-xs"></div>
+<!-- Checklist -->
+<ul class="flex flex-col gap-space-sm text-surface-white">
+<li class="flex items-start gap-space-sm">
+<div class="w-5 h-5 rounded-full bg-[#dde1ff] text-primary flex items-center justify-center shrink-0 mt-0.5">
+<span class="material-symbols-outlined text-[14px] font-bold">check</span>
+</div>
+<span class="font-body-md text-body-md text-surface-white">Venta en cuotas a clientes sin riesgo de impago para el comercio</span>
+</li>
+<li class="flex items-start gap-space-sm">
+<div class="w-5 h-5 rounded-full bg-[#dde1ff] text-primary flex items-center justify-center shrink-0 mt-0.5">
+<span class="material-symbols-outlined text-[14px] font-bold">check</span>
+</div>
+<span class="font-body-md text-body-md text-surface-white">Tu negocio cobra el 100% al contado al instante</span>
+</li>
+<li class="flex items-start gap-space-sm">
+<div class="w-5 h-5 rounded-full bg-[#dde1ff] text-primary flex items-center justify-center shrink-0 mt-0.5">
+<span class="material-symbols-outlined text-[14px] font-bold">check</span>
+</div>
+<span class="font-body-md text-body-md text-surface-white">Cobros por QR y Link multidispositivo</span>
+</li>
+<li class="flex items-start gap-space-sm">
+<div class="w-5 h-5 rounded-full bg-[#dde1ff] text-primary flex items-center justify-center shrink-0 mt-0.5">
+<span class="material-symbols-outlined text-[14px] font-bold">check</span>
+</div>
+<span class="font-body-md text-body-md text-surface-white">Acceso al catálogo de compradores Kuota</span>
+</li>
+</ul>
+<!-- CTA -->
+<button class="mt-space-md w-full h-14 rounded-full bg-surface-white text-primary font-button text-button shadow-md flex items-center justify-center gap-space-sm active:scale-[0.98] transition-all hover:bg-[#eff3ff]" type="button">
+<span>Contratar Plan Open</span>
+<span class="material-symbols-outlined text-[20px]">arrow_forward</span>
+</button>
+</div>
+</div>
+<!-- CARD 2: PLAN BASIC -->
+<div class="rounded-[28px] bg-surface-white p-space-xl shadow-md border border-[#AFC5F6]/60 flex flex-col justify-between" id="card-basic">
+<div class="flex flex-col gap-space-md">
+<div class="flex items-center justify-between">
+<div class="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[20px]">storefront</span>
+</div>
+<span class="font-label text-caption text-text-secondary bg-[#eff3ff] border border-[#AFC5F6]/40 px-3 py-1 rounded-full font-medium">
+          Para iniciar
+        </span>
+</div>
+<div>
+<h3 class="font-headline-md text-[22px] text-[#0B2545] font-bold tracking-tight">Plan Basic</h3>
+<p class="font-body-md text-caption text-text-secondary mt-0.5">Para negocios que cobran al contado</p>
+</div>
+<div class="flex items-baseline gap-space-xs">
+<span class="font-metric text-metric text-[#0B2545] tracking-tight">S/ 80.00</span>
+<span class="font-label text-label text-text-secondary">/ mes + IGV</span>
+</div>
+<div>
+<span class="inline-flex items-center px-3 py-1 rounded-full bg-surface-container text-primary font-label text-caption font-semibold">
+          1% comisión (mín. S/ 5.00)
+        </span>
+</div>
+<div class="h-px w-full bg-[#AFC5F6]/40 my-space-xs"></div>
+<ul class="flex flex-col gap-space-sm">
+<li class="flex items-start gap-space-sm">
+<div class="w-5 h-5 rounded-full bg-surface-container text-primary flex items-center justify-center shrink-0 mt-0.5">
+<span class="material-symbols-outlined text-[14px] font-bold">check</span>
+</div>
+<span class="font-body-md text-body-md text-[#0B2545]">Hasta S/ 5,000 por transacción</span>
+</li>
+<li class="flex items-start gap-space-sm">
+<div class="w-5 h-5 rounded-full bg-surface-container text-primary flex items-center justify-center shrink-0 mt-0.5">
+<span class="material-symbols-outlined text-[14px] font-bold">check</span>
+</div>
+<span class="font-body-md text-body-md text-[#0B2545]">Cobro inmediato por QR y Link de pago</span>
+</li>
+<li class="flex items-start gap-space-sm">
+<div class="w-5 h-5 rounded-full bg-surface-container text-primary flex items-center justify-center shrink-0 mt-0.5">
+<span class="material-symbols-outlined text-[14px] font-bold">check</span>
+</div>
+<span class="font-body-md text-body-md text-[#0B2545]">Depósito en tu cuenta bancaria</span>
+</li>
+<li class="flex items-start gap-space-sm">
+<div class="w-5 h-5 rounded-full bg-surface-container text-primary flex items-center justify-center shrink-0 mt-0.5">
+<span class="material-symbols-outlined text-[14px] font-bold">check</span>
+</div>
+<span class="font-body-md text-body-md text-[#0B2545]">1 usuario administrador</span>
+</li>
+</ul>
+<button class="mt-space-md w-full h-14 rounded-full bg-[#dde1ff] text-[#001356] font-button text-button shadow-sm flex items-center justify-center gap-space-xs active:scale-[0.98] transition-all hover:bg-[#b8c3ff]" type="button">
+<span>Elegir Plan Basic</span>
+<span class="material-symbols-outlined text-[18px]">chevron_right</span>
+</button>
+</div>
+</div>
+<!-- CARD 3: PLAN PRO -->
+<div class="rounded-[28px] bg-surface-white p-space-xl shadow-md border border-[#AFC5F6]/60 flex flex-col justify-between" id="card-pro">
+<div class="flex flex-col gap-space-md">
+<div class="flex items-center justify-between">
+<div class="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[20px]">corporate_fare</span>
+</div>
+<span class="font-label text-caption text-text-secondary bg-[#eff3ff] border border-[#AFC5F6]/40 px-3 py-1 rounded-full font-medium">
+          Sin límites
+        </span>
+</div>
+<div>
+<h3 class="font-headline-md text-[22px] text-[#0B2545] font-bold tracking-tight">Plan Pro</h3>
+<p class="font-body-md text-caption text-text-secondary mt-0.5">Para negocios con alto flujo y equipos</p>
+</div>
+<div class="flex items-baseline gap-space-xs">
+<span class="font-metric text-metric text-[#0B2545] tracking-tight">S/ 120.00</span>
+<span class="font-label text-label text-text-secondary">/ mes + IGV</span>
+</div>
+<div>
+<span class="inline-flex items-center px-3 py-1 rounded-full bg-surface-container text-primary font-label text-caption font-semibold">
+          1% comisión (mín. S/ 5.00)
+        </span>
+</div>
+<div class="h-px w-full bg-[#AFC5F6]/40 my-space-xs"></div>
+<ul class="flex flex-col gap-space-sm">
+<li class="flex items-start gap-space-sm">
+<div class="w-5 h-5 rounded-full bg-surface-container text-primary flex items-center justify-center shrink-0 mt-0.5">
+<span class="material-symbols-outlined text-[14px] font-bold">check</span>
+</div>
+<span class="font-body-md text-body-md text-[#0B2545]">Más de S/ 5,000 por transacción (sin tope)</span>
+</li>
+<li class="flex items-start gap-space-sm">
+<div class="w-5 h-5 rounded-full bg-surface-container text-primary flex items-center justify-center shrink-0 mt-0.5">
+<span class="material-symbols-outlined text-[14px] font-bold">check</span>
+</div>
+<span class="font-body-md text-body-md text-[#0B2545]">Herramienta de cobranza masiva automatizada</span>
+</li>
+<li class="flex items-start gap-space-sm">
+<div class="w-5 h-5 rounded-full bg-surface-container text-primary flex items-center justify-center shrink-0 mt-0.5">
+<span class="material-symbols-outlined text-[14px] font-bold">check</span>
+</div>
+<span class="font-body-md text-body-md text-[#0B2545]">Hasta 5 usuarios / accesos para tu equipo</span>
+</li>
+<li class="flex items-start gap-space-sm">
+<div class="w-5 h-5 rounded-full bg-surface-container text-primary flex items-center justify-center shrink-0 mt-0.5">
+<span class="material-symbols-outlined text-[14px] font-bold">check</span>
+</div>
+<span class="font-body-md text-body-md text-[#0B2545]">Soporte preferencial 24/7 y reportes contables</span>
+</li>
+</ul>
+<button class="mt-space-md w-full h-14 rounded-full bg-[#dde1ff] text-[#001356] font-button text-button shadow-sm flex items-center justify-center gap-space-xs active:scale-[0.98] transition-all hover:bg-[#b8c3ff]" type="button">
+<span>Elegir Plan Pro</span>
+<span class="material-symbols-outlined text-[18px]">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Accepted Payment Methods Section (Tarjetas que aceptamos) -->
+<div class="w-full bg-surface-white rounded-[24px] p-space-xl shadow-sm border border-[#AFC5F6]/60 mb-space-xl">
+<div class="flex items-center gap-2 mb-3">
+<div class="w-8 h-8 rounded-full bg-[#eff3ff] flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[18px]">credit_card</span>
+</div>
+<div>
+<h4 class="font-title text-[16px] text-[#0B2545] font-bold">Tarjetas que aceptamos</h4>
+<p class="font-caption text-text-secondary text-[12px]">Cobro multicanal con las principales entidades y billeteras</p>
+</div>
+</div>
+<div class="grid grid-cols-3 gap-2.5 pt-2">
+<!-- BCP -->
+<div class="h-12 rounded-xl bg-[#f5f8ff] border border-[#AFC5F6]/40 flex items-center justify-center px-2 py-1 shadow-xs">
+<span class="font-headline-md text-[14px] font-extrabold text-[#002A8F] tracking-tight">BCP</span>
+</div>
+<!-- BBVA -->
+<div class="h-12 rounded-xl bg-[#f5f8ff] border border-[#AFC5F6]/40 flex items-center justify-center px-2 py-1 shadow-xs">
+<span class="font-headline-md text-[14px] font-extrabold text-[#004481] tracking-tight">BBVA</span>
+</div>
+<!-- Interbank -->
+<div class="h-12 rounded-xl bg-[#f5f8ff] border border-[#AFC5F6]/40 flex items-center justify-center px-2 py-1 shadow-xs">
+<div class="flex items-center gap-1">
+<span class="w-2.5 h-2.5 rounded-full bg-[#009E49]"></span>
+<span class="font-label text-[12px] font-bold text-[#0B2545] tracking-tight">Interbank</span>
+</div>
+</div>
+<!-- Scotiabank -->
+<div class="h-12 rounded-xl bg-[#f5f8ff] border border-[#AFC5F6]/40 flex items-center justify-center px-2 py-1 shadow-xs">
+<span class="font-headline-md text-[13px] font-extrabold text-[#ED111B] tracking-tight">Scotiabank</span>
+</div>
+<!-- Yape -->
+<div class="h-12 rounded-xl bg-[#742384]/10 border border-[#742384]/30 flex items-center justify-center px-2 py-1 shadow-xs">
+<span class="font-headline-md text-[14px] font-extrabold text-[#742384] tracking-tight">Yape</span>
+</div>
+<!-- Plin -->
+<div class="h-12 rounded-xl bg-[#00C3DA]/10 border border-[#00C3DA]/30 flex items-center justify-center px-2 py-1 shadow-xs">
+<span class="font-headline-md text-[14px] font-extrabold text-[#0091A4] tracking-tight">Plin</span>
+</div>
+</div>
+</div>
+<!-- Visual Comparative Micro-Insight Bento -->
+<div class="w-full bg-[#dce6fd] border border-[#AFC5F6]/70 rounded-[24px] p-space-lg mb-space-xl flex flex-col gap-space-md">
+<div class="flex items-center gap-space-sm">
+<div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-surface-white">
+<span class="material-symbols-outlined text-[18px]">insights</span>
+</div>
+<div>
+<p class="font-title text-title text-[#0B2545] font-bold">¿Por qué vender aKuotas?</p>
+<p class="font-caption text-caption text-text-secondary">Comparativa de conversión comercial</p>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-space-sm pt-1">
+<div class="bg-surface-white rounded-2xl p-space-md flex flex-col justify-between border border-[#AFC5F6]/30 shadow-xs">
+<span class="font-caption text-caption text-text-secondary font-medium">Venta habitual</span>
+<div class="my-2">
+<span class="font-headline-md text-headline-md text-error font-bold">32%</span>
+</div>
+<p class="font-caption text-caption text-text-secondary leading-snug">Abandono por falta de liquidez en tarjeta</p>
+</div>
+<div class="bg-surface-white rounded-2xl p-space-md flex flex-col justify-between shadow-sm border border-primary/20">
+<span class="font-caption text-caption text-primary font-bold">Con aKuotas!</span>
+<div class="my-2">
+<span class="font-headline-md text-headline-md text-primary font-extrabold">+45%</span>
+</div>
+<p class="font-caption text-caption text-[#0B2545] leading-snug font-medium">Ticket promedio más alto y cierre al instante</p>
+</div>
+</div>
+</div>
+<!-- Bottom Advisory & Cancellation Guarantee -->
+<div class="w-full flex flex-col items-center text-center gap-space-md px-space-sm">
+<div class="flex items-center gap-1.5 text-text-secondary">
+<span class="material-symbols-outlined text-[18px]">sync_alt</span>
+<p class="font-body-md text-caption">Sin contratos forzosos. Cambia o cancela tu plan cuando quieras.</p>
+</div>
+<!-- WhatsApp Support Touch Target -->
+<a class="w-full h-12 rounded-full bg-surface-white border border-[#AFC5F6]/70 text-[#0B2545] font-label text-label shadow-sm flex items-center justify-center gap-2 hover:bg-[#eff3ff] active:scale-[0.98] transition-all" href="#whatsapp-support">
+<span class="material-symbols-outlined text-[20px] text-primary">chat</span>
+<span>¿Tienes dudas? Habla con un asesor por WhatsApp</span>
+</a>
+</div>
+</div></main></body></html>

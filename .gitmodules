@@ -1,0 +1,3 @@
+[submodule "scrapers/scrap-sunat"]
+	path = scrapers/scrap-sunat
+	url = https://github.com/debugsito/scrap-sunat.git

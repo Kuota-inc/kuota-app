@@ -1,0 +1,44 @@
+# Dependencias y builds
+node_modules/
+dist/
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# Bases de datos locales (el backend las crea y siembra al arrancar)
+*.db
+*.db-shm
+*.db-wal
+
+# Binarios de release (publicar en GitHub Releases, no en el repo)
+*.apk
+*.aab
+
+# Secretos y configuración local
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.keystore
+*.jks
+
+# Logs
+logs/
+*.log
+
+# Clon de terceros sin licencia de redistribución (sistema-de-consulta-ruc-sunat)
+_repo_sunat/
+
+# Configuración local de Claude Code (se versiona solo launch.json)
+.claude/*
+!.claude/launch.json
+
+# Sistema operativo / editores
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/*
+!.vscode/extensions.json
+.idea/

@@ -1,0 +1,631 @@
+<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"><meta content="mobile_tab" name="shell-type"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"><link href="https://fonts.googleapis.com" rel="preconnect"><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"><style>@layer base{html,body{width:100vw;margin:0;padding:0;}body{overscroll-behavior:none;}.pb-safe{padding-bottom:env(safe-area-inset-bottom,0px);}.pt-safe{padding-top:env(safe-area-inset-top,0px);}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { "colors": { "on-primary-container": "#a4b3ff", "pressed-state": "rgba(11, 37, 69, 0.08)", "primary-container": "#1a3bb0", "on-error-container": "#93000a", "primary-fixed": "#dde1ff", "decorative-overlay": "rgba(175, 197, 246, 0.25)", "tertiary-fixed": "#d5e3ff", "secondary-fixed-dim": "#b1c7f8", "primary": "#00248b", "surface-tint": "#3754c7", "surface-white": "#FFFEFF", "inverse-on-surface": "#ebf1ff", "error": "#ba1a1a", "inverse-primary": "#b8c3ff", "error-container": "#ffdad6", "on-secondary-container": "#405680", "on-surface-variant": "#444653", "outline-variant": "#c5c5d6", "tertiary-fixed-dim": "#b1c7f0", "on-primary": "#ffffff", "disabled-content": "rgba(11, 37, 69, 0.50)", "on-primary-fixed": "#001356", "on-primary-fixed-variant": "#1839af", "on-tertiary": "#ffffff", "surface-dim": "#d3daea", "surface-container": "#e7eefe", "primary-fixed-dim": "#b8c3ff", "on-error": "#ffffff", "on-tertiary-container": "#a2b8e0", "tertiary-container": "#33496b", "surface-container-highest": "#dce3f2", "on-secondary-fixed": "#001a41", "disabled-track": "rgba(175, 197, 246, 0.50)", "surface-variant": "#dce3f2", "tertiary": "#1b3253", "surface-bright": "#f9f9ff", "secondary-container": "#b6ccfd", "on-background": "#151c27", "outline": "#757685", "text-secondary": "#4A5F7E", "on-secondary": "#ffffff", "surface-container-low": "#eff3ff", "scrim": "rgba(11, 37, 69, 0.40)", "on-tertiary-fixed-variant": "#314769", "secondary-fixed": "#d8e2ff", "on-secondary-fixed-variant": "#304670", "background": "#f9f9ff", "on-tertiary-fixed": "#001c3b", "inverse-surface": "#29313d", "surface-container-high": "#e1e8f8", "on-surface": "#151c27", "surface": "#f9f9ff", "secondary": "#495e89", "surface-container-lowest": "#ffffff" }, "borderRadius": { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" }, "spacing": { "margin": "1.25rem", "space-md": "0.75rem", "space-sm": "0.5rem", "space-xl": "1.5rem", "gutter": "0.75rem", "space-xs": "0.25rem", "space-lg": "1rem" }, "fontFamily": { "body-md": ["Inter"], "data": ["Inter"], "title": ["Plus Jakarta Sans"], "metric": ["Plus Jakarta Sans"], "caption": ["Inter"], "body-lg": ["Inter"], "headline-md": ["Plus Jakarta Sans"], "label": ["Plus Jakarta Sans"], "button": ["Plus Jakarta Sans"], "display": ["Plus Jakarta Sans"], "headline-lg": ["Plus Jakarta Sans"] }, "fontSize": { "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }], "data": ["14px", { "lineHeight": "20px", "fontWeight": "500" }], "title": ["17px", { "lineHeight": "24px", "fontWeight": "600" }], "metric": ["48px", { "lineHeight": "52px", "fontWeight": "700" }], "caption": ["12px", { "lineHeight": "16px", "fontWeight": "400" }], "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }], "headline-md": ["22px", { "lineHeight": "28px", "fontWeight": "600" }], "label": ["13px", { "lineHeight": "16px", "letterSpacing": "0.01em", "fontWeight": "600" }], "button": ["16px", { "lineHeight": "20px", "fontWeight": "600" }], "display": ["40px", { "lineHeight": "44px", "letterSpacing": "-0.02em", "fontWeight": "700" }], "headline-lg": ["28px", { "lineHeight": "34px", "letterSpacing": "-0.01em", "fontWeight": "700" }] } } } };</script></head><body class="bg-surface font-body-md text-on-surface flex flex-col min-h-screen antialiased selection:bg-secondary-container"><header class="fixed top-0 inset-x-0 z-50 bg-surface/85 backdrop-blur-xl pt-safe"><div class="h-16 px-margin flex items-center justify-between"><div class="flex items-center gap-space-sm"><span class="text-primary font-headline-md font-bold tracking-tight">kuota</span></div><h1 class="text-title font-title text-on-surface text-center font-semibold truncate max-w-[200px]">Mi Perfil Y Negocio</h1><div class="flex items-center justify-end w-10 h-10"><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></div></header><main class="flex-1 flex flex-col relative w-full pt-16 pb-28 bg-surface px-margin"><div class="flex flex-col w-full pb-6 space-y-5">
+<!-- 1. Banner Superior: Próxima Capacitación -->
+<section class="bg-surface-white rounded-2xl p-4 shadow-sm relative overflow-hidden">
+<div class="absolute -right-4 -top-6 w-24 h-24 bg-decorative-overlay rounded-full blur-xl pointer-events-none"></div>
+<div class="flex items-center gap-2 mb-2">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-secondary-fixed text-primary font-label text-caption font-semibold">
+<span class="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
+        Taller en vivo · Mañana 7:00 PM
+      </span>
+<span class="text-caption font-caption text-text-secondary ml-auto flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">videocam</span> Zoom
+      </span>
+</div>
+<h3 class="font-title text-title text-on-surface font-semibold leading-snug mb-3">
+      Mentorías y Formalización: Cómo declarar tus ingresos ante SUNAT sin enredos
+    </h3>
+<div class="flex items-center justify-between gap-3 pt-1">
+<div class="flex items-center gap-1.5 text-text-secondary text-caption font-caption">
+<span class="material-symbols-outlined text-[16px] text-primary">groups</span>
+<span class="">Últimos 12 cupos disponibles</span>
+</div>
+<a class="inline-flex items-center justify-center gap-1.5 px-4 h-9 rounded-full bg-primary-container text-on-primary font-label text-label hover:opacity-95 active:scale-95 transition-all shadow-sm" href="https://zoom.us" rel="noopener noreferrer" target="_blank">
+<span class="">Reservar cupo</span>
+<span class="material-symbols-outlined text-[16px]">open_in_new</span>
+</a>
+</div>
+</section>
+<!-- 2. Identidad y Datos del Negocio -->
+<section class="bg-surface-white rounded-3xl p-5 shadow-sm space-y-4">
+<div class="flex items-center gap-3.5">
+<div class="relative">
+<div class="w-14 h-14 rounded-full overflow-hidden bg-surface-container flex items-center justify-center text-primary font-title text-headline-md font-bold">
+          DL
+        </div>
+<div class="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-primary text-on-primary flex items-center justify-center shadow-sm">
+<span class="material-symbols-outlined text-[13px]">verified</span>
+</div>
+</div>
+<div class="min-w-0 flex-1">
+<div class="flex items-center gap-1.5">
+<h2 class="font-title text-title text-on-surface font-bold truncate">Confecciones Don Lucho</h2>
+</div>
+<p class="font-caption text-caption text-text-secondary truncate mt-0.5">Textil y Confección · Gamarra</p>
+<span class="inline-block px-2 py-0.5 mt-1 rounded-md bg-secondary-fixed/60 text-primary font-caption text-[11px] font-medium">Cuenta Comercial &amp; Personal Unificada</span>
+</div>
+</div>
+<!-- Chips / Opciones Interactivas -->
+<div class="space-y-2 pt-1">
+<!-- Chip RUC -->
+<button class="w-full flex items-center justify-between p-3.5 rounded-2xl bg-surface-container-low hover:bg-surface-container active:scale-[0.99] transition-all text-left" onclick="openModal('modal-ruc')" type="button">
+<div class="flex items-center gap-3 min-w-0">
+<div class="w-9 h-9 rounded-xl bg-secondary-fixed text-primary flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[20px]">badge</span>
+</div>
+<div class="min-w-0">
+<p class="font-caption text-caption text-text-secondary">Estado de formalidad</p>
+<p class="font-title text-data text-on-surface font-semibold truncate">RUC 10 · 10428791024</p>
+</div>
+</div>
+<div class="flex items-center gap-1 shrink-0 text-text-secondary">
+<span class="font-label text-caption text-primary font-semibold">Editar</span>
+<span class="material-symbols-outlined text-[18px]">chevron_right</span>
+</div>
+</button>
+<!-- Chip Rubro y Zona -->
+<button class="w-full flex items-center justify-between p-3.5 rounded-2xl bg-surface-container-low hover:bg-surface-container active:scale-[0.99] transition-all text-left" onclick="openModal('modal-rubro')" type="button">
+<div class="flex items-center gap-3 min-w-0">
+<div class="w-9 h-9 rounded-xl bg-secondary-fixed text-primary flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[20px]">storefront</span>
+</div>
+<div class="min-w-0">
+<p class="font-caption text-caption text-text-secondary">Rubro y zona operativa</p>
+<p class="font-title text-data text-on-surface font-semibold truncate">Textil &amp; Moda · Gamarra Damero A</p>
+</div>
+</div>
+<div class="flex items-center gap-1 shrink-0 text-text-secondary">
+<span class="font-label text-caption text-primary font-semibold">Cambiar</span>
+<span class="material-symbols-outlined text-[18px]">chevron_right</span>
+</div>
+</button>
+<!-- Chip Facturas y Boletas -->
+<button class="w-full flex items-center justify-between p-3.5 rounded-2xl bg-surface-container-low hover:bg-surface-container active:scale-[0.99] transition-all text-left" onclick="openModal('modal-facturas')" type="button">
+<div class="flex items-center gap-3 min-w-0">
+<div class="w-9 h-9 rounded-xl bg-secondary-fixed text-primary flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[20px]">receipt_long</span>
+</div>
+<div class="min-w-0">
+<p class="font-caption text-caption text-text-secondary">Mis facturas y boletas</p>
+<p class="font-title text-data text-on-surface font-semibold truncate">Comprobantes emitidos Kuota</p>
+</div>
+</div>
+<div class="flex items-center gap-2 shrink-0">
+<span class="px-2 py-0.5 rounded-full bg-secondary-fixed text-primary font-label text-[11px] font-bold">Al día</span>
+<span class="material-symbols-outlined text-[18px] text-text-secondary">chevron_right</span>
+</div>
+</button>
+</div>
+</section>
+<!-- 3. Crédito aKuotas! (Hero Card en Persian Blue #1A3BB0) -->
+<section class="bg-surface-white rounded-3xl p-5 shadow-sm space-y-3">
+<div class="flex items-center justify-between">
+<h3 class="font-title text-title text-on-surface font-bold">aKuotas!</h3>
+</div>
+<div class="space-y-2">
+<button class="w-full flex items-center justify-between p-3.5 rounded-2xl bg-surface-container-low hover:bg-surface-container active:scale-[0.99] transition-all text-left" onclick="openModal('modal-pagos')" type="button">
+<div class="flex items-center gap-3 min-w-0">
+<div class="w-9 h-9 rounded-xl bg-secondary-fixed text-primary flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[20px]">account_balance_wallet</span>
+</div>
+<div class="min-w-0">
+<p class="font-title text-data text-on-surface font-semibold truncate">Mis pagos</p>
+<p class="font-caption text-caption text-text-secondary truncate mt-0.5">mis pagos realizados a tiempo</p>
+</div>
+</div>
+<div class="flex items-center gap-1 shrink-0 text-text-secondary">
+<span class="material-symbols-outlined text-[18px]">chevron_right</span>
+</div>
+</button>
+</div>
+</section>
+<!-- 4. Salud del Negocio -->
+<section class="bg-surface-white rounded-3xl p-5 shadow-sm space-y-3">
+<div class="flex items-center justify-between">
+<h3 class="font-title text-title text-on-surface font-bold">Salud del negocio</h3>
+<span class="text-caption font-caption text-text-secondary">Este mes</span>
+</div>
+<div class="space-y-2">
+<button class="w-full flex items-center justify-between p-3.5 rounded-2xl bg-surface-container-low hover:bg-surface-container active:scale-[0.99] transition-all text-left" onclick="openModal('modal-dashboard')" type="button">
+<div class="flex items-center gap-3 min-w-0">
+<div class="w-9 h-9 rounded-xl bg-secondary-fixed text-primary flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[20px]">analytics</span>
+</div>
+<div class="min-w-0">
+<p class="font-title text-data text-on-surface font-semibold truncate">Dashboard financiero</p>
+<p class="font-caption text-caption text-text-secondary truncate mt-0.5">Ingresos, Yape/Plin y compras aKuotas</p>
+</div>
+</div>
+<div class="flex items-center gap-1 shrink-0 text-text-secondary">
+<span class="material-symbols-outlined text-[18px]">chevron_right</span>
+</div>
+</button>
+<button class="w-full flex items-center justify-between p-3.5 rounded-2xl bg-surface-container-low hover:bg-surface-container active:scale-[0.99] transition-all text-left" onclick="openModal('modal-productos')" type="button">
+<div class="flex items-center gap-3 min-w-0">
+<div class="w-9 h-9 rounded-xl bg-secondary-fixed text-primary flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[20px]">inventory_2</span>
+</div>
+<div class="min-w-0">
+<p class="font-title text-data text-on-surface font-semibold truncate">Mis productos</p>
+<p class="font-caption text-caption text-text-secondary truncate mt-0.5">Catálogo y lista de precios (48 items)</p>
+</div>
+</div>
+<div class="flex items-center gap-1 shrink-0 text-text-secondary">
+<span class="material-symbols-outlined text-[18px]">chevron_right</span>
+</div>
+</button>
+</div>
+</section>
+<!-- 5. Permisos y Conexiones -->
+<section class="bg-surface-white rounded-3xl p-5 shadow-sm space-y-3.5">
+<h3 class="font-title text-title text-on-surface font-bold">Permisos &amp; Conexiones en Vivo</h3>
+<!-- Switch Listener Yape / Plin -->
+<div class="p-3.5 rounded-2xl bg-surface-container-low flex items-center justify-between gap-3">
+<div class="flex items-start gap-3 min-w-0">
+<div class="w-9 h-9 rounded-xl bg-secondary-fixed text-primary flex items-center justify-center shrink-0 mt-0.5">
+<span class="material-symbols-outlined text-[20px]">sync_saved_locally</span>
+</div>
+<div class="min-w-0">
+<div class="flex items-center gap-1.5">
+<p class="font-title text-data text-on-surface font-semibold">Listener Yape &amp; Plin</p>
+<span class="px-1.5 py-0.2 rounded bg-primary/10 text-primary text-[10px] font-bold">Activo</span>
+</div>
+<p class="font-caption text-[11px] text-text-secondary mt-0.5">Detección automática de abonos sin comprobantes falsos</p>
+</div>
+</div>
+<!-- Toggle button interactivo -->
+<button aria-label="Cambiar estado del listener de notificaciones" class="relative inline-flex h-8 w-14 shrink-0 cursor-pointer rounded-full bg-primary-container p-1 transition-colors duration-200 focus:outline-none" onclick="openModal('modal-listener-alert')" type="button">
+<span class="pointer-events-none inline-block h-6 w-6 transform rounded-full bg-surface-white shadow-md ring-0 transition duration-200 translate-x-6"></span>
+</button>
+</div>
+<!-- Enlaces Legales & Reclamaciones -->
+<div class="space-y-1 pt-1">
+<a class="w-full flex items-center justify-between p-3 rounded-xl hover:bg-surface-container-low transition-colors" href="https://kuota.pe/legal" rel="noopener noreferrer" target="_blank">
+<div class="flex items-center gap-2.5">
+<span class="material-symbols-outlined text-[18px] text-text-secondary">shield</span>
+<span class="font-body-md text-data text-on-surface">Privacidad y Ley 29733 (Datos Personales)</span>
+</div>
+<span class="material-symbols-outlined text-[16px] text-text-secondary">open_in_new</span>
+</a>
+<a class="w-full flex items-center justify-between p-3 rounded-xl hover:bg-surface-container-low transition-colors" href="https://kuota.pe/reclamaciones" rel="noopener noreferrer" target="_blank">
+<div class="flex items-center gap-2.5">
+<span class="material-symbols-outlined text-[18px] text-text-secondary">menu_book</span>
+<span class="font-body-md text-data text-on-surface">Libro de Reclamaciones Virtual</span>
+</div>
+<span class="material-symbols-outlined text-[16px] text-text-secondary">open_in_new</span>
+</a>
+</div>
+</section>
+<!-- 6. Seguridad -->
+<section class="bg-surface-white rounded-3xl p-5 shadow-sm space-y-3">
+<h3 class="font-title text-title text-on-surface font-bold">Seguridad de la cuenta</h3>
+<div class="space-y-2">
+<!-- Cambiar PIN -->
+<button class="w-full flex items-center justify-between p-3.5 rounded-2xl bg-surface-container-low hover:bg-surface-container active:scale-[0.99] transition-all text-left" onclick="openModal('modal-pin')" type="button">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-xl bg-secondary-fixed text-primary flex items-center justify-center">
+<span class="material-symbols-outlined text-[20px]">pin</span>
+</div>
+<div>
+<p class="font-title text-data text-on-surface font-semibold">Cambiar PIN de seguridad</p>
+<p class="font-caption text-caption text-text-secondary">Clave de 6 dígitos para autorizar cobros</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-[18px] text-text-secondary">chevron_right</span>
+</button>
+<!-- Dispositivos Activos -->
+<button class="w-full flex items-center justify-between p-3.5 rounded-2xl bg-surface-container-low hover:bg-surface-container active:scale-[0.99] transition-all text-left" onclick="openModal('modal-dispositivos')" type="button">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-xl bg-secondary-fixed text-primary flex items-center justify-center">
+<span class="material-symbols-outlined text-[20px]">devices</span>
+</div>
+<div>
+<p class="font-title text-data text-on-surface font-semibold">Dispositivos con sesión activa</p>
+<p class="font-caption text-caption text-text-secondary">2 terminales autorizados</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-[18px] text-text-secondary">chevron_right</span>
+</button>
+</div>
+<div class="p-3 rounded-xl bg-surface-container-high/40 text-caption font-caption text-text-secondary flex items-start gap-2">
+<span class="material-symbols-outlined text-[16px] text-primary shrink-0 mt-0.5">info</span>
+<span class="">Esta cuenta opera con el correo <strong class="text-on-surface">lucho.confecciones@gmail.com</strong> para cobros y créditos.</span>
+</div>
+</section>
+<!-- 7. Ayuda y Legal -->
+<section class="bg-surface-white rounded-3xl p-5 shadow-sm space-y-3">
+<h3 class="font-title text-title text-on-surface font-bold">Ayuda y Soporte</h3>
+<!-- WhatsApp Oficial CTA -->
+<a class="w-full flex items-center justify-between p-3.5 rounded-2xl bg-primary text-on-primary active:scale-[0.98] transition-transform shadow-md" href="https://wa.me/51987654321?text=Hola%20Kuota,%20necesito%20ayuda%20con%20mi%20cuenta" rel="noopener noreferrer" target="_blank">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-xl bg-surface-white/15 flex items-center justify-center text-on-primary">
+<span class="material-symbols-outlined text-[20px]">chat</span>
+</div>
+<div class="text-left">
+<p class="font-title text-data font-bold">Soporte Kuota (WhatsApp oficial)</p>
+<p class="font-caption text-caption text-on-primary/80">+51 987 654 321 · Atención inmediata</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-[20px]">arrow_forward</span>
+</a>
+<div class="grid grid-cols-2 gap-2 pt-1">
+<button class="p-3 rounded-2xl bg-surface-container-low hover:bg-surface-container text-on-surface font-label text-label font-semibold text-center transition-colors" onclick="openModal('modal-faq')" type="button">
+        Preguntas frecuentes
+      </button>
+<button class="p-3 rounded-2xl bg-error-container/40 text-error hover:bg-error-container font-label text-label font-semibold text-center transition-colors" onclick="alert('Sesión cerrada de forma segura')" type="button">
+        Cerrar sesión
+      </button>
+</div>
+</section>
+<!-- ================= MODALES Y POP-UPS INTERACTIVOS ================= -->
+<!-- Modal 1: RUC Formalidad -->
+<div class="fixed inset-0 z-50 flex items-end justify-center bg-scrim opacity-0 pointer-events-none transition-opacity duration-300" id="modal-ruc">
+<div class="w-full max-w-md bg-surface-white rounded-t-3xl p-6 shadow-2xl transform translate-y-full transition-transform duration-300">
+<div class="w-12 h-1.5 bg-surface-variant rounded-full mx-auto mb-4"></div>
+<div class="flex items-center justify-between mb-4">
+<h4 class="font-title text-headline-md text-on-surface font-bold">Estado de Formalidad</h4>
+<button class="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-text-secondary" onclick="closeModal('modal-ruc')" type="button">
+<span class="material-symbols-outlined text-[18px]">close</span>
+</button>
+</div>
+<p class="font-body-md text-body-md text-text-secondary mb-4">Selecciona tu régimen fiscal ante SUNAT para sincronizar tus boletas electrónicas en Kuota.</p>
+<div class="space-y-2 mb-6">
+<label class="flex items-center justify-between p-3.5 rounded-2xl bg-secondary-fixed/50 cursor-pointer">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary">person</span>
+<div>
+<p class="font-title text-data font-bold text-on-surface">RUC 10 (Persona con Negocio)</p>
+<p class="font-caption text-caption text-text-secondary">10428791024 · Don Lucho</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-primary">radio_button_checked</span>
+</label>
+<label class="flex items-center justify-between p-3.5 rounded-2xl bg-surface-container-low hover:bg-surface-container cursor-pointer">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-text-secondary">business</span>
+<div>
+<p class="font-title text-data font-semibold text-on-surface">RUC 20 (Empresa / SAC / EIRL)</p>
+<p class="font-caption text-caption text-text-secondary">Requiere ficha RUC y DNI del representante</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-text-secondary">radio_button_unchecked</span>
+</label>
+<label class="flex items-center justify-between p-3.5 rounded-2xl bg-surface-container-low hover:bg-surface-container cursor-pointer">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-text-secondary">store</span>
+<div>
+<p class="font-title text-data font-semibold text-on-surface">Sin RUC (En proceso)</p>
+<p class="font-caption text-caption text-text-secondary">Límite operativo de S/ 2,000 mensuales</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-text-secondary">radio_button_unchecked</span>
+</label>
+</div>
+<button class="w-full h-14 rounded-full bg-primary-container text-on-primary font-button text-button font-semibold shadow-md active:scale-95 transition-transform" onclick="closeModal('modal-ruc')" type="button">
+        Guardar cambios
+      </button>
+</div>
+</div>
+<!-- Modal 2: Rubro y Zona -->
+<div class="fixed inset-0 z-50 flex items-end justify-center bg-scrim opacity-0 pointer-events-none transition-opacity duration-300" id="modal-rubro">
+<div class="w-full max-w-md bg-surface-white rounded-t-3xl p-6 shadow-2xl transform translate-y-full transition-transform duration-300">
+<div class="w-12 h-1.5 bg-surface-variant rounded-full mx-auto mb-4"></div>
+<div class="flex items-center justify-between mb-3">
+<h4 class="font-title text-headline-md text-on-surface font-bold">Rubro y Zona Operativa</h4>
+<button class="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-text-secondary" onclick="closeModal('modal-rubro')" type="button">
+<span class="material-symbols-outlined text-[18px]">close</span>
+</button>
+</div>
+<p class="font-body-md text-body-md text-text-secondary mb-4">Mejora las ofertas de financiamiento de proveedores locales ajustando tu zona.</p>
+<div class="space-y-4 mb-6">
+<div>
+<label class="font-label text-caption text-text-secondary font-semibold block mb-1.5">Rubro Comercial</label>
+<select class="w-full h-14 px-4 rounded-2xl bg-surface-white border border-outline-variant font-body-md text-body-md text-on-surface focus:outline-none focus:ring-2 focus:ring-primary">
+<option selected="">Textil y Confección</option>
+<option>Bodega y Minimarket</option>
+<option>Gastronomía y Cafetería</option>
+<option>Calzado y Cuero</option>
+<option>Tecnología y Accesorios</option>
+</select>
+</div>
+<div>
+<label class="font-label text-caption text-text-secondary font-semibold block mb-1.5">Zona Comercial Principal</label>
+<select class="w-full h-14 px-4 rounded-2xl bg-surface-white border border-outline-variant font-body-md text-body-md text-on-surface focus:outline-none focus:ring-2 focus:ring-primary">
+<option selected="">Gamarra (La Victoria)</option>
+<option>Mesa Redonda / Mercado Central</option>
+<option>Polvos Azules (Cercado)</option>
+<option>Huamantanga (Puente Piedra)</option>
+<option>Otro emporio o local independiente</option>
+</select>
+</div>
+</div>
+<button class="w-full h-14 rounded-full bg-primary-container text-on-primary font-button text-button font-semibold shadow-md active:scale-95 transition-transform" onclick="closeModal('modal-rubro')" type="button">
+        Actualizar Datos
+      </button>
+</div>
+</div>
+<!-- Modal 3: Alerta Crítica Listener Yape/Plin -->
+<div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-scrim opacity-0 pointer-events-none transition-opacity duration-300" id="modal-listener-alert">
+<div class="w-full max-w-sm bg-surface-white rounded-3xl p-6 shadow-2xl transform scale-95 transition-transform duration-300 text-center">
+<div class="w-14 h-14 rounded-2xl bg-error-container text-error flex items-center justify-center mx-auto mb-4">
+<span class="material-symbols-outlined text-[32px]">warning</span>
+</div>
+<h4 class="font-title text-headline-md text-on-surface font-bold mb-2">¡Alerta Crítica!</h4>
+<p class="font-body-md text-body-md text-text-secondary leading-relaxed mb-6">
+        Desactivar el listener suspenderá tus cobros y validaciones automáticas de <strong>Yape y Plin en tiempo real</strong>. Tus clientes no podrán validar pagos por código QR sin intervención manual.
+      </p>
+<div class="flex flex-col gap-2">
+<button class="w-full h-12 rounded-full bg-primary-container text-on-primary font-button text-label font-semibold shadow-md active:scale-95 transition-transform" onclick="closeModal('modal-listener-alert')" type="button">
+          Mantener Listener Activo
+        </button>
+<button class="w-full h-12 rounded-full bg-surface-container text-error font-button text-label font-semibold active:scale-95 transition-transform" onclick="closeModal('modal-listener-alert')" type="button">
+          Desactivar bajo mi riesgo
+        </button>
+</div>
+</div>
+</div>
+<!-- Modal 4: Cambiar PIN -->
+<div class="fixed inset-0 z-50 flex items-end justify-center bg-scrim opacity-0 pointer-events-none transition-opacity duration-300" id="modal-pin">
+<div class="w-full max-w-md bg-surface-white rounded-t-3xl p-6 shadow-2xl transform translate-y-full transition-transform duration-300">
+<div class="w-12 h-1.5 bg-surface-variant rounded-full mx-auto mb-4"></div>
+<div class="flex items-center justify-between mb-3">
+<h4 class="font-title text-headline-md text-on-surface font-bold">Cambiar PIN Kuota</h4>
+<button class="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-text-secondary" onclick="closeModal('modal-pin')" type="button">
+<span class="material-symbols-outlined text-[18px]">close</span>
+</button>
+</div>
+<p class="font-body-md text-body-md text-text-secondary mb-4">Ingresa tu nuevo PIN de 6 dígitos numéricos.</p>
+<div class="flex justify-between gap-2 mb-6">
+<input class="w-12 h-14 text-center text-headline-md font-bold rounded-2xl bg-surface-container-low border border-outline-variant focus:border-primary focus:outline-none" maxlength="1" type="password" value="•">
+<input class="w-12 h-14 text-center text-headline-md font-bold rounded-2xl bg-surface-container-low border border-outline-variant focus:border-primary focus:outline-none" maxlength="1" type="password" value="•">
+<input class="w-12 h-14 text-center text-headline-md font-bold rounded-2xl bg-surface-container-low border border-outline-variant focus:border-primary focus:outline-none" maxlength="1" type="password" value="•">
+<input class="w-12 h-14 text-center text-headline-md font-bold rounded-2xl bg-surface-container-low border border-outline-variant focus:border-primary focus:outline-none" maxlength="1" placeholder="" type="password">
+<input class="w-12 h-14 text-center text-headline-md font-bold rounded-2xl bg-surface-container-low border border-outline-variant focus:border-primary focus:outline-none" maxlength="1" placeholder="" type="password">
+<input class="w-12 h-14 text-center text-headline-md font-bold rounded-2xl bg-surface-container-low border border-outline-variant focus:border-primary focus:outline-none" maxlength="1" placeholder="" type="password">
+</div>
+<button class="w-full h-14 rounded-full bg-primary-container text-on-primary font-button text-button font-semibold shadow-md active:scale-95 transition-transform" onclick="closeModal('modal-pin')" type="button">
+        Confirmar Nuevo PIN
+      </button>
+</div>
+</div>
+<!-- Modal 5: Dispositivos Activos -->
+<div class="fixed inset-0 z-50 flex items-end justify-center bg-scrim opacity-0 pointer-events-none transition-opacity duration-300" id="modal-dispositivos">
+<div class="w-full max-w-md bg-surface-white rounded-t-3xl p-6 shadow-2xl transform translate-y-full transition-transform duration-300">
+<div class="w-12 h-1.5 bg-surface-variant rounded-full mx-auto mb-4"></div>
+<div class="flex items-center justify-between mb-4">
+<h4 class="font-title text-headline-md text-on-surface font-bold">Dispositivos Activos</h4>
+<button class="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-text-secondary" onclick="closeModal('modal-dispositivos')" type="button">
+<span class="material-symbols-outlined text-[18px]">close</span>
+</button>
+</div>
+<div class="space-y-3 mb-6">
+<!-- Dispositivo 1 -->
+<div class="p-3.5 rounded-2xl bg-surface-container-low flex items-center justify-between">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-[28px]">smartphone</span>
+<div>
+<p class="font-title text-data font-bold text-on-surface">Samsung Galaxy S23 (Este teléfono)</p>
+<p class="font-caption text-caption text-text-secondary">Gamarra, Lima · Activo ahora</p>
+</div>
+</div>
+<span class="w-2.5 h-2.5 rounded-full bg-primary"></span>
+</div>
+<!-- Dispositivo 2 -->
+<div class="p-3.5 rounded-2xl bg-surface-container-low flex items-center justify-between">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-text-secondary text-[28px]">laptop_chromebook</span>
+<div>
+<p class="font-title text-data font-bold text-on-surface">Chrome Web Desktop</p>
+<p class="font-caption text-caption text-text-secondary">Lima · Última vez ayer 5:20 PM</p>
+</div>
+</div>
+<button class="text-error font-caption text-caption font-semibold" type="button">Cerrar</button>
+</div>
+</div>
+<button class="w-full h-14 rounded-full bg-error text-on-error font-button text-button font-semibold shadow-md active:scale-95 transition-transform" onclick="closeModal('modal-dispositivos')" type="button">
+        Cerrar todas las sesiones
+      </button>
+</div>
+</div>
+<!-- Modal 6: Historial de Pagos -->
+<div class="fixed inset-0 z-50 flex items-end justify-center bg-scrim opacity-0 pointer-events-none transition-opacity duration-300" id="modal-pagos">
+<div class="w-full max-w-md bg-surface-white rounded-t-3xl p-6 shadow-2xl transform translate-y-full transition-transform duration-300 max-h-[85vh] overflow-y-auto">
+<div class="w-12 h-1.5 bg-surface-variant rounded-full mx-auto mb-4"></div>
+<div class="flex items-center justify-between mb-3">
+<h4 class="font-title text-headline-md text-on-surface font-bold">Historial de Cuotas aKuotas!</h4>
+<button class="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-text-secondary" onclick="closeModal('modal-pagos')" type="button">
+<span class="material-symbols-outlined text-[18px]">close</span>
+</button>
+</div>
+<p class="font-body-md text-body-md text-text-secondary mb-4">Tus pagos puntuales han aumentado tu línea en S/ 400 este trimestre.</p>
+<div class="space-y-3 mb-6">
+<div class="p-3 rounded-2xl bg-surface-container-low flex justify-between items-center">
+<div>
+<p class="font-title text-data font-bold text-on-surface">Cuota 3/3 - Hilados del Sur</p>
+<p class="font-caption text-caption text-text-secondary">Pagado el 15 Oct · Débito automático</p>
+</div>
+<span class="font-title text-data font-bold text-primary">S/ 350.00</span>
+</div>
+<div class="p-3 rounded-2xl bg-surface-container-low flex justify-between items-center">
+<div>
+<p class="font-title text-data font-bold text-on-surface">Cuota 2/3 - Hilados del Sur</p>
+<p class="font-caption text-caption text-text-secondary">Pagado el 15 Sep · Débito automático</p>
+</div>
+<span class="font-title text-data font-bold text-primary">S/ 350.00</span>
+</div>
+<div class="p-3 rounded-2xl bg-surface-container-low flex justify-between items-center">
+<div>
+<p class="font-title text-data font-bold text-on-surface">Cuota 1/3 - Hilados del Sur</p>
+<p class="font-caption text-caption text-text-secondary">Pagado el 15 Ago · Débito automático</p>
+</div>
+<span class="font-title text-data font-bold text-primary">S/ 350.00</span>
+</div>
+</div>
+<button class="w-full h-14 rounded-full bg-primary-container text-on-primary font-button text-button font-semibold shadow-md active:scale-95 transition-transform" onclick="closeModal('modal-pagos')" type="button">
+        Entendido
+      </button>
+</div>
+</div>
+<!-- Modal 7: Dashboard Financiero -->
+<div class="fixed inset-0 z-50 flex items-end justify-center bg-scrim opacity-0 pointer-events-none transition-opacity duration-300" id="modal-dashboard">
+<div class="w-full max-w-md bg-surface-white rounded-t-3xl p-6 shadow-2xl transform translate-y-full transition-transform duration-300 max-h-[85vh] overflow-y-auto">
+<div class="w-12 h-1.5 bg-surface-variant rounded-full mx-auto mb-4"></div>
+<div class="flex items-center justify-between mb-3">
+<h4 class="font-title text-headline-md text-on-surface font-bold">Balance del Mes</h4>
+<button class="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-text-secondary" onclick="closeModal('modal-dashboard')" type="button">
+<span class="material-symbols-outlined text-[18px]">close</span>
+</button>
+</div>
+<div class="space-y-3 mb-6">
+<div class="p-4 rounded-2xl bg-surface-container-low">
+<p class="font-caption text-caption text-text-secondary">Ingresos Kuota Payments</p>
+<p class="font-headline-md text-headline-md font-bold text-primary mt-1">S/ 8,420.50</p>
+<p class="font-caption text-[11px] text-text-secondary mt-1">Cobros con tarjeta y links directos</p>
+</div>
+<div class="p-4 rounded-2xl bg-surface-container-low">
+<p class="font-caption text-caption text-text-secondary">Abonos Yape &amp; Plin (Listener)</p>
+<p class="font-headline-md text-headline-md font-bold text-on-surface mt-1">S/ 5,110.00</p>
+<p class="font-caption text-[11px] text-text-secondary mt-1">142 transacciones validadas en tienda</p>
+</div>
+<div class="p-4 rounded-2xl bg-surface-container-low">
+<p class="font-caption text-caption text-text-secondary">Compras aKuotas! Insumos</p>
+<p class="font-headline-md text-headline-md font-bold text-secondary mt-1">S/ 1,050.00</p>
+<p class="font-caption text-[11px] text-text-secondary mt-1">Telas y cierres financiados</p>
+</div>
+</div>
+<button class="w-full h-14 rounded-full bg-primary-container text-on-primary font-button text-button font-semibold shadow-md active:scale-95 transition-transform" onclick="closeModal('modal-dashboard')" type="button">
+        Cerrar Balance
+      </button>
+</div>
+</div>
+<!-- Modal 8: Mis Productos -->
+<div class="fixed inset-0 z-50 flex items-end justify-center bg-scrim opacity-0 pointer-events-none transition-opacity duration-300" id="modal-productos">
+<div class="w-full max-w-md bg-surface-white rounded-t-3xl p-6 shadow-2xl transform translate-y-full transition-transform duration-300 max-h-[85vh] overflow-y-auto">
+<div class="w-12 h-1.5 bg-surface-variant rounded-full mx-auto mb-4"></div>
+<div class="flex items-center justify-between mb-3">
+<h4 class="font-title text-headline-md text-on-surface font-bold">Catálogo de Productos</h4>
+<button class="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-text-secondary" onclick="closeModal('modal-productos')" type="button">
+<span class="material-symbols-outlined text-[18px]">close</span>
+</button>
+</div>
+<div class="space-y-2 mb-6">
+<div class="flex items-center justify-between p-3 rounded-2xl bg-surface-container-low">
+<span class="font-title text-data font-semibold text-on-surface">Polo Piqué Premium 24/1</span>
+<span class="font-title text-data font-bold text-primary">S/ 28.00</span>
+</div>
+<div class="flex items-center justify-between p-3 rounded-2xl bg-surface-container-low">
+<span class="font-title text-data font-semibold text-on-surface">Camisa Oxford Slim Fit</span>
+<span class="font-title text-data font-bold text-primary">S/ 45.00</span>
+</div>
+<div class="flex items-center justify-between p-3 rounded-2xl bg-surface-container-low">
+<span class="font-title text-data font-semibold text-on-surface">Pantalón Drill Stretch</span>
+<span class="font-title text-data font-bold text-primary">S/ 58.00</span>
+</div>
+<div class="flex items-center justify-between p-3 rounded-2xl bg-surface-container-low">
+<span class="font-title text-data font-semibold text-on-surface">Casaca Denim Clásica</span>
+<span class="font-title text-data font-bold text-primary">S/ 79.00</span>
+</div>
+</div>
+<button class="w-full h-14 rounded-full bg-primary-container text-on-primary font-button text-button font-semibold shadow-md active:scale-95 transition-transform" onclick="closeModal('modal-productos')" type="button">
+        Cerrar Catálogo
+      </button>
+</div>
+</div>
+<!-- Modal 9: Mis Facturas y Boletas -->
+<div class="fixed inset-0 z-50 flex items-end justify-center bg-scrim opacity-0 pointer-events-none transition-opacity duration-300" id="modal-facturas">
+<div class="w-full max-w-md bg-surface-white rounded-t-3xl p-6 shadow-2xl transform translate-y-full transition-transform duration-300 max-h-[85vh] overflow-y-auto">
+<div class="w-12 h-1.5 bg-surface-variant rounded-full mx-auto mb-4"></div>
+<div class="flex items-center justify-between mb-3">
+<h4 class="font-title text-headline-md text-on-surface font-bold">Comprobantes Emitidos</h4>
+<button class="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-text-secondary" onclick="closeModal('modal-facturas')" type="button">
+<span class="material-symbols-outlined text-[18px]">close</span>
+</button>
+</div>
+<div class="space-y-3 mb-6">
+<div class="p-3.5 rounded-2xl bg-surface-container-low flex justify-between items-center">
+<div>
+<p class="font-title text-data font-bold text-on-surface">Boleta B001-00248</p>
+<p class="font-caption text-caption text-text-secondary">Hoy 11:32 AM · Validada SUNAT</p>
+</div>
+<span class="font-title text-data font-bold text-primary">S/ 120.00</span>
+</div>
+<div class="p-3.5 rounded-2xl bg-surface-container-low flex justify-between items-center">
+<div>
+<p class="font-title text-data font-bold text-on-surface">Factura F001-00084</p>
+<p class="font-caption text-caption text-text-secondary">Ayer 04:15 PM · Validada SUNAT</p>
+</div>
+<span class="font-title text-data font-bold text-primary">S/ 640.00</span>
+</div>
+</div>
+<button class="w-full h-14 rounded-full bg-primary-container text-on-primary font-button text-button font-semibold shadow-md active:scale-95 transition-transform" onclick="closeModal('modal-facturas')" type="button">
+        Entendido
+      </button>
+</div>
+</div>
+<!-- Modal 10: FAQ -->
+<div class="fixed inset-0 z-50 flex items-end justify-center bg-scrim opacity-0 pointer-events-none transition-opacity duration-300" id="modal-faq">
+<div class="w-full max-w-md bg-surface-white rounded-t-3xl p-6 shadow-2xl transform translate-y-full transition-transform duration-300 max-h-[85vh] overflow-y-auto">
+<div class="w-12 h-1.5 bg-surface-variant rounded-full mx-auto mb-4"></div>
+<div class="flex items-center justify-between mb-3">
+<h4 class="font-title text-headline-md text-on-surface font-bold">Preguntas Frecuentes</h4>
+<button class="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-text-secondary" onclick="closeModal('modal-faq')" type="button">
+<span class="material-symbols-outlined text-[18px]">close</span>
+</button>
+</div>
+<div class="space-y-3 mb-6">
+<div class="p-3.5 rounded-2xl bg-surface-container-low">
+<p class="font-title text-data font-bold text-on-surface">¿Cómo funciona aKuotas!?</p>
+<p class="font-body-md text-caption text-text-secondary mt-1">Te permite adquirir insumos textiles a 30, 60 y 90 días con 0% interés al pagar a tiempo.</p>
+</div>
+<div class="p-3.5 rounded-2xl bg-surface-container-low">
+<p class="font-title text-data font-bold text-on-surface">¿El listener lee mis mensajes privados?</p>
+<p class="font-body-md text-caption text-text-secondary mt-1">No. Solo filtra las notificaciones push del sistema financiero de Yape y Plin para validar el monto depositado.</p>
+</div>
+</div>
+<button class="w-full h-14 rounded-full bg-primary-container text-on-primary font-button text-button font-semibold shadow-md active:scale-95 transition-transform" onclick="closeModal('modal-faq')" type="button">
+        Cerrar
+      </button>
+</div>
+</div>
+</div>
+<script>
+  function openModal(id) {
+    const modal = document.getElementById(id);
+    if (!modal) return;
+    modal.classList.remove('opacity-0', 'pointer-events-none');
+    modal.classList.add('opacity-100', 'pointer-events-auto');
+    const child = modal.firstElementChild;
+    if (child) {
+      child.classList.remove('translate-y-full', 'scale-95');
+      child.classList.add('translate-y-0', 'scale-100');
+    }
+  }
+
+  function closeModal(id) {
+    const modal = document.getElementById(id);
+    if (!modal) return;
+    modal.classList.remove('opacity-100', 'pointer-events-auto');
+    modal.classList.add('opacity-0', 'pointer-events-none');
+    const child = modal.firstElementChild;
+    if (child) {
+      if (child.classList.contains('scale-100')) {
+        child.classList.remove('scale-100');
+        child.classList.add('scale-95');
+      } else {
+        child.classList.remove('translate-y-0');
+        child.classList.add('translate-y-full');
+      }
+    }
+  }
+
+  // Cerrar al pulsar sobre el fondo scrim
+  document.querySelectorAll('[id^="modal-"]').forEach(modal => {
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        closeModal(modal.id);
+      }
+    });
+  });
+</script></main><div class="fixed bottom-0 inset-x-0 z-50 pointer-events-none pb-safe"><div class="px-space-lg pb-space-lg"><nav class="pointer-events-auto h-16 w-full max-w-md mx-auto bg-surface-white/95 backdrop-blur-xl rounded-full shadow-[0_8px_24px_rgba(11,37,69,0.12)] px-space-sm flex items-center justify-between" data-active-classes="bg-secondary-fixed text-primary font-semibold"><a class="flex flex-col items-center justify-center w-12 h-12 rounded-full text-text-secondary hover:text-primary transition-all" data-path="inicio" href="#"><span class="material-symbols-outlined text-[22px]">storefront</span></a><a class="flex flex-col items-center justify-center w-12 h-12 rounded-full text-text-secondary hover:text-primary transition-all" data-path="ventas" href="#"><span class="material-symbols-outlined text-[22px]">receipt_long</span></a><div class="relative -top-2 flex items-center justify-center"><a class="w-12 h-12 rounded-full bg-primary-container text-on-primary flex items-center justify-center shadow-[0_8px_20px_rgba(26,59,176,0.35)] active:scale-95 transition-transform" data-path="kuotear-nuevo" href="#"><span class="material-symbols-outlined text-[24px]">add</span></a></div><a class="flex flex-col items-center justify-center w-12 h-12 rounded-full text-text-secondary hover:text-primary transition-all" data-path="credito" href="#"><span class="material-symbols-outlined text-[22px]">account_balance_wallet</span></a><a aria-current="page" class="flex flex-col items-center justify-center w-12 h-12 rounded-full transition-all bg-secondary-fixed text-primary font-semibold" data-path="mi-perfil-y-negocio" href="#"><span class="material-symbols-outlined text-[22px]">domain</span></a></nav></div></div>
+
+</body></html>

@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+
+<html lang="es"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"/><meta content="mobile_stack" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { colors: { "surface-container-low": "#eff3ff", "surface-container-highest": "#dce3f2", "tertiary": "#1b3253", "on-surface": "#151c27", "primary-container": "#1a3bb0", "on-error": "#ffffff", "tertiary-fixed-dim": "#b1c7f0", "on-primary-fixed": "#001356", "surface-tint": "#3754c7", "surface": "#f9f9ff", "inverse-on-surface": "#ebf1ff", "disabled-track": "rgba(175, 197, 246, 0.50)", "scrim": "rgba(11, 37, 69, 0.40)", "surface-white": "#FFFEFF", "primary-fixed": "#dde1ff", "tertiary-container": "#33496b", "secondary-fixed": "#d8e2ff", "primary-fixed-dim": "#b8c3ff", "on-tertiary-container": "#a2b8e0", "surface-variant": "#dce3f2", "disabled-content": "rgba(11, 37, 69, 0.50)", "on-primary": "#ffffff", "on-tertiary": "#ffffff", "decorative-overlay": "rgba(175, 197, 246, 0.25)", "secondary": "#495e89", "tertiary-fixed": "#d5e3ff", "on-tertiary-fixed": "#001c3b", "inverse-surface": "#29313d", "inverse-primary": "#b8c3ff", "text-secondary": "#4A5F7E", "on-surface-variant": "#444653", "background": "#f9f9ff", "on-secondary-fixed": "#001a41", "on-primary-container": "#a4b3ff", "outline-variant": "#c5c5d6", "on-tertiary-fixed-variant": "#314769", "surface-container": "#e7eefe", "surface-container-high": "#e1e8f8", "surface-bright": "#f9f9ff", "error": "#ba1a1a", "pressed-state": "rgba(11, 37, 69, 0.08)", "secondary-container": "#b6ccfd", "outline": "#757685", "on-secondary-container": "#405680", "on-secondary-fixed-variant": "#304670", "primary": "#00248b", "error-container": "#ffdad6", "on-error-container": "#93000a", "on-background": "#151c27", "on-primary-fixed-variant": "#1839af", "surface-dim": "#d3daea", "surface-container-lowest": "#ffffff", "on-secondary": "#ffffff", "secondary-fixed-dim": "#b1c7f8" }, borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" }, spacing: { "gutter": "0.75rem", "space-lg": "1rem", "space-md": "0.75rem", "margin": "1.25rem", "space-sm": "0.5rem", "space-xs": "0.25rem", "space-xl": "1.5rem" }, fontFamily: { "label": ["Plus Jakarta Sans"], "metric": ["Plus Jakarta Sans"], "body-lg": ["Inter"], "data": ["Inter"], "body-md": ["Inter"], "button": ["Plus Jakarta Sans"], "display": ["Plus Jakarta Sans"], "title": ["Plus Jakarta Sans"], "headline-lg": ["Plus Jakarta Sans"], "headline-md": ["Plus Jakarta Sans"], "caption": ["Inter"] }, fontSize: { "label": ["13px", { "lineHeight": "16px", "letterSpacing": "0.01em", "fontWeight": "600" }], "metric": ["48px", { "lineHeight": "52px", "fontWeight": "700" }], "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }], "data": ["14px", { "lineHeight": "20px", "fontWeight": "500" }], "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }], "button": ["16px", { "lineHeight": "20px", "fontWeight": "600" }], "display": ["40px", { "lineHeight": "44px", "letterSpacing": "-0.02em", "fontWeight": "700" }], "title": ["17px", { "lineHeight": "24px", "fontWeight": "600" }], "headline-lg": ["28px", { "lineHeight": "34px", "letterSpacing": "-0.01em", "fontWeight": "700" }], "headline-md": ["22px", { "lineHeight": "28px", "fontWeight": "600" }], "caption": ["12px", { "lineHeight": "16px", "fontWeight": "400" }] } } } };</script><style>@layer base{html,body{min-height:100%;margin:0;padding:0;background-color:#f9f9ff;}body{overscroll-behavior:y none;-webkit-tap-highlight-color:transparent;}.pb-safe{padding-bottom:env(safe-area-inset-bottom,0px);}.pt-safe{padding-top:env(safe-area-inset-top,0px);}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head><body class="bg-surface font-body-md text-body-md text-on-surface flex flex-col min-h-screen"><header class="fixed top-0 inset-x-0 z-50 bg-surface/85 backdrop-blur-xl pt-safe shadow-[0_1px_8px_rgba(11,37,69,0.04)]"><div class="h-16 px-margin flex items-center justify-between"><button aria-label="Cerrar o volver" class="w-11 h-11 rounded-full flex items-center justify-center text-on-surface hover:bg-pressed-state transition-colors active:scale-95" onclick="history.back()" type="button"><span class="material-symbols-outlined text-[22px]">close</span></button><span class="font-title text-title text-on-surface font-semibold tracking-tight">Resultado Proveedor</span><div class="flex items-center gap-space-xs"><button aria-label="Ayuda de onboarding" class="w-11 h-11 rounded-full flex items-center justify-center text-text-secondary hover:text-on-surface hover:bg-pressed-state transition-colors active:scale-95" type="button"><span class="material-symbols-outlined text-[22px]">help_outline</span></button><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></div></header><main class="flex-1 flex flex-col relative w-full pt-16 pb-safe bg-surface"><div class="flex flex-col w-full px-margin pb-space-xl">
+<!-- Top Navigation & Stepper Sub-header -->
+<div class="flex items-center justify-between py-space-sm">
+<button aria-label="Volver al paso anterior" class="w-11 h-11 rounded-full bg-surface-white flex items-center justify-center text-on-surface shadow-sm active:scale-95 transition-transform" onclick="history.back()" type="button">
+<span class="material-symbols-outlined text-[20px]">arrow_back</span>
+</button>
+<div class="flex items-center gap-space-xs bg-surface-container-high px-3 py-1.5 rounded-full">
+<span class="w-2 h-2 rounded-full bg-outline-variant"></span>
+<span class="w-2.5 h-2.5 rounded-full bg-primary-container"></span>
+<span class="font-label text-label text-primary-container pl-1">Paso 2 de 2</span>
+</div>
+</div>
+<!-- Header & Delightful Graphic -->
+<div class="flex flex-col items-center text-center mt-space-md">
+<div class="relative w-16 h-16 rounded-full bg-secondary-container/40 flex items-center justify-center mb-space-md">
+<div class="w-12 h-12 rounded-full bg-secondary-container flex items-center justify-center shadow-inner">
+<span class="material-symbols-outlined text-primary-container text-[26px]" style="font-variation-settings: 'FILL' 1;">verified_user</span>
+</div>
+<div class="absolute -bottom-0.5 -right-0.5 w-6 h-6 rounded-full bg-surface-white shadow-sm flex items-center justify-center">
+<span class="material-symbols-outlined text-primary-container text-[14px]">lock</span>
+</div>
+</div>
+<h1 class="font-headline-lg text-headline-lg text-on-surface tracking-tight">Confirma tu PIN</h1>
+<p class="font-body-md text-body-md text-text-secondary mt-1 max-w-[280px]">
+      Vuelve a ingresar los 6 dígitos para asegurarnos de que coincidan exactamente.
+    </p>
+</div>
+<!-- 6-Digit PIN Display -->
+<div class="flex justify-center items-center gap-2 mt-space-lg mb-space-sm" id="pin-display-group">
+<div class="pin-cell w-11 h-14 rounded-xl bg-surface-white shadow-sm flex items-center justify-center transition-all duration-150" data-index="0">
+<span class="pin-dot w-3 h-3 rounded-full bg-outline-variant/40 scale-75 transition-all duration-150"></span>
+</div>
+<div class="pin-cell w-11 h-14 rounded-xl bg-surface-white shadow-sm flex items-center justify-center transition-all duration-150" data-index="1">
+<span class="pin-dot w-3 h-3 rounded-full bg-outline-variant/40 scale-75 transition-all duration-150"></span>
+</div>
+<div class="pin-cell w-11 h-14 rounded-xl bg-surface-white shadow-sm flex items-center justify-center transition-all duration-150" data-index="2">
+<span class="pin-dot w-3 h-3 rounded-full bg-outline-variant/40 scale-75 transition-all duration-150"></span>
+</div>
+<div class="pin-cell w-11 h-14 rounded-xl bg-surface-white shadow-sm flex items-center justify-center transition-all duration-150" data-index="3">
+<span class="pin-dot w-3 h-3 rounded-full bg-outline-variant/40 scale-75 transition-all duration-150"></span>
+</div>
+<div class="pin-cell w-11 h-14 rounded-xl bg-surface-white shadow-sm flex items-center justify-center transition-all duration-150" data-index="4">
+<span class="pin-dot w-3 h-3 rounded-full bg-outline-variant/40 scale-75 transition-all duration-150"></span>
+</div>
+<div class="pin-cell w-11 h-14 rounded-xl bg-surface-white shadow-sm flex items-center justify-center transition-all duration-150" data-index="5">
+<span class="pin-dot w-3 h-3 rounded-full bg-outline-variant/40 scale-75 transition-all duration-150"></span>
+</div>
+</div>
+<!-- Dynamic Verification Feedback Status -->
+<div class="h-6 flex items-center justify-center text-center opacity-0 transition-opacity duration-200" id="status-feedback">
+<div class="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-surface-container text-primary-container font-label text-label">
+<span class="material-symbols-outlined text-[16px]">check_circle</span>
+<span>¡Los 6 dígitos coinciden!</span>
+</div>
+</div>
+<!-- End-to-End Encryption Micro-Card -->
+<div class="bg-surface-white rounded-2xl p-space-md shadow-sm flex items-start gap-3 mt-space-xs mb-space-md">
+<div class="w-8 h-8 rounded-lg bg-surface-container-low flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-primary-container text-[18px]">security</span>
+</div>
+<div class="flex flex-col">
+<span class="font-label text-label text-on-surface">Cifrado de grado bancario</span>
+<p class="font-caption text-caption text-text-secondary mt-0.5 leading-snug">
+        Tu PIN se procesa encriptado de extremo a extremo y nunca será visible para el equipo ni terceros.
+      </p>
+</div>
+</div>
+<!-- Numeric Custom Keypad -->
+<div class="grid grid-cols-3 gap-2.5 max-w-[320px] mx-auto w-full my-auto select-none" id="numeric-keypad">
+<button class="key-btn h-14 rounded-2xl bg-surface-white shadow-sm flex flex-col items-center justify-center active:scale-95 active:bg-surface-container-low transition-all" data-val="1" type="button">
+<span class="font-headline-md text-headline-md text-on-surface">1</span>
+</button>
+<button class="key-btn h-14 rounded-2xl bg-surface-white shadow-sm flex flex-col items-center justify-center active:scale-95 active:bg-surface-container-low transition-all" data-val="2" type="button">
+<span class="font-headline-md text-headline-md text-on-surface">2</span>
+</button>
+<button class="key-btn h-14 rounded-2xl bg-surface-white shadow-sm flex flex-col items-center justify-center active:scale-95 active:bg-surface-container-low transition-all" data-val="3" type="button">
+<span class="font-headline-md text-headline-md text-on-surface">3</span>
+</button>
+<button class="key-btn h-14 rounded-2xl bg-surface-white shadow-sm flex flex-col items-center justify-center active:scale-95 active:bg-surface-container-low transition-all" data-val="4" type="button">
+<span class="font-headline-md text-headline-md text-on-surface">4</span>
+</button>
+<button class="key-btn h-14 rounded-2xl bg-surface-white shadow-sm flex flex-col items-center justify-center active:scale-95 active:bg-surface-container-low transition-all" data-val="5" type="button">
+<span class="font-headline-md text-headline-md text-on-surface">5</span>
+</button>
+<button class="key-btn h-14 rounded-2xl bg-surface-white shadow-sm flex flex-col items-center justify-center active:scale-95 active:bg-surface-container-low transition-all" data-val="6" type="button">
+<span class="font-headline-md text-headline-md text-on-surface">6</span>
+</button>
+<button class="key-btn h-14 rounded-2xl bg-surface-white shadow-sm flex flex-col items-center justify-center active:scale-95 active:bg-surface-container-low transition-all" data-val="7" type="button">
+<span class="font-headline-md text-headline-md text-on-surface">7</span>
+</button>
+<button class="key-btn h-14 rounded-2xl bg-surface-white shadow-sm flex flex-col items-center justify-center active:scale-95 active:bg-surface-container-low transition-all" data-val="8" type="button">
+<span class="font-headline-md text-headline-md text-on-surface">8</span>
+</button>
+<button class="key-btn h-14 rounded-2xl bg-surface-white shadow-sm flex flex-col items-center justify-center active:scale-95 active:bg-surface-container-low transition-all" data-val="9" type="button">
+<span class="font-headline-md text-headline-md text-on-surface">9</span>
+</button>
+<button class="h-14 rounded-2xl bg-transparent flex items-center justify-center text-text-secondary active:scale-90 transition-transform" id="btn-clear" type="button">
+<span class="font-label text-label tracking-wide uppercase">Borrar</span>
+</button>
+<button class="key-btn h-14 rounded-2xl bg-surface-white shadow-sm flex flex-col items-center justify-center active:scale-95 active:bg-surface-container-low transition-all" data-val="0" type="button">
+<span class="font-headline-md text-headline-md text-on-surface">0</span>
+</button>
+<button aria-label="Borrar último dígito" class="h-14 rounded-2xl bg-transparent flex items-center justify-center text-on-surface active:scale-90 transition-transform" id="btn-backspace" type="button">
+<span class="material-symbols-outlined text-[24px]">backspace</span>
+</button>
+</div>
+<!-- Primary Action & Fallback Link -->
+<div class="flex flex-col gap-space-sm mt-space-lg w-full">
+<button class="w-full h-14 rounded-full bg-disabled-track text-disabled-content font-button text-button flex items-center justify-center gap-2 shadow-none transition-all duration-200" disabled="" id="confirm-submit-btn" type="button">
+<span>Confirmar y activar PIN</span>
+<span class="material-symbols-outlined text-[20px]">arrow_forward</span>
+</button>
+<button class="w-full py-2.5 text-center font-button text-button text-text-secondary hover:text-on-surface active:opacity-70 transition-opacity" onclick="history.back()" type="button">
+      ¿Olvidaste el PIN que creaste?
+    </button>
+</div>
+</div>
+<script>
+  (function() {
+    const pinCells = document.querySelectorAll('#pin-display-group .pin-cell');
+    const statusFeedback = document.getElementById('status-feedback');
+    const submitBtn = document.getElementById('confirm-submit-btn');
+    const numKeys = document.querySelectorAll('.key-btn');
+    const backspaceBtn = document.getElementById('btn-backspace');
+    const clearBtn = document.getElementById('btn-clear');
+
+    let currentPin = [];
+    const targetLength = 6;
+
+    function renderPinState() {
+      pinCells.forEach((cell, idx) => {
+        const dot = cell.querySelector('.pin-dot');
+        if (idx < currentPin.length) {
+          cell.classList.remove('bg-surface-white');
+          cell.classList.add('bg-surface-container-lowest', 'shadow-md');
+          dot.classList.remove('bg-outline-variant/40', 'scale-75');
+          dot.classList.add('bg-primary-container', 'scale-100');
+        } else {
+          cell.classList.add('bg-surface-white');
+          cell.classList.remove('bg-surface-container-lowest', 'shadow-md');
+          dot.classList.add('bg-outline-variant/40', 'scale-75');
+          dot.classList.remove('bg-primary-container', 'scale-100');
+        }
+      });
+
+      if (currentPin.length === targetLength) {
+        statusFeedback.classList.remove('opacity-0');
+        statusFeedback.classList.add('opacity-100');
+
+        submitBtn.removeAttribute('disabled');
+        submitBtn.classList.remove('bg-disabled-track', 'text-disabled-content');
+        submitBtn.classList.add('bg-primary-container', 'text-on-primary', 'shadow-md', 'active:scale-95');
+      } else {
+        statusFeedback.classList.add('opacity-0');
+        statusFeedback.classList.remove('opacity-100');
+
+        submitBtn.setAttribute('disabled', 'true');
+        submitBtn.classList.add('bg-disabled-track', 'text-disabled-content');
+        submitBtn.classList.remove('bg-primary-container', 'text-on-primary', 'shadow-md', 'active:scale-95');
+      }
+    }
+
+    numKeys.forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (currentPin.length < targetLength) {
+          const val = btn.getAttribute('data-val');
+          currentPin.push(val);
+          renderPinState();
+        }
+      });
+    });
+
+    backspaceBtn.addEventListener('click', () => {
+      if (currentPin.length > 0) {
+        currentPin.pop();
+        renderPinState();
+      }
+    });
+
+    clearBtn.addEventListener('click', () => {
+      if (currentPin.length > 0) {
+        currentPin = [];
+        renderPinState();
+      }
+    });
+
+    submitBtn.addEventListener('click', () => {
+      if (currentPin.length === targetLength) {
+        submitBtn.innerHTML = `
+          <span class="material-symbols-outlined animate-spin text-[20px]">progress_activity</span>
+          <span>Protegiendo cuenta...</span>
+        `;
+        setTimeout(() => {
+          submitBtn.innerHTML = `
+            <span class="material-symbols-outlined text-[20px]">check_circle</span>
+            <span>¡PIN verificado con éxito!</span>
+          `;
+          submitBtn.classList.replace('bg-primary-container', 'bg-tertiary');
+        }, 800);
+      }
+    });
+  })();
+</script></main>
+</body></html>

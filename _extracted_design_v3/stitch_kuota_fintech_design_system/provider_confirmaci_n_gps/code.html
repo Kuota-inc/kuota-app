@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+
+<html class="h-full" lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"/><meta content="mobile_stack" name="shell-type"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;display=swap" rel="stylesheet"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        "colors": {
+          "scrim": "rgba(11, 37, 69, 0.40)",
+          "on-error": "#ffffff",
+          "tertiary-fixed": "#d5e3ff",
+          "surface-container-high": "#e1e8f8",
+          "on-secondary-fixed-variant": "#304670",
+          "on-background": "#151c27",
+          "surface-dim": "#d3daea",
+          "on-primary": "#ffffff",
+          "on-primary-fixed": "#001356",
+          "surface-white": "#FFFEFF",
+          "on-tertiary-container": "#a2b8e0",
+          "primary-fixed-dim": "#b8c3ff",
+          "surface": "#f9f9ff",
+          "on-surface": "#151c27",
+          "surface-bright": "#f9f9ff",
+          "surface-container-low": "#eff3ff",
+          "surface-tint": "#3754c7",
+          "on-secondary": "#ffffff",
+          "outline": "#757685",
+          "on-tertiary-fixed-variant": "#314769",
+          "primary": "#00248b",
+          "text-secondary": "#4A5F7E",
+          "inverse-surface": "#29313d",
+          "surface-container-highest": "#dce3f2",
+          "surface-variant": "#dce3f2",
+          "decorative-overlay": "rgba(175, 197, 246, 0.25)",
+          "secondary-fixed": "#d8e2ff",
+          "on-primary-fixed-variant": "#1839af",
+          "inverse-primary": "#b8c3ff",
+          "on-tertiary": "#ffffff",
+          "on-secondary-container": "#405680",
+          "surface-container": "#e7eefe",
+          "error": "#ba1a1a",
+          "on-error-container": "#93000a",
+          "surface-container-lowest": "#ffffff",
+          "primary-fixed": "#dde1ff",
+          "on-primary-container": "#a4b3ff",
+          "disabled-content": "rgba(11, 37, 69, 0.50)",
+          "secondary-container": "#b6ccfd",
+          "error-container": "#ffdad6",
+          "secondary": "#495e89",
+          "tertiary": "#1b3253",
+          "on-surface-variant": "#444653",
+          "background": "#f9f9ff",
+          "on-tertiary-fixed": "#001c3b",
+          "outline-variant": "#c5c5d6",
+          "inverse-on-surface": "#ebf1ff",
+          "secondary-fixed-dim": "#b1c7f8",
+          "disabled-track": "rgba(175, 197, 246, 0.50)",
+          "tertiary-fixed-dim": "#b1c7f0",
+          "primary-container": "#1a3bb0",
+          "on-secondary-fixed": "#001a41",
+          "pressed-state": "rgba(11, 37, 69, 0.08)",
+          "tertiary-container": "#33496b"
+        },
+        "borderRadius": {
+          "DEFAULT": "0.25rem",
+          "lg": "0.5rem",
+          "xl": "0.75rem",
+          "full": "9999px"
+        },
+        "spacing": {
+          "space-sm": "0.5rem",
+          "margin": "1.25rem",
+          "gutter": "0.75rem",
+          "space-md": "0.75rem",
+          "space-lg": "1rem",
+          "space-xl": "1.5rem",
+          "space-xs": "0.25rem"
+        },
+        "fontFamily": {
+          "display": ["Plus Jakarta Sans"],
+          "headline-lg": ["Plus Jakarta Sans"],
+          "body-lg": ["Inter"],
+          "title": ["Plus Jakarta Sans"],
+          "metric": ["Plus Jakarta Sans"],
+          "body-md": ["Inter"],
+          "headline-md": ["Plus Jakarta Sans"],
+          "label": ["Plus Jakarta Sans"],
+          "button": ["Plus Jakarta Sans"],
+          "caption": ["Inter"],
+          "data": ["Inter"]
+        },
+        "fontSize": {
+          "display": ["40px", {"lineHeight": "44px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+          "headline-lg": ["28px", {"lineHeight": "34px", "letterSpacing": "-0.01em", "fontWeight": "700"}],
+          "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+          "title": ["17px", {"lineHeight": "24px", "fontWeight": "600"}],
+          "metric": ["48px", {"lineHeight": "52px", "fontWeight": "700"}],
+          "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+          "headline-md": ["22px", {"lineHeight": "28px", "fontWeight": "600"}],
+          "label": ["13px", {"lineHeight": "16px", "letterSpacing": "0.01em", "fontWeight": "600"}],
+          "button": ["16px", {"lineHeight": "20px", "fontWeight": "600"}],
+          "caption": ["12px", {"lineHeight": "16px", "fontWeight": "400"}],
+          "data": ["14px", {"lineHeight": "20px", "fontWeight": "500"}]
+        }
+      }
+    }
+  };</script><style>@layer base{html,body{width:100vw;min-height:100%;margin:0;padding:0;background-color:#f9f9ff;}body{overscroll-behavior-y:none;-webkit-tap-highlight-color:transparent;}.pb-safe{padding-bottom:env(safe-area-inset-bottom,0px);}.pt-safe{padding-top:env(safe-area-inset-top,0px);}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head><body class="bg-surface font-body-md text-on-surface antialiased flex flex-col min-h-screen"><header class="fixed top-0 inset-x-0 z-50 bg-surface/80 backdrop-blur-xl pt-safe shadow-[0_1px_8px_rgba(11,37,69,0.04)]"><div class="h-14 px-margin flex items-center justify-between"><button aria-label="Go back" class="w-11 h-11 -ml-space-xs rounded-full flex items-center justify-center text-on-surface hover:bg-pressed-state active:scale-[0.98] transition-all" onclick="history.back()" type="button"><span class="material-symbols-outlined text-[22px]">arrow_back</span></button><h1 class="font-title text-title text-on-surface tracking-tight text-center truncate max-w-[200px]">Personal Profile</h1><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center shrink-0"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></header><main class="flex-1 flex flex-col relative w-full bg-surface pt-14 pb-safe"><div class="flex flex-col w-full">
+<div class="flex flex-col px-margin pt-space-md pb-32">
+<!-- Explanatory Header -->
+<div class="mb-space-lg">
+<div class="inline-flex items-center gap-space-xs px-3 py-1 rounded-full bg-secondary-container text-on-secondary-container mb-space-sm shadow-sm">
+<span class="material-symbols-outlined text-[16px]">storefront</span>
+<span class="font-label text-label tracking-wide uppercase">Paso 4 de 5</span>
+</div>
+<h2 class="font-headline-md text-headline-md text-on-surface tracking-tight mb-space-xs">
+        ¿Dónde opera tu negocio o almacén principal?
+      </h2>
+<p class="font-body-md text-body-md text-text-secondary leading-relaxed">
+        Permite que los comerciantes y clientes cercanos encuentren tus productos o envíos con total precisión.
+      </p>
+</div>
+<!-- Map Preview & GPS Trigger Section -->
+<div class="relative w-full rounded-2xl overflow-hidden bg-surface-container shadow-sm mb-space-lg">
+<!-- Static Location View Map Container -->
+<div class="w-full h-56 bg-cover bg-center relative transition-transform duration-500 ease-out" data-location="Gamarra, La Victoria, Lima, Peru" id="map-canvas" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAX6UdFxitDnAIczdmibNZJwv_CrYbz_y4Jwdke7KjhK3aSo_-H4epxm8yfL9X3Cnf0vJeGsuanb7WC9lEUOQh8Be1T8f3CLcVt56wQwqwc6bd8Wc4wzl-GYeOO3PlMi26ZmSrWVCPfjho3W_dXleKg_COqeWK-AUBUAZM5pMiuP7Je0bH-N2fmxCSJ5aw6brg8E9kYFUjhprbV2VaVniic5a3Hyn1utDEEuH5lSjQ')">
+<!-- Map Overlay Ambient Gradient -->
+<div class="absolute inset-0 bg-gradient-to-b from-primary/10 via-transparent to-primary/20 pointer-events-none"></div>
+<!-- Pulse Ring Behind Main Marker -->
+<div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+<div class="w-16 h-16 rounded-full bg-primary-container/20 animate-ping absolute"></div>
+<div class="w-24 h-24 rounded-full bg-primary/10 absolute"></div>
+</div>
+<!-- Custom Kuota Brand Pin (Centered) -->
+<div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none -mt-6">
+<div class="flex items-center justify-center w-12 h-12 rounded-full bg-primary-container text-on-primary shadow-xl ring-4 ring-surface-white">
+<span class="material-symbols-outlined text-[26px]" style="font-variation-settings: 'FILL' 1;">location_on</span>
+</div>
+<div class="mt-1 px-3 py-0.5 rounded-full bg-surface-white text-primary font-label text-[11px] shadow-md font-semibold tracking-tight">
+            Gamarra / La Victoria, Lima
+          </div>
+</div>
+<!-- Corner Compass/Target Pill Indicator -->
+<div class="absolute top-space-sm right-space-sm bg-surface-white/95 backdrop-blur-md px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-sm">
+<span class="inline-block w-2 h-2 rounded-full bg-primary animate-pulse"></span>
+<span class="font-caption text-caption text-text-secondary font-medium">GPS Activo</span>
+</div>
+</div>
+<!-- Action Button: GPS Recalibrate -->
+<div class="p-space-sm bg-surface-white">
+<button class="w-full h-12 px-space-md rounded-full bg-surface-container-low text-primary flex items-center justify-center gap-2 font-button text-button shadow-sm active:scale-[0.98] transition-all hover:bg-surface-container" id="gps-btn" type="button">
+<span class="material-symbols-outlined text-[20px] transition-transform duration-300" id="gps-icon">my_location</span>
+<span>Usar mi ubicación actual (GPS)</span>
+</button>
+</div>
+</div>
+<!-- Detected Address Form Fields Card -->
+<div class="rounded-2xl bg-surface-white p-space-lg shadow-sm mb-space-lg space-y-space-md">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-xs text-text-secondary">
+<span class="material-symbols-outlined text-[18px]">verified</span>
+<span class="font-label text-label uppercase tracking-wide">Dirección detectada</span>
+</div>
+<button class="font-label text-label text-primary hover:underline" type="button">
+          Ajustar punto
+        </button>
+</div>
+<!-- Main Street Input -->
+<div class="space-y-1">
+<label class="block font-caption text-caption text-text-secondary" for="address-field">
+          Dirección principal / Galería / Puesto
+        </label>
+<div class="relative flex items-center">
+<span class="absolute left-3 text-text-secondary material-symbols-outlined text-[20px]">store</span>
+<input class="w-full h-14 pl-10 pr-4 rounded-xl bg-surface-container-low text-on-surface font-body-md text-body-md focus:bg-surface-white focus:outline-none focus:ring-2 focus:ring-primary transition-all" id="address-field" type="text" value="Jr. Gamarra 840, Galería Santa Rosa Tda. 204"/>
+</div>
+</div>
+<!-- District & City Input -->
+<div class="space-y-1">
+<label class="block font-caption text-caption text-text-secondary" for="district-field">
+          Distrito y Ciudad
+        </label>
+<div class="relative flex items-center">
+<span class="absolute left-3 text-text-secondary material-symbols-outlined text-[20px]">map</span>
+<input class="w-full h-14 pl-10 pr-4 rounded-xl bg-surface-container-low text-on-surface font-body-md text-body-md focus:bg-surface-white focus:outline-none focus:ring-2 focus:ring-primary transition-all" id="district-field" type="text" value="La Victoria, Lima"/>
+</div>
+</div>
+</div>
+<!-- Informational Banner -->
+<div class="rounded-2xl bg-surface-container-low p-space-md flex items-start gap-space-md shadow-sm">
+<div class="w-10 h-10 rounded-full bg-secondary-container flex items-center justify-center shrink-0 text-on-secondary-container mt-0.5">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">shield_with_heart</span>
+</div>
+<div class="flex-1">
+<h4 class="font-title text-[15px] leading-tight text-on-surface font-semibold mb-1">
+          Seguridad de crédito comercial
+        </h4>
+<p class="font-caption text-caption text-text-secondary leading-snug">
+          La geolocalización ayuda a verificar la entrega física de pedidos a crédito, garantizando tasas preferenciales en Kuota.
+        </p>
+</div>
+</div>
+</div>
+<!-- Persistent Bottom Action Area -->
+<div class="fixed bottom-0 inset-x-0 bg-surface-white/95 backdrop-blur-xl p-space-margin shadow-[0_-4px_16px_rgba(11,37,69,0.06)] z-40">
+<div class="max-w-md mx-auto">
+<button class="w-full h-14 rounded-full bg-primary-container text-on-primary font-button text-button flex items-center justify-center gap-space-sm shadow-md active:scale-[0.98] transition-all hover:bg-primary" id="submit-location-btn" type="button">
+<span>Confirmar ubicación y continuar</span>
+<span class="material-symbols-outlined text-[20px]">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+<script>
+  (function() {
+    const gpsBtn = document.getElementById('gps-btn');
+    const gpsIcon = document.getElementById('gps-icon');
+    const addressField = document.getElementById('address-field');
+    const districtField = document.getElementById('district-field');
+    const submitBtn = document.getElementById('submit-location-btn');
+
+    if (gpsBtn && gpsIcon) {
+      gpsBtn.addEventListener('click', function() {
+        gpsIcon.classList.add('animate-spin');
+        gpsBtn.classList.add('opacity-75');
+
+        setTimeout(() => {
+          gpsIcon.classList.remove('animate-spin');
+          gpsBtn.classList.remove('opacity-75');
+          if (addressField && districtField) {
+            addressField.value = 'Jr. Gamarra 840, Galería Santa Rosa Tda. 204';
+            districtField.value = 'La Victoria, Lima (Ubicación verificada)';
+          }
+        }, 800);
+      });
+    }
+
+    if (submitBtn) {
+      submitBtn.addEventListener('click', function() {
+        submitBtn.innerHTML = '<span class="material-symbols-outlined text-[20px] animate-spin">progress_activity</span><span>Guardando ubicación...</span>';
+        setTimeout(() => {
+          submitBtn.innerHTML = '<span class="material-symbols-outlined text-[20px]">check_circle</span><span>Ubicación guardada</span>';
+        }, 1000);
+      });
+    }
+  })();
+</script></main></body></html>

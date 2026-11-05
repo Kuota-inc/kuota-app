@@ -1,0 +1,23 @@
+{
+  "name": "kuota-app",
+  "version": "1.0.0",
+  "description": "Kuota — Fintech de microcrédito y cobros para emprendedores y proveedores en Perú",
+  "scripts": {
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "build:backend": "npm --prefix backend run build",
+    "build:frontend": "npm --prefix frontend run build",
+    "build": "npm run build:backend && npm run build:frontend"
+  },
+  "keywords": [
+    "fintech",
+    "peru",
+    "microcredito",
+    "credito-rotativo",
+    "onboarding",
+    "yape",
+    "plin"
+  ],
+  "author": "Kuota Team",
+  "license": "ISC"
+}
