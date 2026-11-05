@@ -262,15 +262,12 @@ providerRouter.post('/kyc/requests/:publicId/documents', async (req, res) => {
 
   const kyc = await db.prepare('SELECT * FROM kyc_requests WHERE public_id = ?').get(publicId) as any;
   if (kyc) {
+    // Las imágenes del DNI y la selfie no se guardan (Ley 29733); solo el resultado.
     await db.prepare(`
-      UPDATE kyc_requests 
-      SET status = 'APPROVED', current_stage = 'SCORING',
-          dni_front = coalesce(?, dni_front),
-          dni_back = coalesce(?, dni_back),
-          selfie = coalesce(?, selfie),
-          updated_at = utc_now_text()
+      UPDATE kyc_requests
+      SET status = 'APPROVED', current_stage = 'SCORING', decision_status = 'DEMO', updated_at = utc_now_text()
       WHERE id = ?
-    `).run(dni_front || null, dni_back || null, selfie || null, kyc.id);
+    `).run(kyc.id);
   }
 
   res.status(200).json({

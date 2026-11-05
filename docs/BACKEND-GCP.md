@@ -108,3 +108,12 @@ Producción conviene dejarla con aprobación manual, como entorno protegido de G
   - Las credenciales de sandbox.
   - Si piden mTLS o lista de IPs, sus requisitos.
 - **GCP (paso 6):** el proyecto con facturación activa. Tú creas los recursos de la lista anterior, o me das acceso para hacerlo desde `gcloud`.
+
+## KYC con Didit
+
+- **Flujo:** el onboarding crea la solicitud y `POST /onboarding/merchant-kyc/:id/verification` abre una sesión en Didit (`vendor_data` = id de la solicitud, DNI esperado). El usuario fotografía su DNI y hace la prueba de vida en la página de Didit; Didit avisa por `POST /api/v1/webhooks/didit` (firma HMAC-SHA256 en `X-Signature`/`X-Signature-V2`, `X-Timestamp` ±5 min, `event_id` idempotente).
+- **Decisión:** `Approved` con el mismo DNI declarado → nivel Ampliado (`kyc_status = APPROVED`). DNI distinto → rechazado (`DNI_MISMATCH`). `In Review` → en revisión; `Declined`/`Expired`/`Abandoned` → rechazado.
+- **Datos:** Kuota no guarda fotos del DNI ni selfies (migración 0005 borró esas columnas); solo estados y puntajes.
+- **Costo:** sandbox gratis (`sk_test_…`, 500 sesiones/día). Plan gratuito con 10 USD de crédito al mes (~30 verificaciones completas a 0.33 USD).
+- **Sin cuenta:** `npm --prefix backend run didit:mock` levanta un Didit local en http://localhost:3370 con la misma API y webhook. Sin Didit configurado y fuera de producción, la app usa el flujo demo.
+- **Para el Didit real:** crea una cuenta en https://business.didit.me, un workflow de KYC para Perú y un destino de webhook a tu URL pública; pon `DIDIT_API_KEY`, `DIDIT_WORKFLOW_ID`, `DIDIT_WEBHOOK_SECRET` y `DIDIT_BASE_URL=https://verification.didit.me` en `backend/.env`.

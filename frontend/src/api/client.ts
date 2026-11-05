@@ -100,6 +100,9 @@ export const api = {
       body: JSON.stringify(data)
     }),
   getMerchantKycStatus: (requestId: string) => apiRequest(`/onboarding/merchant-kyc/${requestId}`),
+  /** Inicia la verificación real (Didit). provider DEMO = flujo simulado de desarrollo. */
+  startMerchantVerification: (requestId: string) =>
+    apiRequest<{ provider: 'DIDIT' | 'DEMO'; url: string | null; status: string }>(`/onboarding/merchant-kyc/${requestId}/verification`, { method: 'POST' }),
   submitMerchantKycDocuments: (requestId: string, data: { dni_front?: string; dni_back?: string; selfie?: string }) =>
     apiRequest(`/onboarding/merchant-kyc/${requestId}/documents`, {
       method: 'POST',

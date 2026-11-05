@@ -12,7 +12,8 @@
     "migrate": "tsx src/db/migrate-cli.ts",
     "test": "tsx --test test/*.test.ts",
     "typecheck": "tsc --noEmit",
-    "pay360:mock": "tsx tools/pay360-mock.ts"
+    "pay360:mock": "tsx tools/pay360-mock.ts",
+    "didit:mock": "tsx tools/didit-mock.ts"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.10",

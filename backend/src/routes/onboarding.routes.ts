@@ -4,6 +4,8 @@ import { db } from '../db/database.js';
 import { sunatService } from '../services/sunat.service.js';
 import { hashPin, pinProblem } from '../security/crypto.js';
 import { setMerchantPinHash } from '../security/auth.js';
+import { getKycByPublicId, refreshFromProvider, startVerification } from '../services/kyc.service.js';
+import { DiditError, diditEnabled } from '../integrations/didit.js';
 
 export const onboardingRouter = Router();
 
@@ -247,6 +249,32 @@ onboardingRouter.get('/merchant-kyc/:requestId', async (req, res) => {
   }
 
   const merchant = await db.prepare('SELECT * FROM merchant_profiles WHERE session_id = ?').get(kyc.session_id) as any;
+
+  // Verificación real con Didit: el estado sale de su decisión, no de una simulación.
+  if (kyc.provider === 'DIDIT') {
+    const fresh = (await refreshFromProvider(kyc)) as any;
+    const done = (s: string) => (fresh.status === 'APPROVED' ? 'DONE' : fresh.status === 'REJECTED' ? 'FAILED' : s);
+    return res.json({
+      request_id: fresh.public_id,
+      provider: 'DIDIT',
+      status: fresh.status,
+      reason: fresh.decision_reason,
+      progress_pct: fresh.progress_pct,
+      verification_url: fresh.status === 'IN_PROGRESS' ? fresh.verification_url : null,
+      merchant: { dni: merchant?.dni ?? null, full_name: merchant?.full_name ?? null, phone: merchant?.phone ?? null, business_name: merchant?.business_name ?? null },
+      stages: [
+        { type: 'DOCUMENT', status: done('RUNNING'), title: 'Documento de identidad', label: 'DNI leído y validado por Didit' },
+        { type: 'LIVENESS', status: done('RUNNING'), title: 'Prueba de vida y rostro', label: 'Selfie comparada con la foto del DNI' },
+        { type: 'MATCH', status: done('PENDING'), title: 'Coincidencia con tus datos', label: 'El DNI del documento coincide con el que declaraste' }
+      ],
+      result: {
+        status: fresh.status,
+        approved_level: fresh.status === 'APPROVED' ? 1 : null,
+        approved_limit_cents: fresh.status === 'APPROVED' ? 140000 : null,
+        currency: 'PEN'
+      }
+    });
+  }
   const isBusiness = publicId.startsWith('BIZ-') || !!merchant?.ruc;
   const business = merchant?.ruc ? await db.prepare('SELECT * FROM businesses WHERE ruc = ?').get(merchant.ruc) as any : null;
 
@@ -316,22 +344,35 @@ onboardingRouter.get('/merchant-kyc/:requestId', async (req, res) => {
   });
 });
 
-// Subida y Registro de Documentos KYC (DNI Anverso, Reverso y Selfie Biométrico)
+// Inicia la verificación de identidad real (Didit). En modo demo responde provider DEMO.
+onboardingRouter.post('/merchant-kyc/:requestId/verification', async (req, res) => {
+  try {
+    const started = await startVerification(req.params.requestId);
+    if (!started) return res.status(404).json({ error: { code: 'KYC_NOT_FOUND', message: 'Solicitud de verificación no encontrada.' } });
+    if (started.provider === 'DEMO' && process.env.NODE_ENV === 'production') {
+      return res.status(503).json({ error: { code: 'KYC_PROVIDER_REQUIRED', message: 'La verificación de identidad no está disponible.' } });
+    }
+    res.json(started);
+  } catch (e) {
+    if (e instanceof DiditError) {
+      return res.status(502).json({ error: { code: 'KYC_PROVIDER_UNAVAILABLE', message: 'No pudimos iniciar la verificación. Inténtalo en unos minutos.' } });
+    }
+    throw e;
+  }
+});
+
+// Modo demo (sin Didit, fuera de producción): simula la validación. Las imágenes
+// se reciben solo para la demo y NO se guardan (Ley 29733).
 onboardingRouter.post('/merchant-kyc/:requestId/documents', async (req, res) => {
   const publicId = req.params.requestId;
   const { dni_front, dni_back, selfie } = req.body || {};
+  if (diditEnabled() || process.env.NODE_ENV === 'production') {
+    return res.status(409).json({ error: { code: 'USE_IDENTITY_PROVIDER', message: 'Verifica tu identidad desde el enlace seguro de verificación.' } });
+  }
 
-  const kyc = await db.prepare('SELECT * FROM kyc_requests WHERE public_id = ?').get(publicId) as any;
+  const kyc = await getKycByPublicId(publicId);
   if (kyc) {
-    await db.prepare(`
-      UPDATE kyc_requests 
-      SET status = 'APPROVED', current_stage = 'SCORING',
-          dni_front = coalesce(?, dni_front),
-          dni_back = coalesce(?, dni_back),
-          selfie = coalesce(?, selfie),
-          updated_at = utc_now_text()
-      WHERE id = ?
-    `).run(dni_front || null, dni_back || null, selfie || null, kyc.id);
+    await db.prepare("UPDATE kyc_requests SET status = 'APPROVED', current_stage = 'SCORING', decision_status = 'DEMO', updated_at = utc_now_text() WHERE id = ?").run(kyc.id);
   }
 
   res.status(200).json({

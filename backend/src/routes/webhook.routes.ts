@@ -10,7 +10,9 @@ import { clientIp, fail, headerString } from '../security/http.js';
 import { getLinkByToken, publicCode, refreshStatus, tokenFromPublicCode } from '../security/links.js';
 import { evaluateRisk } from '../security/risk.js';
 import { handleGatewayWebhook, signWebhookBody } from '../security/webhook.js';
-import { paymentsDb as db } from '../db/client.js';
+import { paymentsDb as db, db as coreDb } from '../db/client.js';
+import { verifyDiditWebhook } from '../integrations/didit.js';
+import { applyDecision } from '../services/kyc.service.js';
 import { nowIso } from '../security/time.js';
 
 export const webhookRouter = Router();
@@ -27,6 +29,37 @@ webhookRouter.post('/360pay', rateLimit({ name: 'webhook', windowMs: 60_000, max
     ip: clientIp(req)
   });
   res.status(result.status).json(result.body);
+});
+
+// Webhook de Didit (decisión de la verificación de identidad).
+webhookRouter.post('/didit', rateLimit({ name: 'webhook-didit', windowMs: 60_000, max: 300 }), async (req, res) => {
+  const raw = req.rawBody?.toString('utf8') ?? '';
+  const headers = {
+    'x-timestamp': headerString(req, 'x-timestamp'),
+    'x-signature': headerString(req, 'x-signature'),
+    'x-signature-v2': headerString(req, 'x-signature-v2'),
+    'x-signature-previous': headerString(req, 'x-signature-previous'),
+    'x-signature-v2-previous': headerString(req, 'x-signature-v2-previous')
+  };
+  if (!raw || !verifyDiditWebhook(raw, headers)) {
+    await audit({ actorType: 'GATEWAY', actorId: 'didit', action: 'KYC_WEBHOOK_REJECTED', result: 'DENIED', ip: clientIp(req) });
+    return fail(res, 401, 'INVALID_SIGNATURE', 'Firma inválida.');
+  }
+  const body = req.body ?? {};
+  const eventId = typeof body.event_id === 'string' ? body.event_id : `${body.session_id}:${body.status}:${body.timestamp}`;
+  // Didit reintenta con el mismo event_id: se procesa una sola vez.
+  const fresh = await coreDb.run(
+    'INSERT INTO kyc_webhook_events (event_id, session_id, status, received_at) VALUES (?, ?, ?, ?) ON CONFLICT (event_id) DO NOTHING',
+    eventId,
+    body.session_id ?? null,
+    body.status ?? null,
+    nowIso()
+  );
+  if (fresh.changes === 0) return res.json({ received: true, duplicate: true });
+  if (body.webhook_type && body.webhook_type !== 'status.updated') return res.json({ received: true, ignored: body.webhook_type });
+  const result = typeof body.session_id === 'string' && typeof body.status === 'string' ? await applyDecision(body.session_id, body.status, body.decision ?? null) : null;
+  await audit({ actorType: 'GATEWAY', actorId: 'didit', action: 'KYC_DECISION', target: result?.publicId ?? null, result: 'OK', ip: clientIp(req), details: { status: body.status, outcome: result?.outcome ?? null, reason: result?.reason ?? null } });
+  res.json({ received: true, outcome: result?.outcome ?? null });
 });
 
 /**

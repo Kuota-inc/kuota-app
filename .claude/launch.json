@@ -38,6 +38,17 @@
         "pay360:mock"
       ],
       "port": 3360
+    },
+    {
+      "name": "didit-local",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "backend",
+        "run",
+        "didit:mock"
+      ],
+      "port": 3370
     }
   ]
 }

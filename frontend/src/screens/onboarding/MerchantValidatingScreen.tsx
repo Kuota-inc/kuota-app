@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../../api/client';
+import { IdentityVerification } from './IdentityVerification';
 import {
   CheckCircle2,
   ShieldCheck,
@@ -142,7 +143,8 @@ function createSampleKycImages() {
   };
 }
 
-export const MerchantValidatingScreen: React.FC<MerchantValidatingScreenProps> = ({ requestId, onNext }) => {
+/** Flujo simulado (solo desarrollo, sin proveedor de identidad configurado). */
+const DemoValidatingScreen: React.FC<MerchantValidatingScreenProps> = ({ requestId, onNext }) => {
   const [phase, setPhase] = useState<KycPhase>('upload_docs');
 
   // Three required KYC photos
@@ -733,4 +735,28 @@ export const MerchantValidatingScreen: React.FC<MerchantValidatingScreenProps> =
       </div>
     </div>
   );
+};
+
+/** Usa la verificación real (Didit) si el backend la tiene; si no, el flujo demo. */
+export const MerchantValidatingScreen: React.FC<MerchantValidatingScreenProps> = ({ requestId, onNext }) => {
+  const [mode, setMode] = useState<{ provider: 'LOADING' | 'DIDIT' | 'DEMO'; url?: string | null }>({ provider: 'LOADING' });
+  useEffect(() => {
+    let alive = true;
+    api
+      .startMerchantVerification(requestId)
+      .then((r) => alive && setMode({ provider: r.provider, url: r.url }))
+      .catch(() => alive && setMode({ provider: 'DEMO' }));
+    return () => {
+      alive = false;
+    };
+  }, [requestId]);
+  if (mode.provider === 'LOADING') {
+    return (
+      <div className="flex-1 flex items-center justify-center" role="status" aria-label="Preparando verificación">
+        <div className="w-8 h-8 border-[3px] border-[#1a3bb0] border-t-transparent rounded-full motion-safe:animate-spin" />
+      </div>
+    );
+  }
+  if (mode.provider === 'DIDIT' && mode.url) return <IdentityVerification requestId={requestId} url={mode.url} onNext={onNext} />;
+  return <DemoValidatingScreen requestId={requestId} onNext={onNext} />;
 };
