@@ -1,4 +1,10 @@
-const API_BASE = 'http://localhost:3001/api/v1';
+// URL del backend: VITE_API_BASE (p. ej. la IP de la PC en la red Wi-Fi para el APK,
+// ver .env.android); por defecto el backend local de desarrollo.
+export const API_BASE = ((import.meta.env.VITE_API_BASE as string | undefined) || 'http://localhost:3001/api/v1').replace(/\/+$/, '');
+
+// Sin timeout, un backend inalcanzable (celular fuera de la red) dejaría las
+// pantallas cargando indefinidamente.
+const TIMEOUT_MS = 8000;
 
 export async function apiRequest<T = any>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const url = `${API_BASE}${endpoint}`;
@@ -6,17 +12,24 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestInit
     'Content-Type': 'application/json',
     ...(options.headers || {})
   };
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), TIMEOUT_MS);
 
   try {
-    const res = await fetch(url, { ...options, headers });
-    const data = await res.json();
+    const res = await fetch(url, { ...options, headers, signal: options.signal ?? controller.signal });
+    const data = await res.json().catch(() => null);
     if (!res.ok) {
       throw new Error(data?.error?.message || `Error ${res.status}: ${res.statusText}`);
     }
-    return data;
+    return data as T;
   } catch (err: any) {
     console.error(`API Call failed: ${endpoint}`, err);
+    if (err?.name === 'AbortError' || err instanceof TypeError) {
+      throw new Error('No pudimos conectar con Kuota. Revisa tu conexión e inténtalo otra vez.');
+    }
     throw err;
+  } finally {
+    clearTimeout(timer);
   }
 }
 

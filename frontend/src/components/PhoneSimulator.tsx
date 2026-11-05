@@ -11,7 +11,13 @@ interface PhoneSimulatorProps {
   activeTab?: string;
   onTabChange?: (tab: string) => void;
   showBottomNav?: boolean;
+  /** Teléfono real (APK / navegador móvil): pantalla completa, sin marco ni barra de estado simulada. */
+  bare?: boolean;
 }
+
+// Zonas seguras de Android/iOS: Capacitor inyecta --safe-area-inset-*; en navegador, env().
+const SAFE_TOP = 'var(--safe-area-inset-top, env(safe-area-inset-top, 0px))';
+const SAFE_BOTTOM = 'var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px))';
 
 export const PhoneSimulator: React.FC<PhoneSimulatorProps> = ({
   children,
@@ -22,23 +28,36 @@ export const PhoneSimulator: React.FC<PhoneSimulatorProps> = ({
   activeTab = 'inicio',
   onTabChange,
   showBottomNav = true,
+  bare = false,
 }) => {
   const isMerchantOnboarding = currentScreenKey.startsWith('onboarding_merchant');
   const isProviderOnboarding = currentScreenKey.startsWith('onboarding_provider');
 
   return (
-    <div className="relative w-[390px] h-[812px] max-h-[92vh] bg-slate-950 rounded-[44px] p-2.5 shadow-2xl border-[7px] border-slate-900 flex flex-col overflow-hidden select-none">
+    <div
+      className={
+        bare
+          ? 'fixed inset-0 w-full h-[100dvh] bg-[#f9f9ff] flex flex-col overflow-hidden select-none'
+          : 'relative w-[390px] h-[812px] max-h-[92vh] bg-slate-950 rounded-[44px] p-2.5 shadow-2xl border-[7px] border-slate-900 flex flex-col overflow-hidden select-none'
+      }
+    >
       {/* Android Center Camera Punch-hole */}
-      <div className="absolute top-2.5 left-1/2 -translate-x-1/2 w-3.5 h-3.5 rounded-full bg-black ring-1 ring-slate-800/60 z-50 flex items-center justify-center pointer-events-none shadow-xs">
-        <div className="w-1.5 h-1.5 rounded-full bg-[#0a1120] ring-1 ring-slate-900"></div>
-      </div>
+      {!bare && (
+        <div className="absolute top-2.5 left-1/2 -translate-x-1/2 w-3.5 h-3.5 rounded-full bg-black ring-1 ring-slate-800/60 z-50 flex items-center justify-center pointer-events-none shadow-xs">
+          <div className="w-1.5 h-1.5 rounded-full bg-[#0a1120] ring-1 ring-slate-900"></div>
+        </div>
+      )}
 
       {/* Screen Content Wrapper.
           El transform lo convierte en el bloque contenedor de todo `position: fixed`:
           modales, sheets y toasts quedan dentro de la pantalla del teléfono (no del
           navegador) y fijos aunque el contenido haga scroll. */}
-      <div className="relative w-full h-full bg-[#f9f9ff] rounded-[34px] flex flex-col overflow-hidden text-[#151c27] [transform:translateZ(0)]">
-        {/* Android Material Status Bar */}
+      <div
+        className={`relative w-full h-full bg-[#f9f9ff] flex flex-col overflow-hidden text-[#151c27] [transform:translateZ(0)] ${bare ? '' : 'rounded-[34px]'}`}
+        style={bare ? { paddingTop: SAFE_TOP } : undefined}
+      >
+        {/* Android Material Status Bar (solo en el simulador; el teléfono real tiene la suya) */}
+        {!bare && (
         <div aria-hidden="true" className="pt-2 px-5 pb-1 flex justify-between items-center text-[11px] font-semibold select-none text-slate-800 z-40 bg-transparent">
           <span className="font-bold tracking-tight">12:30</span>
           <div className="flex items-center gap-1.5 text-slate-700">
@@ -50,6 +69,7 @@ export const PhoneSimulator: React.FC<PhoneSimulatorProps> = ({
             </div>
           </div>
         </div>
+        )}
 
         {/* Top Header if back button is needed */}
         {showBack && (
@@ -161,10 +181,14 @@ export const PhoneSimulator: React.FC<PhoneSimulatorProps> = ({
           </nav>
         )}
 
-        {/* Home Indicator Bar */}
-        <div aria-hidden="true" className="w-full flex justify-center pb-2 pt-1 bg-white">
-          <div className="w-32 h-1 bg-slate-300 rounded-full"></div>
-        </div>
+        {/* Home Indicator Bar (simulador) / zona segura inferior (teléfono real) */}
+        {bare ? (
+          <div aria-hidden="true" className="w-full bg-white shrink-0" style={{ height: SAFE_BOTTOM }} />
+        ) : (
+          <div aria-hidden="true" className="w-full flex justify-center pb-2 pt-1 bg-white">
+            <div className="w-32 h-1 bg-slate-300 rounded-full"></div>
+          </div>
+        )}
       </div>
     </div>
   );

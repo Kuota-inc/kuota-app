@@ -71,6 +71,22 @@ npm run dev
 # Aplicación disponible en http://localhost:5173/
 ```
 
+En una pantalla de celular (o con `?device=1`) la app se muestra a pantalla completa, sin el
+marco del simulador ni el panel de pantallas.
+
+### 2b. Generar el APK de Android (Capacitor)
+Requiere JDK 21 y el Android SDK (con `ANDROID_HOME` o `frontend/android/local.properties`).
+El celular llama al backend por la Wi-Fi, así que primero crea `frontend/.env.android` (no se
+versiona) con la IP de la PC:
+```bash
+echo "VITE_API_BASE=http://<ip-de-tu-pc>:3001/api/v1" > frontend/.env.android
+cd frontend
+npm run apk
+# APK en frontend/android/app/build/outputs/apk/debug/app-debug.apk
+```
+El APK de depuración sirve para instalarlo directo en el celular (no para la Play Store). El
+backend debe estar corriendo en la misma red; sin conexión, la app muestra datos de ejemplo.
+
 ### 3. Probar los Endpoints del Backend con cURL o PowerShell
 ```powershell
 # Estado del servicio

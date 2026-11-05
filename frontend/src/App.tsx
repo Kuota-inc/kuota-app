@@ -1,4 +1,7 @@
-import React, { lazy, Suspense, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { Capacitor } from '@capacitor/core';
+import { App as NativeApp } from '@capacitor/app';
+import { useDeviceMode } from './hooks/useDeviceMode';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PhoneSimulator } from './components/PhoneSimulator';
 import { HomeScreen } from './screens/dashboard/HomeScreen';
@@ -46,6 +49,7 @@ function AppShell() {
   const [providerRequestId, setProviderRequestId] = useState<string>('PRV-89420-PE');
   const [pinInitialStep, setPinInitialStep] = useState<'create' | 'confirm'>('create');
   const [pinOrigin, setPinOrigin] = useState<'MERCHANT' | 'PROVIDER'>('MERCHANT');
+  const device = useDeviceMode();
 
   // Handle Role selection from Welcome Screen (PRD 01)
   const handleSelectRole = (role: 'MERCHANT' | 'PROVIDER', newSessionId: string) => {
@@ -113,6 +117,35 @@ function AppShell() {
         setCurrentScreen('welcome');
     }
   };
+
+  const showBack = currentScreen !== 'welcome' && currentScreen !== 'dashboard' && currentScreen !== 'profile';
+
+  // Botón Atrás de Android: cierra el diálogo abierto, retrocede un paso, vuelve
+  // al Inicio o, desde el Inicio, sale de la app.
+  const backRef = useRef<() => void>(() => {});
+  useEffect(() => {
+    backRef.current = () => {
+      if (document.querySelector('[role="dialog"]')) {
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      } else if (isKuotearOpen) {
+        setIsKuotearOpen(false);
+      } else if (showBack) {
+        handleBack();
+      } else if (currentScreen !== 'dashboard' || activeTab !== 'inicio') {
+        setCurrentScreen('dashboard');
+        setActiveTab('inicio');
+      } else {
+        NativeApp.exitApp();
+      }
+    };
+  });
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    const sub = NativeApp.addListener('backButton', () => backRef.current());
+    return () => {
+      sub.then((h) => h.remove());
+    };
+  }, []);
 
   // Reset to initial screen
   const handleReset = () => {
@@ -355,7 +388,8 @@ function AppShell() {
               setActiveTab(tab);
             }
           }}
-          showBack={currentScreen !== 'welcome' && currentScreen !== 'dashboard' && currentScreen !== 'profile'}
+          showBack={showBack}
+          bare={device}
           activeScreenTitle=""
           onBack={handleBack}
         >
@@ -395,6 +429,8 @@ function AppShell() {
         </PhoneSimulator>
       </div>
 
+      {!device && (
+        <>
       {/* Control Panel / Screen Selector for Testing All 16 PRD Screens */}
       <div className="w-full max-w-md bg-slate-800/90 backdrop-blur rounded-3xl p-5 border border-slate-700 text-white shadow-2xl space-y-4">
         <div className="flex items-center justify-between border-b border-slate-700 pb-3">
@@ -674,6 +710,8 @@ function AppShell() {
           <span className="text-[10px] bg-slate-700 px-2 py-0.5 rounded text-slate-300">PEN (Soles)</span>
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 }
