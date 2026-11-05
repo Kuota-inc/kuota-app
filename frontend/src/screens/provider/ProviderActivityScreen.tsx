@@ -37,8 +37,8 @@ export const ProviderActivityScreen: React.FC<ProviderActivityScreenProps> = ({ 
   const toast = useToast();
   const [categories, setCategories] = useState(DEFAULT_PROVIDER_CATEGORIES);
   const [seniorities, setSeniorities] = useState(DEFAULT_PROVIDER_SENIORITIES);
-  const [category, setCategory] = useState<string>('TEXTILES');
-  const [seniority, setSeniority] = useState<string>('1Y_3Y');
+  const [category, setCategory] = useState<string>('');
+  const [seniority, setSeniority] = useState<string>('');
   const [saving, setSaving] = useState<boolean>(false);
 
   useEffect(() => {
@@ -91,7 +91,7 @@ export const ProviderActivityScreen: React.FC<ProviderActivityScreenProps> = ({ 
         {/* Progress Bar */}
         <div className="space-y-1 pt-0.5">
           <div className="flex justify-between items-center text-xs font-semibold text-[#4a5f7e]">
-            <span>Paso 3 de 5</span>
+            <span>Paso 3 de 6</span>
             <span className="text-[#1a3bb0] font-bold">Actividad Comercial</span>
           </div>
           <div className="h-1.5 w-full bg-[#e1e8f8] rounded-full overflow-hidden">
@@ -190,7 +190,7 @@ export const ProviderActivityScreen: React.FC<ProviderActivityScreenProps> = ({ 
           whileTap={{ scale: 0.97 }}
           whileHover={{ scale: 1.01 }}
           onClick={handleContinue}
-          disabled={saving}
+          disabled={saving || !category || !seniority}
           className="w-full py-3.5 px-4 bg-gradient-to-r from-[#00248b] to-[#1a3bb0] hover:from-[#1a3bb0] hover:to-[#00248b] text-white rounded-2xl font-black text-sm shadow-lg shadow-blue-900/25 transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-75"
         >
           <span>{saving ? 'Guardando actividad...' : 'Confirmar y continuar a ubicación'}</span>

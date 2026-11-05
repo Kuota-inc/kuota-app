@@ -54,7 +54,9 @@ onboardingRouter.post('/sessions', async (req, res) => {
   });
 });
 
-// Consulta RENIEC para autocompletar y verificar identidad de personas peruanas
+// Sugerencia de nombre por DNI. NO es una consulta a RENIEC (requiere convenio o un
+// proveedor autorizado): solo conoce los DNI de demostración y nunca inventa nombres.
+// La identidad real se verifica después con Didit (documento + prueba de vida).
 const DNI_NAMES: Record<string, string> = {
   '47891234': 'CARLOS ALBERTO MENDOZA QUISPE',
   '70123456': 'MARÍA FERNANDA ROJAS SILVA',
@@ -64,31 +66,17 @@ const DNI_NAMES: Record<string, string> = {
   '72345678': 'LILIANA BEATRIZ ZÚÑIGA SÁNCHEZ'
 };
 
-const FIRST_NAMES = ['CARLOS', 'JUAN', 'JORGE', 'MIGUEL', 'MARÍA', 'ANA', 'LILIANA', 'ROSA', 'LUIS', 'VICTOR'];
-const LAST_NAMES = ['MENDOZA', 'QUISPE', 'ROJAS', 'SILVA', 'FLORES', 'MAMANI', 'CHAVEZ', 'HUAMAN', 'CASTILLO', 'TORRES'];
-
 onboardingRouter.get('/reniec/:dni', (req, res) => {
   const dni = req.params.dni;
   if (!dni || !/^\d{8}$/.test(dni)) {
     return res.status(422).json({ error: { code: 'DNI_INVALID', message: 'El DNI debe tener 8 dígitos numéricos.' } });
   }
 
-  let fullName = DNI_NAMES[dni];
+  const fullName = process.env.NODE_ENV === 'production' ? undefined : DNI_NAMES[dni];
   if (!fullName) {
-    const num = parseInt(dni, 10);
-    const n1 = FIRST_NAMES[num % FIRST_NAMES.length];
-    const a1 = LAST_NAMES[(num >> 2) % LAST_NAMES.length];
-    const a2 = LAST_NAMES[(num >> 4) % LAST_NAMES.length];
-    fullName = `${n1} ${a1} ${a2}`;
+    return res.status(404).json({ error: { code: 'DNI_NOT_FOUND', message: 'No tenemos un nombre sugerido para ese DNI.' } });
   }
-
-  res.json({
-    success: true,
-    dni,
-    full_name: fullName,
-    status: 'HÁBIL',
-    source: 'RENIEC_PADRON_OFICIAL'
-  });
+  res.json({ success: true, dni, full_name: fullName, source: 'DEMO' });
 });
 
 // Solicitud de datos de identidad del Emprendedor (Soporta Personal [KYC] y Business [KYB + KYC])
@@ -320,11 +308,12 @@ onboardingRouter.get('/merchant-kyc/:requestId', async (req, res) => {
 
   const approvedLimitCents = isBusiness ? 1500000 : 140000; // S/ 15,000 para Business vs S/ 1,400 para Personal
 
+  // Modo demo: refleja el estado real de la solicitud (no se da por aprobada antes de validar).
   res.json({
     request_id: kyc.public_id,
     account_type: isBusiness ? 'BUSINESS' : 'PERSONAL',
-    status: 'APPROVED',
-    progress_pct: 100,
+    status: kyc.status,
+    progress_pct: kyc.status === 'APPROVED' ? 100 : kyc.progress_pct,
     merchant: {
       dni: merchant?.dni || '47891234',
       full_name: merchant?.full_name || 'CARLOS ALBERTO MENDOZA QUISPE',
@@ -335,7 +324,7 @@ onboardingRouter.get('/merchant-kyc/:requestId', async (req, res) => {
     business: business || null,
     stages,
     result: {
-      status: 'APPROVED',
+      status: kyc.status,
       approved_limit_cents: approvedLimitCents,
       approved_level: isBusiness ? 4 : 1,
       currency: 'PEN',
@@ -506,10 +495,15 @@ onboardingRouter.post('/sessions/:id/complete', async (req, res) => {
 
   let merchant = await db.prepare('SELECT * FROM merchant_profiles WHERE session_id = ?').get(sessionId) as any;
   if (!merchant) {
+    // Sin datos de identidad no hay cuenta. Solo el simulador de escritorio (fuera de
+    // producción) puede saltar directo aquí: se crea un perfil demo SIN verificar.
+    if (process.env.NODE_ENV === 'production') {
+      return res.status(409).json({ error: { code: 'IDENTITY_REQUIRED', message: 'Completa tus datos de identidad antes de terminar el registro.' } });
+    }
     const merchantId = 'mer_' + uuidv4().substring(0, 10);
     await db.prepare(`
       INSERT INTO merchant_profiles (id, session_id, dni, full_name, phone, business_name, category, seniority_range, kyc_status)
-      VALUES (?, ?, '47891234', 'CARLOS ALBERTO MENDOZA QUISPE', '987654321', 'Bodega San Martín', 'FOOD', 'CONSOLIDATED', 'APPROVED')
+      VALUES (?, ?, '47891234', 'CARLOS ALBERTO MENDOZA QUISPE', NULL, 'Bodega San Martín', 'FOOD', 'CONSOLIDATED', 'PENDING')
     `).run(merchantId, sessionId);
     merchant = await db.prepare('SELECT * FROM merchant_profiles WHERE id = ?').get(merchantId) as any;
   }
@@ -526,8 +520,8 @@ onboardingRouter.post('/sessions/:id/complete', async (req, res) => {
       already_completed: true,
       welcome_summary: {
         business: {
-          name: merchant.business_name || 'Bodega San Martín',
-          ruc: merchant.ruc || '10458923011',
+          name: merchant.business_name || 'Mi Negocio Kuota',
+          ruc: merchant.ruc || null,
           city: 'Lima',
           status: 'ACTIVE'
         },
@@ -547,7 +541,9 @@ onboardingRouter.post('/sessions/:id/complete', async (req, res) => {
   }
 
   const userId = 'usr_' + uuidv4().substring(0, 10);
-  const phone = req.body.phone || '+519' + Math.floor(10000000 + Math.random() * 90000000);
+  // El celular es el que el comercio registró en el paso de identidad.
+  const declared = String(req.body.phone || merchant.phone || '').replace(/\D/g, '').slice(-9);
+  const phone = declared.length === 9 ? `+51${declared}` : '+519' + Math.floor(10000000 + Math.random() * 90000000);
   if (await db.prepare('SELECT 1 FROM users WHERE phone = ?').get(phone)) {
     return res.status(409).json({
       error: { code: 'PHONE_ALREADY_REGISTERED', message: 'Este celular ya tiene una cuenta Kuota. Ingresa con tu PIN o usa otro número.' }
@@ -557,7 +553,7 @@ onboardingRouter.post('/sessions/:id/complete', async (req, res) => {
   await db.prepare(`
     INSERT INTO users (id, phone, role, status, first_name, last_name, terms_accepted_at, privacy_accepted_at)
     VALUES (?, ?, 'MERCHANT', 'ACTIVE', ?, 'Comerciante', utc_now_text(), utc_now_text())
-  `).run(userId, phone, req.body.first_name || 'Emprendedor');
+  `).run(userId, phone, req.body.first_name || String(merchant.full_name || 'Emprendedor').split(' ')[0]);
 
   await db.prepare(`
     UPDATE merchant_profiles
@@ -574,6 +570,8 @@ onboardingRouter.post('/sessions/:id/complete', async (req, res) => {
 
   // Link products to merchant_id
   await db.prepare('UPDATE products SET merchant_id = ? WHERE session_id = ?').run(merchant.id, sessionId);
+  // Releer: el resumen debe mostrar el nombre y el RUC ya guardados.
+  merchant = await db.prepare('SELECT * FROM merchant_profiles WHERE id = ?').get(merchant.id) as any;
 
   // Create Initial Credit Line: S/ 1,400.00 (140,000 cents), Nivel 1 Brote
   const lineId = 'line_' + uuidv4().substring(0, 10);
@@ -599,7 +597,7 @@ onboardingRouter.post('/sessions/:id/complete', async (req, res) => {
     welcome_summary: {
       business: {
         name: merchant.business_name || 'Mi Negocio Kuota',
-        ruc: merchant.ruc || '10458923011',
+        ruc: merchant.ruc || null,
         city: 'Lima',
         status: 'ACTIVE'
       },

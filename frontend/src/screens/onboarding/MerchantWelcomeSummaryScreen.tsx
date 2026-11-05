@@ -33,25 +33,53 @@ export const MerchantWelcomeSummaryScreen: React.FC<MerchantWelcomeSummaryScreen
   sessionId,
   onGoToDashboard
 }) => {
-  const [data, setData] = useState<any>(DEFAULT_WELCOME_DATA);
+  // Datos reales del comercio que se acaba de registrar (sin valores de demostración).
+  const [data, setData] = useState<any>(null);
   const [providers, setProviders] = useState<any[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
+    let alive = true;
     api
-      .completeOnboarding(sessionId, { business_name: 'Bodega San Martín' })
+      .completeOnboarding(sessionId, {})
       .then((res) => {
-        setData(res.welcome_summary);
-        return api.getRecommendedProviders();
+        if (!alive) return;
+        setData(res.welcome_summary ?? DEFAULT_WELCOME_DATA);
+        return api.getRecommendedProviders().then((provs) => alive && setProviders(provs));
       })
-      .then((provs) => {
-        setProviders(provs);
-      })
-      .catch((err) => {
-        console.error(err);
-        api.getWelcomeSummary().then(setData).catch(console.error);
-        api.getRecommendedProviders().then(setProviders).catch(console.error);
-      });
-  }, [sessionId]);
+      .catch((err) => alive && setError(err?.message || 'No pudimos terminar tu registro.'));
+    return () => {
+      alive = false;
+    };
+  }, [sessionId, attempt]);
+
+  if (!data) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center gap-3 p-6 bg-[#f9f9ff] text-center" role="status">
+        {error ? (
+          <>
+            <p className="text-sm font-bold text-[#0b2545]">{error}</p>
+            <button
+              type="button"
+              onClick={() => {
+                setError(null);
+                setAttempt((n) => n + 1);
+              }}
+              className="px-5 h-11 rounded-full bg-[#1a3bb0] text-white text-sm font-bold cursor-pointer"
+            >
+              Reintentar
+            </button>
+          </>
+        ) : (
+          <>
+            <div className="w-8 h-8 border-[3px] border-[#1a3bb0] border-t-transparent rounded-full motion-safe:animate-spin" />
+            <p className="text-xs text-[#4a5f7e]">Activando tu cuenta…</p>
+          </>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 flex flex-col justify-between p-5 bg-[#f9f9ff]">
@@ -59,7 +87,7 @@ export const MerchantWelcomeSummaryScreen: React.FC<MerchantWelcomeSummaryScreen
         {/* Step indicator */}
         <div className="space-y-1.5 pt-1">
           <div className="flex justify-between items-center text-xs font-semibold text-[#4a5f7e]">
-            <span>Paso 3 de 3</span>
+            <span>Paso 5 de 5</span>
             <span className="text-emerald-700 font-bold flex items-center gap-1">
               <CheckCircle2 size={13} />
               Perfil Verificado
@@ -111,10 +139,10 @@ export const MerchantWelcomeSummaryScreen: React.FC<MerchantWelcomeSummaryScreen
             </div>
             <div>
               <div className="text-xs font-bold text-[#0b2545]">
-                {data?.business?.name || 'Bodega San Martín'}
+                {data?.business?.name || 'Mi negocio'}
               </div>
               <div className="text-[10px] text-[#4a5f7e]">
-                RUC {data?.business?.ruc || '10458923011'} · {data?.business?.city || 'Lima, PE'}
+                {data?.business?.ruc ? `RUC ${data.business.ruc}` : 'RUC en trámite'} · {data?.business?.city || 'Lima, PE'}
               </div>
             </div>
           </div>

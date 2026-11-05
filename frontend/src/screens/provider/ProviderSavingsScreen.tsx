@@ -12,8 +12,8 @@ interface ProviderSavingsScreenProps {
 export const ProviderSavingsScreen: React.FC<ProviderSavingsScreenProps> = ({ onFinish }) => {
   const toast = useToast();
   const [savings, setSavings] = useState<any>(null);
-  const [cci, setCci] = useState<string>('00219400123456789012');
-  const [bank] = useState<string>('BCP');
+  const [cci, setCci] = useState<string>('');
+  const [bank, setBank] = useState<string>('BCP');
   const [activating, setActivating] = useState<boolean>(false);
   const [savedCci, setSavedCci] = useState<boolean>(false);
 
@@ -27,7 +27,7 @@ export const ProviderSavingsScreen: React.FC<ProviderSavingsScreenProps> = ({ on
       return;
     }
     try {
-      await api.saveSettlementAccount({ bank, cci, holder_name: 'Empresa Titular', holder_doc: '20601234567' });
+      await api.saveSettlementAccount({ bank, cci });
       setSavedCci(true);
     } catch (err: any) {
       toast.error(err.message || 'Error al guardar cuenta');
@@ -142,6 +142,21 @@ export const ProviderSavingsScreen: React.FC<ProviderSavingsScreenProps> = ({ on
             {savedCci && (
               <span className="text-[10px] text-emerald-700 font-bold">✓ Guardado</span>
             )}
+          </div>
+          <div className="flex gap-2 mb-2">
+            <select
+              value={bank}
+              onChange={(e) => setBank(e.target.value)}
+              aria-label="Banco"
+              className="text-xs font-bold text-[#0b2545] p-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none"
+            >
+              <option value="BCP">BCP</option>
+              <option value="BBVA">BBVA</option>
+              <option value="INTERBANK">Interbank</option>
+              <option value="SCOTIABANK">Scotiabank</option>
+              <option value="BN">Banco de la Nación</option>
+              <option value="OTRO">Otro banco</option>
+            </select>
           </div>
           <div className="flex gap-2">
             <input

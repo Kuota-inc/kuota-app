@@ -147,39 +147,8 @@ creditRouter.get('/purchases/active', async (req, res) => {
     `).get(merchant.id) as any;
   }
 
-  if (!purchase) {
-    return res.json({
-      id: 'pur_active_01',
-      plan: 'Plan 3X',
-      status: 'ACTIVE_ON_TIME',
-      provider: {
-        id: 'prov_donlucho',
-        name: 'Confecciones Don Lucho & Hnos. S.A.C.',
-        address: 'Galería Santa Rosa, Tda. 204 - Jr. Gamarra 840, La Victoria',
-        phone: '+51 984 521 893'
-      },
-      total_cents: 23600,
-      down_payment_cents: 11800,
-      down_payment_pct: 50,
-      financed_cents: 11800,
-      installments_count: 3,
-      amortized_pct: 67,
-      installments: [
-        { id: 'inst_01', number: 1, amount_cents: 4326, principal_cents: 3933, interest_cents: 393, due_date: '2026-10-31', status: 'PAID' },
-        { id: 'inst_02', number: 2, amount_cents: 4326, principal_cents: 3933, interest_cents: 393, due_date: '2026-11-07', status: 'PENDING' },
-        { id: 'inst_03', number: 3, amount_cents: 4326, principal_cents: 3934, interest_cents: 392, due_date: '2026-11-21', status: 'PENDING' }
-      ],
-      next_installment: {
-        id: 'inst_02',
-        number: 2,
-        total: 3,
-        due_date: '07 Nov 2026',
-        amount_cents: 4326
-      },
-      receipt_number: 'KQ-REC-8921-PE',
-      issued_at: '2026-10-24'
-    });
-  }
+  // Sin compras: la app muestra el estado vacío (nunca una compra de demostración).
+  if (!purchase) return res.json(null);
 
   const installments = await db.prepare(`
     SELECT * FROM installments WHERE purchase_id = ? ORDER BY number ASC

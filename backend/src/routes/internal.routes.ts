@@ -2,7 +2,7 @@
 // verificación de la bitácora, reglas y listas antifraude, cola de revisión,
 // revocación masiva de sesiones e interruptores de funciones.
 import { Router } from 'express';
-import { paymentsDb as db } from '../db/client.js';
+import { paymentsDb as db, db as coreDb } from '../db/client.js';
 import { secrets } from '../security/config.js';
 import { audit, recentAudit, verifyAuditChain } from '../security/audit.js';
 import { revokeSessions } from '../security/auth.js';
@@ -152,6 +152,20 @@ internalRouter.post('/risk/reviews/:linkId/resolve', async (req, res) => {
 });
 
 internalRouter.get('/risk/metrics', async (_req, res) => res.json(await riskMetrics()));
+
+// ------------------------------------------------------------------- KYC
+// Cola de verificaciones de identidad (Didit) para operaciones: estado, motivo y resumen.
+internalRouter.get('/kyc', async (req, res) => {
+  const status = typeof req.query.status === 'string' ? req.query.status.toUpperCase() : null;
+  const rows = await coreDb.all(
+    `SELECT k.public_id, k.status, k.provider, k.provider_session_id, k.decision_status, k.decision_reason,
+            k.decision_summary_json, k.created_at, k.verified_at, m.business_name, m.dni
+     FROM kyc_requests k LEFT JOIN merchant_profiles m ON m.session_id = k.session_id
+     ${status ? 'WHERE k.status = ?' : ''} ORDER BY k.created_at DESC LIMIT 50`,
+    ...(status ? [status] : [])
+  );
+  res.json({ data: rows.map(({ decision_summary_json, ...r }: any) => ({ ...r, summary: decision_summary_json ? JSON.parse(decision_summary_json) : null })) });
+});
 
 // ------------------------------------------------------- respuesta a incidentes
 internalRouter.post('/sessions/revoke', async (req, res) => {

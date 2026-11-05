@@ -338,7 +338,7 @@ const DemoValidatingScreen: React.FC<MerchantValidatingScreenProps> = ({ request
           </h1>
           <p className="text-xs text-[#4a5f7e] mt-0.5 max-w-xs mx-auto leading-relaxed">
             {phase === 'approved'
-              ? 'Tus documentos y biometría fueron verificados exitosamente con RENIEC.'
+              ? 'Validación de demostración completada (entorno de pruebas).'
               : phase === 'validating'
               ? 'Analizando DNI anverso, reverso y biometría facial con inteligencia artificial.'
               : 'Sube fotos de tu DNI por ambos lados y una selfie para activar tu línea de crédito.'}
@@ -729,7 +729,7 @@ const DemoValidatingScreen: React.FC<MerchantValidatingScreenProps> = ({ request
         ) : (
           <div className="text-center py-2 text-xs font-bold text-[#1a3bb0] flex items-center justify-center gap-2">
             <RefreshCw size={14} className="animate-spin" />
-            <span>Validando documentos en RENIEC...</span>
+            <span>Validando documentos (demostración)…</span>
           </div>
         )}
       </div>

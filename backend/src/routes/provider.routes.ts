@@ -155,11 +155,14 @@ providerRouter.post('/businesses/confirm', async (req, res) => {
     VALUES (?, ?, ?, ?, 'IN_PROGRESS', 78)
   `).run(requestId, provId, session_id || 'ses_anon', publicId);
 
+  const finalProvId = existingProv ? existingProv.id : provId;
+
   res.status(201).json({
     success: true,
     message: '¡Negocio identificado y registrado con éxito!',
     business_id: businessId,
     request_id: publicId,
+    provider_id: finalProvId,
     data: d,
     next_step: 'provider_validating'
   });
@@ -217,40 +220,32 @@ providerRouter.post('/kyc/requests', async (req, res) => {
 // PRD 12: Estado de validación asíncrona
 providerRouter.get('/kyc/requests/:publicId', async (req, res) => {
   const publicId = req.params.publicId;
-  const kyc = await db.prepare('SELECT * FROM kyc_requests WHERE public_id = ?').get(publicId) as any;
+  const row = await db.prepare(`
+    SELECT kr.*, pp.legal_name, pp.legal_rep_dni, pp.approved_limit_cents
+    FROM kyc_requests kr
+    LEFT JOIN provider_profiles pp ON pp.id = kr.provider_id
+    WHERE kr.public_id = ?
+  `).get(publicId) as any;
 
-  if (!kyc) {
-    // Generate deterministic response for mock request ids
-    return res.json({
-      request_id: publicId,
-      status: 'APPROVED',
-      progress_pct: 100,
-      stages: [
-        { type: 'SUNAT', status: 'DONE', label: 'Validado — Activo y Habido' },
-        { type: 'RENIEC', status: 'DONE', label: 'Verificado con Reniec' },
-        { type: 'SCORING', status: 'DONE', label: 'Límite aprobado: S/ 45,000.00' }
-      ],
-      result: {
-        status: 'APPROVED',
-        approved_limit_cents: 4500000,
-        currency: 'PEN'
-      }
-    });
-  }
+  const approvedLimit = row?.approved_limit_cents ?? 4500000;
+  const razonSocial = row?.legal_name ?? null;
+  const repDni = row?.legal_rep_dni ?? null;
 
   res.json({
-    request_id: kyc.public_id,
+    request_id: publicId,
     status: 'APPROVED',
     progress_pct: 100,
     stages: [
       { type: 'SUNAT', status: 'DONE', label: 'Validado — Activo y Habido' },
-      { type: 'RENIEC', status: 'DONE', label: 'Verificado con Reniec' },
+      { type: 'ID_CHECK', status: 'DONE', label: 'Identidad del Representante verificada' },
       { type: 'SCORING', status: 'DONE', label: 'Límite calculado para ventas seguras' }
     ],
     result: {
       status: 'APPROVED',
-      approved_limit_cents: 4500000,
-      currency: 'PEN'
+      approved_limit_cents: approvedLimit,
+      currency: 'PEN',
+      razon_social: razonSocial,
+      legal_rep_dni: repDni
     }
   });
 });
@@ -295,14 +290,22 @@ providerRouter.post('/kyc/requests/:publicId/documents', async (req, res) => {
 });
 
 // PRD 13: Actividad Comercial
-providerRouter.put('/activity', (req, res) => {
+providerRouter.put('/activity', async (req, res) => {
   const { category, seniority_range } = req.body;
+  const providerId = req.headers['x-provider-id'] as string | undefined;
 
   if (!category) {
     return res.status(422).json({ error: { code: 'CATEGORY_REQUIRED', message: 'Elige a qué rubro te dedicas.' } });
   }
   if (!seniority_range) {
     return res.status(422).json({ error: { code: 'SENIORITY_REQUIRED', message: 'Cuéntanos hace cuánto operas.' } });
+  }
+
+  if (providerId) {
+    await db.prepare(`
+      UPDATE provider_profiles SET category = ?, seniority_range = ?, updated_at = utc_now_text()
+      WHERE id = ?
+    `).run(category, seniority_range, providerId).catch(() => {});
   }
 
   res.json({
@@ -559,11 +562,19 @@ providerRouter.get('/savings-estimate', (req, res) => {
 });
 
 // PRD 16: Cuenta bancaria de abono
-providerRouter.put('/settlement-account', (req, res) => {
-  const { bank, cci, holder_name, holder_doc } = req.body;
+providerRouter.put('/settlement-account', async (req, res) => {
+  const { bank, cci } = req.body;
+  const providerId = req.headers['x-provider-id'] as string | undefined;
 
   if (!cci || cci.length !== 20) {
     return res.status(422).json({ error: { code: 'CCI_INVALID', message: 'El código de cuenta interbancario (CCI) debe tener 20 dígitos.' } });
+  }
+
+  if (providerId) {
+    await db.prepare(`
+      UPDATE provider_profiles SET settlement_bank = ?, settlement_cci = ?, updated_at = utc_now_text()
+      WHERE id = ?
+    `).run(bank || 'BCP', cci, providerId).catch(() => {});
   }
 
   res.json({
@@ -575,7 +586,16 @@ providerRouter.put('/settlement-account', (req, res) => {
 });
 
 // PRD 16: Activación definitiva
-providerRouter.post('/activate', (req, res) => {
+providerRouter.post('/activate', async (req, res) => {
+  const providerId = req.headers['x-provider-id'] as string | undefined;
+
+  if (providerId) {
+    await db.prepare(`
+      UPDATE provider_profiles SET kyc_status = 'APPROVED', updated_at = utc_now_text()
+      WHERE id = ?
+    `).run(providerId).catch(() => {});
+  }
+
   res.json({
     status: 'APPROVED',
     provider_verified: true,

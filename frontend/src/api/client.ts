@@ -26,10 +26,60 @@ export class ApiError extends Error {
   }
 }
 
+// Comercio registrado en este dispositivo. Sin él, el backend de desarrollo responde
+// con la cuenta demo. Lo que protege los cobros es el PIN, no este identificador.
+const MERCHANT_KEY = 'kuota.merchant_id';
+let memoryMerchantId: string | null = null;
+
+export function getMerchantId(): string | null {
+  try {
+    return localStorage.getItem(MERCHANT_KEY) ?? memoryMerchantId;
+  } catch {
+    return memoryMerchantId;
+  }
+}
+
+export function setMerchantId(id: string | null) {
+  memoryMerchantId = id;
+  try {
+    if (id) localStorage.setItem(MERCHANT_KEY, id);
+    else localStorage.removeItem(MERCHANT_KEY);
+  } catch {
+    /* almacenamiento no disponible: queda en memoria */
+  }
+}
+
+// Proveedor registrado en este dispositivo. Permite al backend asociar cada paso
+// del registro con el perfil correcto sin sesión de usuario.
+const PROVIDER_KEY = 'kuota.provider_id';
+let memoryProviderId: string | null = null;
+
+export function getProviderId(): string | null {
+  try {
+    return localStorage.getItem(PROVIDER_KEY) ?? memoryProviderId;
+  } catch {
+    return memoryProviderId;
+  }
+}
+
+export function setProviderId(id: string | null) {
+  memoryProviderId = id;
+  try {
+    if (id) localStorage.setItem(PROVIDER_KEY, id);
+    else localStorage.removeItem(PROVIDER_KEY);
+  } catch {
+    /* almacenamiento no disponible: queda en memoria */
+  }
+}
+
 export async function apiRequest<T = any>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const url = `${API_BASE}${endpoint}`;
+  const merchantId = getMerchantId();
+  const providerId = getProviderId();
   const headers = {
     'Content-Type': 'application/json',
+    ...(merchantId ? { 'X-Merchant-Id': merchantId } : {}),
+    ...(providerId ? { 'X-Provider-Id': providerId } : {}),
     ...(options.headers || {})
   };
   const controller = new AbortController();
@@ -122,6 +172,9 @@ export const api = {
     apiRequest(`/onboarding/sessions/${sessionId}/complete`, {
       method: 'POST',
       body: JSON.stringify(data || {})
+    }).then((res: any) => {
+      if (res?.merchant_id) setMerchantId(res.merchant_id);
+      return res;
     }),
   setSecurityPin: (sessionId: string, pin: string) =>
     apiRequest(`/onboarding/sessions/${sessionId}/security-pin`, {
@@ -190,6 +243,9 @@ export const api = {
     apiRequest('/businesses/confirm', {
       method: 'POST',
       body: JSON.stringify(data)
+    }).then((res: any) => {
+      if (res?.provider_id) setProviderId(res.provider_id);
+      return res;
     }),
   getSunatStats: () => apiRequest('/kyc/sunat-stats'),
   lookupRuc: (ruc: string) => apiRequest(`/kyc/business-lookup/${ruc}`),
@@ -234,7 +290,7 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify({ consent })
     }),
-  saveSettlementAccount: (data: { bank: string; cci: string; holder_name: string; holder_doc: string }) =>
+  saveSettlementAccount: (data: { bank: string; cci: string }) =>
     apiRequest('/providers/settlement-account', {
       method: 'PUT',
       body: JSON.stringify(data)

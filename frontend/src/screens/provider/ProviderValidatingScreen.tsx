@@ -155,10 +155,8 @@ export const ProviderValidatingScreen: React.FC<ProviderValidatingScreenProps> =
   const [progress, setProgress] = useState<number>(0);
   const [currentStepIndex, setCurrentStepIndex] = useState<number>(0);
   const [providerData, setProviderData] = useState<any>({
-    ruc: '20519482711',
-    razon_social: 'CONFECCIONES DON LUCHO & HNOS. S.A.C.',
-    rep_legal: 'LUCHO QUISPE CONDORI',
-    rep_dni: '47891234',
+    razon_social: null,
+    rep_legal: null,
     approved_limit: 45000,
     fee_rate: '1.00%'
   });
@@ -179,15 +177,15 @@ export const ProviderValidatingScreen: React.FC<ProviderValidatingScreenProps> =
       icon: Building2
     },
     {
-      id: 'reniec_docs',
+      id: 'id_docs',
       title: 'Validación OCR de DNI (Anverso y Reverso)',
-      subtitle: 'Verificando documento del Representante Legal con padrón nacional RENIEC',
+      subtitle: 'Verificando documento del Representante Legal',
       icon: CreditCard
     },
     {
       id: 'biometrics',
       title: 'Biometría Facial y Prueba de Vida',
-      subtitle: 'Comparando selfie del representante contra la fotografía oficial del DNI (99.6%)',
+      subtitle: 'Comparando selfie del representante contra la fotografía del DNI',
       icon: ScanFace
     },
     {
@@ -205,11 +203,13 @@ export const ProviderValidatingScreen: React.FC<ProviderValidatingScreenProps> =
         if (res && res.result) {
           setProviderData((prev: any) => ({
             ...prev,
-            approved_limit: (res.result.approved_limit_cents || 4500000) / 100
+            approved_limit: (res.result.approved_limit_cents || 4500000) / 100,
+            razon_social: res.result.razon_social ?? prev.razon_social,
+            rep_legal: res.result.legal_rep_dni ?? prev.rep_legal
           }));
         }
       })
-      .catch((err) => console.warn('Using default provider KYC status:', err));
+      .catch((err) => console.warn('KYC status unavailable:', err));
   }, [requestId]);
 
   // Handler for file uploads
@@ -348,7 +348,7 @@ export const ProviderValidatingScreen: React.FC<ProviderValidatingScreenProps> =
           </h1>
           <p className="text-xs text-[#4a5f7e] mt-0.5 max-w-xs mx-auto leading-relaxed">
             {phase === 'approved'
-              ? 'Datos tributarios SUNAT y biometría RENIEC validados con éxito.'
+              ? 'RUC verificado en SUNAT. Validación de identidad de demostración completada.'
               : phase === 'validating'
               ? 'Verificando DNI del representante, poderes legales y biometría facial.'
               : 'Sube fotos del DNI del Representante Legal y una selfie para activar cobros al 1%.'}
@@ -696,16 +696,22 @@ export const ProviderValidatingScreen: React.FC<ProviderValidatingScreenProps> =
                   </div>
 
                   {/* Company & Legal Rep Details */}
-                  <div className="grid grid-cols-2 gap-2 text-[10px]">
-                    <div>
-                      <span className="text-[#4a5f7e] block">Empresa SUNAT</span>
-                      <span className="font-bold text-[#0b2545] truncate block uppercase">{providerData.razon_social}</span>
+                  {(providerData.razon_social || providerData.rep_legal) && (
+                    <div className="grid grid-cols-2 gap-2 text-[10px]">
+                      {providerData.razon_social && (
+                        <div>
+                          <span className="text-[#4a5f7e] block">Empresa SUNAT</span>
+                          <span className="font-bold text-[#0b2545] truncate block uppercase">{providerData.razon_social}</span>
+                        </div>
+                      )}
+                      {providerData.rep_legal && (
+                        <div>
+                          <span className="text-[#4a5f7e] block">DNI Representante</span>
+                          <span className="font-bold text-[#0b2545] truncate block">{providerData.rep_legal}</span>
+                        </div>
+                      )}
                     </div>
-                    <div>
-                      <span className="text-[#4a5f7e] block">Representante Legal</span>
-                      <span className="font-bold text-[#0b2545] truncate block">{providerData.rep_legal}</span>
-                    </div>
-                  </div>
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>
@@ -739,7 +745,7 @@ export const ProviderValidatingScreen: React.FC<ProviderValidatingScreenProps> =
         ) : (
           <div className="text-center py-2 text-xs font-bold text-emerald-700 flex items-center justify-center gap-2">
             <RefreshCw size={14} className="animate-spin" />
-            <span>Validando poderes en SUNAT y RENIEC...</span>
+            <span>Validando RUC en SUNAT…</span>
           </div>
         )}
       </div>

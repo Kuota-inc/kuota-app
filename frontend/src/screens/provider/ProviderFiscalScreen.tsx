@@ -23,11 +23,11 @@ interface ProviderFiscalScreenProps {
 
 export const ProviderFiscalScreen: React.FC<ProviderFiscalScreenProps> = ({ sessionId, onNext }) => {
   const toast = useToast();
-  const [ruc, setRuc] = useState<string>('20601234567');
-  const [dni, setDni] = useState<string>('74839201');
-  const [repName, setRepName] = useState<string>('LUIS ENRIQUE CONDORI PAREDES');
+  const [ruc, setRuc] = useState<string>('');
+  const [dni, setDni] = useState<string>('');
+  const [repName, setRepName] = useState<string>('');
   const [verifyingRepDni, setVerifyingRepDni] = useState<boolean>(false);
-  const [whatsapp, setWhatsapp] = useState<string>('987654321');
+  const [whatsapp, setWhatsapp] = useState<string>('');
   const [businessData, setBusinessData] = useState<any>(null);
   const [warningMessage, setWarningMessage] = useState<string | null>(null);
   const [isAlreadyRegistered, setIsAlreadyRegistered] = useState<boolean>(false);
@@ -140,7 +140,7 @@ export const ProviderFiscalScreen: React.FC<ProviderFiscalScreenProps> = ({ sess
         {/* Progress Bar */}
         <div className="space-y-1.5 pt-1">
           <div className="flex justify-between items-center text-xs font-semibold text-[#4a5f7e]">
-            <span>Paso 1 de 5</span>
+            <span>Paso 1 de 6</span>
             <span className="text-[#1a3bb0] font-bold">Identificación RUC SUNAT</span>
           </div>
           <div className="h-1.5 w-full bg-[#e1e8f8] rounded-full overflow-hidden">
@@ -371,11 +371,11 @@ export const ProviderFiscalScreen: React.FC<ProviderFiscalScreenProps> = ({ sess
             </span>
             {verifyingRepDni ? (
               <span className="text-[10px] text-blue-700 font-bold flex items-center gap-1">
-                <RefreshCw size={10} className="animate-spin" /> Verificando RENIEC...
+                <RefreshCw size={10} className="animate-spin" /> Buscando…
               </span>
             ) : repName ? (
               <span className="text-[10px] text-emerald-700 font-bold flex items-center gap-0.5">
-                <CheckCircle2 size={11} /> RENIEC Verificado
+                <CheckCircle2 size={11} /> Nombre sugerido
               </span>
             ) : null}
           </div>

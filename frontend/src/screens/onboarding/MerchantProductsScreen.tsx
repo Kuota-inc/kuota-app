@@ -16,11 +16,8 @@ interface ProductRow {
 
 export const MerchantProductsScreen: React.FC<MerchantProductsScreenProps> = ({ sessionId, onNext }) => {
   const toast = useToast();
-  const [products, setProducts] = useState<ProductRow[]>([
-    { name: 'Blusa de lino italiana', price: '45.00', is_frequent: true },
-    { name: 'Polo Pima Oversize 24/1', price: '35.00', is_frequent: true },
-    { name: 'Pantalón drill confort', price: '68.00', is_frequent: false }
-  ]);
+  // Empieza vacío: cada comercio registra sus propios productos (paso opcional).
+  const [products, setProducts] = useState<ProductRow[]>([{ name: '', price: '', is_frequent: false }]);
   const [saving, setSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<string>('Guardado automático');
 
@@ -70,7 +67,7 @@ export const MerchantProductsScreen: React.FC<MerchantProductsScreenProps> = ({ 
         {/* Step Progress Bar */}
         <div className="space-y-1.5 pt-1">
           <div className="flex justify-between items-center text-xs font-semibold text-[#4a5f7e]">
-            <span>Paso 2 de 3</span>
+            <span>Paso 4 de 5</span>
             <span className="text-[#1a3bb0]">Catálogo Inicial</span>
           </div>
           <div className="h-1.5 w-full bg-[#e1e8f8] rounded-full overflow-hidden">

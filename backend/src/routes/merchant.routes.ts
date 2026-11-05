@@ -65,7 +65,7 @@ merchantRouter.get('/home', async (req, res) => {
   const greeting = hour < 12 ? 'Buenos días' : hour < 19 ? 'Buenas tardes' : 'Buenas noches';
 
   res.json({
-    greeting_name: user?.first_name || 'Carlos',
+    greeting_name: user?.first_name || String(merchant.full_name || '').split(' ')[0] || '',
     greeting_prefix: greeting,
     credit: {
       total_limit_cents: totalLimit,

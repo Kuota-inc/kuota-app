@@ -156,7 +156,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateTab, onOpenKuo
               <span className="text-[9px] bg-blue-100 text-[#00248b] px-1 py-0.2 rounded font-bold">Perfil</span>
             </div>
             <div className="text-lg font-black text-[#0b2545] tracking-tight group-hover:text-[#00248b] transition-colors">
-              {data?.greeting_name || 'Carlos'}
+              {data?.greeting_name || ''}
             </div>
           </button>
         </div>

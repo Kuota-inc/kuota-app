@@ -30,8 +30,8 @@ export const PhoneSimulator: React.FC<PhoneSimulatorProps> = ({
   showBottomNav = true,
   bare = false,
 }) => {
-  const isMerchantOnboarding = currentScreenKey.startsWith('onboarding_merchant');
-  const isProviderOnboarding = currentScreenKey.startsWith('onboarding_provider');
+  // Durante todo el registro (incluido el PIN) no se muestra la barra del panel.
+  const isOnboarding = currentScreenKey.startsWith('onboarding');
 
   return (
     <div
@@ -99,7 +99,7 @@ export const PhoneSimulator: React.FC<PhoneSimulatorProps> = ({
         </div>
 
         {/* Bottom Navigation Bar for Dashboard (5 components: Home, Mis ventas, Botón azul Comprar/Vender, Crédito, Mi cuenta) */}
-        {showBottomNav && !isMerchantOnboarding && !isProviderOnboarding && currentScreenKey !== 'welcome' && (
+        {showBottomNav && !isOnboarding && currentScreenKey !== 'welcome' && (
           <nav aria-label="Navegación principal" className="bg-white border-t border-[#e1e8f8] px-2 py-1.5 flex items-center justify-around z-40 shadow-lg">
             {/* 1. Home */}
             <button

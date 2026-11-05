@@ -90,7 +90,7 @@ export const MerchantActivityScreen: React.FC<MerchantActivityScreenProps> = ({ 
   const [seniorities, setSeniorities] = useState(DEFAULT_SENIORITIES);
   const [category, setCategory] = useState<string>('FASHION');
   const [seniority, setSeniority] = useState<string>('CONSOLIDATED');
-  const [businessName, setBusinessName] = useState<string>('Bodega San Martín');
+  const [businessName, setBusinessName] = useState<string>('');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -175,7 +175,7 @@ export const MerchantActivityScreen: React.FC<MerchantActivityScreenProps> = ({ 
         {/* Step Progress Bar */}
         <div className="space-y-1 pt-0.5">
           <div className="flex justify-between items-center text-xs font-semibold text-[#4a5f7e]">
-            <span>Paso 1 de 3</span>
+            <span>Paso 3 de 5</span>
             <span className="text-[#1a3bb0] font-bold">Actividad Comercial</span>
           </div>
           <div className="h-1.5 w-full bg-[#e1e8f8] rounded-full overflow-hidden">

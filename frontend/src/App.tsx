@@ -9,6 +9,7 @@ import { KuotearModal } from './screens/dashboard/KuotearModal';
 import { NotificationsSheet } from './screens/dashboard/NotificationsSheet';
 import { ToastProvider, ToastViewport } from './components/Toast';
 import { PinPromptHost, PinPromptProvider } from './components/PinPrompt';
+import { logout as logoutPayments } from './api/payments';
 import { RotateCcw, Store, Building2, KeyRound, UserCircle } from 'lucide-react';
 
 // Pantallas que no son la inicial se cargan bajo demanda (bundle inicial más liviano).
@@ -39,8 +40,28 @@ function ScreenFallback() {
   );
 }
 
+const ONBOARDED_KEY = 'kuota.onboarded';
+function readFlag(key: string): boolean {
+  try {
+    return localStorage.getItem(key) === '1';
+  } catch {
+    return false;
+  }
+}
+function writeFlag(key: string, on: boolean) {
+  try {
+    if (on) localStorage.setItem(key, '1');
+    else localStorage.removeItem(key);
+  } catch {
+    /* sin almacenamiento: se vuelve a mostrar el registro */
+  }
+}
+
 function AppShell() {
-  const [currentScreen, setCurrentScreen] = useState<string>('dashboard');
+  // En el celular (APK) la primera vez se empieza por el registro; luego, por el Inicio.
+  const [currentScreen, setCurrentScreen] = useState<string>(() =>
+    Capacitor.isNativePlatform() && !readFlag(ONBOARDED_KEY) ? 'welcome' : 'dashboard'
+  );
   const [activeTab, setActiveTab] = useState<string>('inicio');
   const [isKuotearOpen, setIsKuotearOpen] = useState<boolean>(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState<boolean>(false);
@@ -60,6 +81,14 @@ function AppShell() {
     } else {
       setCurrentScreen('onboarding_provider_fiscal');
     }
+  };
+
+  // Cerrar sesión: revoca la sesión de cobros (PIN) en el servidor y vuelve al registro.
+  const handleLogout = () => {
+    void logoutPayments().catch(() => {});
+    writeFlag(ONBOARDED_KEY, false);
+    setCurrentScreen('welcome');
+    setActiveTab('inicio');
   };
 
   // Natural step-by-step back navigation
@@ -214,6 +243,7 @@ function AppShell() {
             role={pinOrigin}
             initialStep={pinInitialStep}
             onComplete={() => {
+              writeFlag(ONBOARDED_KEY, true);
               setCurrentScreen('dashboard');
               setActiveTab('inicio');
             }}
@@ -282,10 +312,7 @@ function AppShell() {
               setCurrentScreen('dashboard');
               setActiveTab('inicio');
             }}
-            onLogout={() => {
-              setCurrentScreen('welcome');
-              setActiveTab('inicio');
-            }}
+            onLogout={handleLogout}
           />
         );
 
@@ -335,6 +362,7 @@ function AppShell() {
                 setCurrentScreen('dashboard');
                 setActiveTab('inicio');
               }}
+              onLogout={handleLogout}
             />
           );
         }

@@ -9,50 +9,18 @@ interface BuyOnCreditScreenProps {
   onNavigateTab: (tab: string) => void;
 }
 
-const DEFAULT_PURCHASE_DATA = {
-  id: 'pur_demo_01',
-  plan: 'Plan 3X',
-  status: 'ACTIVE_ON_TIME',
-  provider: {
-    id: 'prov_donlucho',
-    name: 'Confecciones Don Lucho & Hnos. S.A.C.',
-    address: 'Galería Santa Rosa, Tda. 204 - Jr. Gamarra 840, La Victoria',
-    phone: '+51 984 521 893'
-  },
-  total_cents: 23600,
-  down_payment_cents: 11800,
-  down_payment_pct: 50,
-  financed_cents: 11800,
-  installments_count: 3,
-  amortized_pct: 67,
-  installments: [
-    { id: 'inst_01', number: 1, amount_cents: 4326, principal_cents: 3933, interest_cents: 393, due_date: '2026-10-31', status: 'PAID' },
-    { id: 'inst_02', number: 2, amount_cents: 4326, principal_cents: 3933, interest_cents: 393, due_date: '2026-11-07', status: 'PENDING' },
-    { id: 'inst_03', number: 3, amount_cents: 4326, principal_cents: 3934, interest_cents: 392, due_date: '2026-11-21', status: 'PENDING' }
-  ],
-  next_installment: {
-    id: 'inst_02',
-    number: 2,
-    total: 3,
-    due_date: '07 Nov 2026',
-    amount_cents: 4326
-  },
-  receipt_number: 'KQ-REC-8921-PE',
-  issued_at: '2026-10-24'
-};
 
 export const BuyOnCreditScreen: React.FC<BuyOnCreditScreenProps> = ({ onBack }) => {
   const toast = useToast();
-  const [data, setData] = useState<any>(DEFAULT_PURCHASE_DATA);
-  const [loading, setLoading] = useState<boolean>(false);
+  // null = sin compras (estado vacío); se rellena con la compra real del comercio.
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState<boolean>(true);
   const [paying, setPaying] = useState<boolean>(false);
 
   const loadData = () => {
     api.getActivePurchase()
       .then((res) => {
-        if (res && res.id) {
-          setData(res);
-        }
+        setData(res && res.id ? res : null);
       })
       .catch(console.error)
       .finally(() => setLoading(false));
@@ -63,7 +31,8 @@ export const BuyOnCreditScreen: React.FC<BuyOnCreditScreenProps> = ({ onBack }) 
   }, []);
 
   const handlePayInstallment = async (installmentId: string) => {
-    if (!confirm('¿Pagar esta cuota de S/ 43.26 para recargar tu cupo y sumar a tu Score?')) return;
+    const amount = ((data?.next_installment?.amount_cents ?? 0) / 100).toFixed(2);
+    if (!confirm(`¿Pagar esta cuota de S/ ${amount} para recargar tu cupo y sumar a tu Score?`)) return;
     setPaying(true);
     try {
       await api.payInstallment(installmentId);
@@ -87,7 +56,7 @@ export const BuyOnCreditScreen: React.FC<BuyOnCreditScreenProps> = ({ onBack }) 
     }
   };
 
-  if (loading && !data) {
+  if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center p-6 text-[#4a5f7e]">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#1a3bb0]"></div>
@@ -95,7 +64,7 @@ export const BuyOnCreditScreen: React.FC<BuyOnCreditScreenProps> = ({ onBack }) 
     );
   }
 
-  const isPaid = data?.status === 'PAID' && !data?.next_installment;
+  const isPaid = !data || (data.status === 'PAID' && !data.next_installment);
 
   return (
     <div className="flex-1 p-4 space-y-4 bg-[#f9f9ff]">
@@ -217,7 +186,7 @@ export const BuyOnCreditScreen: React.FC<BuyOnCreditScreenProps> = ({ onBack }) 
           <div className="text-center">
             <button
               type="button"
-              onClick={() => handleSettle(data?.id || 'pur_active_01')}
+              onClick={() => handleSettle(data.id)}
               className="text-xs font-bold text-[#1a3bb0] hover:underline cursor-pointer"
             >
               Liquidar compra anticipadamente

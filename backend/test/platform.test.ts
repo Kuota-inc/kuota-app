@@ -36,10 +36,10 @@ after(async () => {
 });
 
 type Json = Record<string, any>;
-async function call(method: string, url: string, body?: unknown) {
+async function call(method: string, url: string, body?: unknown, extra: Record<string, string> = {}) {
   const res = await fetch(`${base}${url}`, {
     method,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...extra },
     body: body === undefined ? undefined : JSON.stringify(body)
   });
   const text = await res.text();
@@ -63,11 +63,11 @@ describe('Migraciones', () => {
     const before = await db.all<{ version: string }>('SELECT version FROM public.schema_migrations ORDER BY version');
     assert.deepEqual(
       before.map((r) => r.version),
-      ['0001_core.sql', '0002_payments.sql', '0003_roles.sql', '0004_pay360_coupons.sql', '0005_kyc_didit.sql']
+      ['0001_core.sql', '0002_payments.sql', '0003_roles.sql', '0004_pay360_coupons.sql', '0005_kyc_didit.sql', '0006_provider_settlement.sql']
     );
     await migrate(db);
     const again = await db.get<{ n: number }>('SELECT COUNT(*) AS n FROM public.schema_migrations');
-    assert.equal(again!.n, 5);
+    assert.equal(again!.n, 6);
   });
 
   test('las tablas de dinero viven en el esquema payments', async () => {
@@ -149,6 +149,15 @@ describe('Flujos del núcleo sobre Postgres', () => {
     assert.equal(pin.status, 200);
     const cred = await db.get<{ pin_hash: string }>('SELECT pin_hash FROM merchant_credentials WHERE merchant_id = ?', done.body.merchant_id);
     assert.match(cred!.pin_hash, /^scrypt\$/);
+
+    // Con su identificador, el comercio nuevo ve SU panel: sin deudas ni compras demo.
+    const me = { 'X-Merchant-Id': done.body.merchant_id };
+    const home = await call('GET', '/merchants/me/home', undefined, me);
+    assert.equal(home.body.greeting_name, 'CARLOS');
+    assert.equal(home.body.credit.used_cents, 0);
+    assert.equal(home.body.next_installment, null);
+    assert.equal((await call('GET', '/credit/purchases/active', undefined, me)).body, null);
+    assert.equal((await call('GET', '/merchants/me/welcome-summary', undefined, me)).body.business.name, 'Bodega Test');
   });
 
   test('onboarding de proveedor con RUC del padrón local', async () => {

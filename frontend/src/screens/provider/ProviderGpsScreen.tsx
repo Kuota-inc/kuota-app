@@ -151,7 +151,7 @@ export const ProviderGpsScreen: React.FC<ProviderGpsScreenProps> = ({ onNext }) 
         {/* Progress Bar */}
         <div className="space-y-1 pt-0.5">
           <div className="flex justify-between items-center text-xs font-semibold text-[#4a5f7e]">
-            <span>Paso 4 de 5</span>
+            <span>Paso 4 de 6</span>
             <span className="text-[#1a3bb0] font-bold">Ubicación del Negocio</span>
           </div>
           <div className="h-1.5 w-full bg-[#e1e8f8] rounded-full overflow-hidden">

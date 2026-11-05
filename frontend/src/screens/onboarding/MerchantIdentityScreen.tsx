@@ -21,18 +21,20 @@ interface MerchantIdentityScreenProps {
 }
 
 export const MerchantIdentityScreen: React.FC<MerchantIdentityScreenProps> = ({ sessionId, onNext }) => {
-  const [dni, setDni] = useState<string>('47891234');
-  const [fullName, setFullName] = useState<string>('CARLOS ALBERTO MENDOZA QUISPE');
-  const [phone, setPhone] = useState<string>('987654321');
+  // El usuario escribe sus propios datos; se comprueban en el paso siguiente
+  // (foto del DNI + selfie con Didit).
+  const [dni, setDni] = useState<string>('');
+  const [fullName, setFullName] = useState<string>('');
+  const [phone, setPhone] = useState<string>('');
   const [whatsappOptIn, setWhatsappOptIn] = useState<boolean>(true);
 
   const [verifyingDni, setVerifyingDni] = useState<boolean>(false);
-  const [dniVerified, setDniVerified] = useState<boolean>(true);
-  const [isEditingName, setIsEditingName] = useState<boolean>(false);
+  // true = el nombre vino sugerido por la búsqueda (no es una validación oficial)
+  const [dniVerified, setDniVerified] = useState<boolean>(false);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Consulta automática en vivo a RENIEC cuando el DNI tiene 8 dígitos
+  // Con 8 dígitos se intenta sugerir el nombre (si el backend lo conoce)
   const handleDniChange = async (val: string) => {
     const clean = val.replace(/\D/g, '').slice(0, 8);
     setDni(clean);
@@ -47,8 +49,8 @@ export const MerchantIdentityScreen: React.FC<MerchantIdentityScreenProps> = ({ 
           setFullName(res.full_name);
           setDniVerified(true);
         }
-      } catch (err: any) {
-        console.warn('RENIEC lookup error:', err);
+      } catch {
+        /* sin sugerencia: el usuario escribe su nombre */
       } finally {
         setVerifyingDni(false);
       }
@@ -66,7 +68,7 @@ export const MerchantIdentityScreen: React.FC<MerchantIdentityScreenProps> = ({ 
         setDniVerified(true);
       }
     } catch {
-      setErrorMessage('No pudimos validar el DNI ante RENIEC. Verifica el número.');
+      setErrorMessage('No encontramos un nombre para ese DNI. Escríbelo tal como figura en tu documento.');
     } finally {
       setVerifyingDni(false);
     }
@@ -134,7 +136,7 @@ export const MerchantIdentityScreen: React.FC<MerchantIdentityScreenProps> = ({ 
             Tus datos de identificación
           </h1>
           <p className="text-xs text-[#4a5f7e] mt-1 leading-relaxed">
-            Verificamos tu DNI con RENIEC oficial para evaluar tu línea de microcrédito Kuota al instante y sin trámites.
+            Escribe tus datos tal como figuran en tu DNI. En el siguiente paso los comprobamos con una foto de tu DNI y una selfie.
           </p>
         </div>
 
@@ -149,7 +151,7 @@ export const MerchantIdentityScreen: React.FC<MerchantIdentityScreenProps> = ({ 
             {verifyingDni ? (
               <span className="text-[10px] text-[#1a3bb0] font-bold flex items-center gap-1 bg-blue-50 px-2 py-0.5 rounded-full">
                 <RefreshCw size={10} className="animate-spin" />
-                <span>Consultando RENIEC...</span>
+                <span>Buscando…</span>
               </span>
             ) : dniVerified ? (
               <motion.span
@@ -158,7 +160,7 @@ export const MerchantIdentityScreen: React.FC<MerchantIdentityScreenProps> = ({ 
                 className="text-[10px] text-emerald-700 font-bold flex items-center gap-1 bg-emerald-50 border border-emerald-200/80 px-2.5 py-0.5 rounded-full shadow-xs"
               >
                 <CheckCircle2 size={11} className="text-emerald-600" />
-                <span>RENIEC Verificado</span>
+                <span>Nombre sugerido</span>
               </motion.span>
             ) : (
               <span className="text-[10px] text-[#4a5f7e] font-medium">8 dígitos</span>
@@ -185,7 +187,7 @@ export const MerchantIdentityScreen: React.FC<MerchantIdentityScreenProps> = ({ 
                 onClick={handleManualDniLookup}
                 className="absolute right-2 px-2.5 py-1 bg-[#1a3bb0] text-white rounded-xl text-xs font-bold shadow-sm hover:bg-[#00248b] active:scale-95 transition cursor-pointer"
               >
-                Validar
+                Buscar
               </button>
             )}
           </div>
@@ -194,43 +196,34 @@ export const MerchantIdentityScreen: React.FC<MerchantIdentityScreenProps> = ({ 
           </p>
         </div>
 
-        {/* 2. Full Name Card (Autocompletado y Certificado por RENIEC) */}
+        {/* 2. Nombre del titular (lo escribe el usuario; se comprueba con el DNI en el paso siguiente) */}
         <div className="p-3.5 bg-gradient-to-br from-white to-[#f5f8ff] rounded-3xl border border-[#d8e2ff] shadow-sm space-y-2 transition">
           <div className="flex items-center justify-between text-xs">
             <label htmlFor="merchant-identity-field-2" className="flex items-center gap-1.5 font-bold text-[#0b2545]">
               <UserCheck size={14} className="text-[#00248b]" />
               <span>Nombres y Apellidos del Titular</span>
             </label>
-            <button
-              type="button"
-              onClick={() => setIsEditingName(!isEditingName)}
-              className="text-[10px] text-[#1a3bb0] font-bold flex items-center gap-1 hover:underline cursor-pointer"
-            >
-              <Edit3 size={11} />
-              <span>{isEditingName ? 'Fijar' : 'Editar'}</span>
-            </button>
+            <span className="text-[10px] text-[#4a5f7e] flex items-center gap-1">
+              <Edit3 size={11} aria-hidden="true" /> Como en tu DNI
+            </span>
           </div>
 
           <div className="relative">
             <input
               id="merchant-identity-field-2"
               type="text"
-              readOnly={!isEditingName}
               value={fullName}
+              autoComplete="name"
               onChange={(e) => setFullName(e.target.value.toUpperCase())}
-              placeholder="Nombres completos según RENIEC"
-              className={`w-full px-3.5 py-2.5 rounded-2xl border text-xs font-black tracking-wide text-[#0b2545] transition ${
-                isEditingName
-                  ? 'bg-white border-[#1a3bb0] focus:outline-none ring-2 ring-blue-100'
-                  : 'bg-white/80 border-[#c5c5d6]/60 cursor-default'
-              }`}
+              placeholder="Nombres y apellidos completos"
+              className="w-full px-3.5 py-2.5 rounded-2xl border text-xs font-black tracking-wide text-[#0b2545] transition bg-white border-[#c5c5d6]/70 focus:outline-none focus:border-[#1a3bb0] focus:ring-2 focus:ring-blue-100"
             />
           </div>
 
           <div className="flex items-center justify-between text-[10px] text-emerald-800 bg-emerald-50/80 px-2.5 py-1 rounded-xl border border-emerald-200/60">
             <span className="flex items-center gap-1 font-semibold">
               <CheckCircle2 size={12} className="text-emerald-600 shrink-0" />
-              <span>Titular validado oficialmente en padrón RENIEC</span>
+              <span>Lo comprobamos con la foto de tu DNI en el siguiente paso</span>
             </span>
           </div>
         </div>
@@ -334,7 +327,7 @@ export const MerchantIdentityScreen: React.FC<MerchantIdentityScreenProps> = ({ 
           <div className="leading-snug">
             <span className="font-bold text-[#00248b]">Protección de Datos (Ley 29733): </span>
             <span className="text-[#4a5f7e]">
-              Tu DNI solo se utiliza para validar tu identidad ante RENIEC y generar tu línea de microcrédito digital.
+              Tu DNI solo se usa para verificar tu identidad y generar tu línea de microcrédito. Kuota no guarda las fotos de tu DNI ni tu selfie.
             </span>
           </div>
         </div>
@@ -351,11 +344,11 @@ export const MerchantIdentityScreen: React.FC<MerchantIdentityScreenProps> = ({ 
             {submitting ? (
               <>
                 <RefreshCw size={17} className="animate-spin text-white" />
-                <span>Validando con RENIEC...</span>
+                <span>Guardando…</span>
               </>
             ) : (
               <>
-                <span>Validar identidad y continuar</span>
+                <span>Continuar a la verificación</span>
                 <ArrowRight size={17} />
               </>
             )}

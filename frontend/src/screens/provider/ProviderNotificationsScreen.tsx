@@ -36,7 +36,7 @@ export const ProviderNotificationsScreen: React.FC<ProviderNotificationsScreenPr
         {/* Progress Bar */}
         <div className="space-y-1.5 pt-1">
           <div className="flex justify-between items-center text-xs font-semibold text-[#4a5f7e]">
-            <span>Paso 5 de 5</span>
+            <span>Paso 5 de 6</span>
             <span className="text-[#1a3bb0]">Configuración Final</span>
           </div>
           <div className="h-1.5 w-full bg-[#e1e8f8] rounded-full overflow-hidden">
