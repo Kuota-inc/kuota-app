@@ -1,0 +1,10 @@
+node_modules
+dist
+.pgdata
+*.db
+*.db-*
+.env
+.env.*
+!.env.example
+.dev-secrets.json
+test

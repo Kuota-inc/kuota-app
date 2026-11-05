@@ -22,21 +22,21 @@ export function nextWorkshop(now = new Date()) {
 
 type PrefRow = { push_enabled: number; last_seen_at: string | null };
 
-function prefs(merchantId: string): PrefRow {
+async function prefs(merchantId: string): Promise<PrefRow> {
   return (
-    (db.prepare('SELECT push_enabled, last_seen_at FROM notification_preferences WHERE merchant_id = ?')
+    (await db.prepare('SELECT push_enabled, last_seen_at FROM notification_preferences WHERE merchant_id = ?')
       .get(merchantId) as PrefRow | undefined) ?? { push_enabled: 1, last_seen_at: null }
   );
 }
 
-export function unreadCount(merchantId: string): number {
-  return prefs(merchantId).last_seen_at ? 0 : UNREAD_DEMO_COUNT;
+export async function unreadCount(merchantId: string): Promise<number> {
+  return (await prefs(merchantId)).last_seen_at ? 0 : UNREAD_DEMO_COUNT;
 }
 
-export function getNotificationState(merchantId: string) {
-  const p = prefs(merchantId);
+export async function getNotificationState(merchantId: string) {
+  const p = await prefs(merchantId);
   const workshop = nextWorkshop();
-  const reminder = db
+  const reminder = await db
     .prepare('SELECT 1 FROM workshop_reminders WHERE merchant_id = ? AND workshop_id = ?')
     .get(merchantId, workshop.id);
   return {
@@ -46,11 +46,11 @@ export function getNotificationState(merchantId: string) {
   };
 }
 
-export function markSeen(merchantId: string) {
-  db.prepare(`
+export async function markSeen(merchantId: string) {
+  await db.prepare(`
     INSERT INTO notification_preferences (merchant_id, last_seen_at)
-    VALUES (?, datetime('now'))
-    ON CONFLICT(merchant_id) DO UPDATE SET last_seen_at = datetime('now')
+    VALUES (?, utc_now_text())
+    ON CONFLICT(merchant_id) DO UPDATE SET last_seen_at = utc_now_text()
   `).run(merchantId);
 }
 
@@ -65,22 +65,22 @@ export function parsePreferences(body: any): PreferencesInput | string {
   return { push_enabled, workshop_reminder };
 }
 
-export function savePreferences(merchantId: string, input: PreferencesInput) {
+export async function savePreferences(merchantId: string, input: PreferencesInput) {
   const workshopId = nextWorkshop().id;
-  db.transaction(() => {
-    db.prepare(`
+  await db.transaction(async () => {
+    await db.prepare(`
       INSERT INTO notification_preferences (merchant_id, push_enabled, last_seen_at, updated_at)
-      VALUES (?, ?, datetime('now'), datetime('now'))
+      VALUES (?, ?, utc_now_text(), utc_now_text())
       ON CONFLICT(merchant_id) DO UPDATE SET
         push_enabled = excluded.push_enabled,
         last_seen_at = COALESCE(notification_preferences.last_seen_at, excluded.last_seen_at),
         updated_at = excluded.updated_at
     `).run(merchantId, input.push_enabled ? 1 : 0);
     if (input.workshop_reminder) {
-      db.prepare('INSERT OR IGNORE INTO workshop_reminders (merchant_id, workshop_id) VALUES (?, ?)')
+      await db.prepare('INSERT INTO workshop_reminders (merchant_id, workshop_id) VALUES (?, ?) ON CONFLICT DO NOTHING')
         .run(merchantId, workshopId);
     } else {
-      db.prepare('DELETE FROM workshop_reminders WHERE merchant_id = ? AND workshop_id = ?')
+      await db.prepare('DELETE FROM workshop_reminders WHERE merchant_id = ? AND workshop_id = ?')
         .run(merchantId, workshopId);
     }
   })();

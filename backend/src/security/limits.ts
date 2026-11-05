@@ -1,7 +1,7 @@
 // Límites de cobro escalonados: por operación, por día y por número de cobros,
 // según el nivel de verificación del comercio. Siempre rige el más restrictivo
 // entre: nivel, límite propio del comercio, tope de 360pay y enfriamiento.
-import { db } from '../db/database.js';
+import { paymentsDb as db } from '../db/client.js';
 import { config } from './config.js';
 import { audit } from './audit.js';
 import { alertMerchant } from './events.js';
@@ -32,33 +32,33 @@ interface SettingsRow {
   pending_effective_at: string | null;
 }
 
-const getSettings = (merchantId: string) =>
-  (db.prepare('SELECT * FROM merchant_limit_settings WHERE merchant_id = ?').get(merchantId) as SettingsRow | undefined) ?? null;
+const getSettings = async (merchantId: string) =>
+  (await db.prepare('SELECT * FROM merchant_limit_settings WHERE merchant_id = ?').get(merchantId) as SettingsRow | undefined) ?? null;
 
 /** Aplica una subida de límites pendiente cuyo plazo de espera ya se cumplió. */
-function applyDuePending(merchantId: string) {
-  const s = getSettings(merchantId);
+async function applyDuePending(merchantId: string) {
+  const s = await getSettings(merchantId);
   if (!s?.pending_json || !s.pending_effective_at || new Date(s.pending_effective_at) > new Date()) return;
   const p = JSON.parse(s.pending_json) as LimitValues;
-  db.prepare(`
+  await db.prepare(`
     UPDATE merchant_limit_settings
     SET per_tx_cents = ?, daily_cents = ?, daily_count = ?, pending_json = NULL, pending_effective_at = NULL, updated_at = ?
     WHERE merchant_id = ?
   `).run(p.per_tx_cents, p.daily_cents, p.daily_count, nowIso(), merchantId);
-  audit({ actorType: 'SYSTEM', actorId: merchantId, action: 'LIMITS_RAISE_APPLIED', target: merchantId, result: 'OK', details: { ...p } });
-  alertMerchant(merchantId, 'LIMITS_CHANGED', 'Tus nuevos límites de cobro ya están activos', `${formatSoles(p.per_tx_cents)} por cobro y ${formatSoles(p.daily_cents)} por día.`);
+  await audit({ actorType: 'SYSTEM', actorId: merchantId, action: 'LIMITS_RAISE_APPLIED', target: merchantId, result: 'OK', details: { ...p } });
+  await alertMerchant(merchantId, 'LIMITS_CHANGED', 'Tus nuevos límites de cobro ya están activos', `${formatSoles(p.per_tx_cents)} por cobro y ${formatSoles(p.daily_cents)} por día.`);
 }
 
 /** Fin del enfriamiento vigente (dispositivo nuevo o PIN recién cambiado), o null. */
-export function cooldownUntil(merchantId: string, deviceId?: string): string | null {
+export async function cooldownUntil(merchantId: string, deviceId?: string): Promise<string | null> {
   const now = new Date();
   const candidates: (string | null | undefined)[] = [
-    (db.prepare('SELECT cooldown_until FROM merchant_credentials WHERE merchant_id = ?').get(merchantId) as { cooldown_until: string | null } | undefined)
+    (await db.prepare('SELECT cooldown_until FROM merchant_credentials WHERE merchant_id = ?').get(merchantId) as { cooldown_until: string | null } | undefined)
       ?.cooldown_until
   ];
   if (deviceId) {
     candidates.push(
-      (db.prepare('SELECT cooldown_until FROM merchant_devices WHERE merchant_id = ? AND device_id = ?').get(merchantId, deviceId) as
+      (await db.prepare('SELECT cooldown_until FROM merchant_devices WHERE merchant_id = ? AND device_id = ?').get(merchantId, deviceId) as
         | { cooldown_until: string | null }
         | undefined)?.cooldown_until
     );
@@ -67,12 +67,12 @@ export function cooldownUntil(merchantId: string, deviceId?: string): string | n
   return active.length ? active[active.length - 1] : null;
 }
 
-export function effectiveLimits(m: MerchantRow, deviceId?: string) {
-  applyDuePending(m.id);
+export async function effectiveLimits(m: MerchantRow, deviceId?: string) {
+  await applyDuePending(m.id);
   const tierName = tierOf(m);
   const tier = TIERS[tierName];
-  const s = getSettings(m.id);
-  const cd = cooldownUntil(m.id, deviceId);
+  const s = await getSettings(m.id);
+  const cd = await cooldownUntil(m.id, deviceId);
   const reduce = (v: number) => (cd ? Math.floor(v * config.cooldownFactor) : Infinity);
   const perTx = Math.min(tier.perTxCents, s?.per_tx_cents ?? Infinity, config.partnerLimits.perTxCents, reduce(tier.perTxCents));
   const daily = Math.min(tier.dailyCents, s?.daily_cents ?? Infinity, config.partnerLimits.dailyCents, reduce(tier.dailyCents));
@@ -95,11 +95,11 @@ export function effectiveLimits(m: MerchantRow, deviceId?: string) {
   };
 }
 
-export type EffectiveLimits = ReturnType<typeof effectiveLimits>;
+export type EffectiveLimits = Awaited<ReturnType<typeof effectiveLimits>>;
 
 /** Uso del día de Lima: cantidad de links creados y monto comprometido (sin cancelados). */
-export function usageToday(merchantId: string) {
-  const row = db
+export async function usageToday(merchantId: string) {
+  const row = await db
     .prepare(`
       SELECT COUNT(*) AS n,
              COALESCE(SUM(CASE WHEN status != 'CANCELLED' THEN amount_cents ELSE 0 END), 0) AS amount
@@ -109,9 +109,9 @@ export function usageToday(merchantId: string) {
   return { count: row.n, amount_cents: row.amount };
 }
 
-export function checkLinkLimits(m: MerchantRow, deviceId: string, amountCents: number) {
-  const limits = effectiveLimits(m, deviceId);
-  const usage = usageToday(m.id);
+export async function checkLinkLimits(m: MerchantRow, deviceId: string, amountCents: number) {
+  const limits = await effectiveLimits(m, deviceId);
+  const usage = await usageToday(m.id);
   const cooldownNote = limits.cooldown_until ? ' Tus límites están reducidos temporalmente por un cambio de seguridad reciente.' : '';
   let problem: { code: string; message: string } | null = null;
   if (amountCents > limits.per_tx_cents) {

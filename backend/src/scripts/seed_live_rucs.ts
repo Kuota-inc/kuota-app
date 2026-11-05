@@ -1,11 +1,7 @@
-import Database from 'better-sqlite3';
-import path from 'path';
-import { fileURLToPath } from 'url';
+// Usa la misma base que el backend (PGlite en desarrollo o DATABASE_URL).
+import { closeDatabases, db, initDatabase } from '../db/database.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const dbPath = path.resolve(__dirname, '../../kuota.db');
-const db = new Database(dbPath);
+await initDatabase();
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -30,18 +26,19 @@ const rucs = [
 
 async function seedReal() {
   const insertStmt = db.prepare(`
-    INSERT OR REPLACE INTO sunat_contribuyentes (
+    INSERT INTO sunat_contribuyentes (
       ruc, nombre_razon_social, nombre_comercial, tipo_contribuyente,
       actividad_principal, actividades_secundarias, estado_contribuyente,
       condicion_domicilio, ubigeo, direccion_fiscal, departamento,
       provincia, distrito, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, utc_now_text())
+    ON CONFLICT (ruc) DO UPDATE SET nombre_razon_social = excluded.nombre_razon_social, nombre_comercial = excluded.nombre_comercial, tipo_contribuyente = excluded.tipo_contribuyente, actividad_principal = excluded.actividad_principal, actividades_secundarias = excluded.actividades_secundarias, estado_contribuyente = excluded.estado_contribuyente, condicion_domicilio = excluded.condicion_domicilio, ubigeo = excluded.ubigeo, direccion_fiscal = excluded.direccion_fiscal, departamento = excluded.departamento, provincia = excluded.provincia, distrito = excluded.distrito, created_at = excluded.created_at
   `);
 
   console.log(`Starting real RUC fetch for ${rucs.length} companies...`);
 
   for (const ruc of rucs) {
-    const existing = db.prepare('SELECT ruc, nombre_razon_social FROM sunat_contribuyentes WHERE ruc = ?').get(ruc) as any;
+    const existing = await db.prepare('SELECT ruc, nombre_razon_social FROM sunat_contribuyentes WHERE ruc = ?').get(ruc) as any;
     if (existing && !existing.nombre_razon_social.startsWith('COMERCIALIZADORA')) {
       console.log(`✓ Already in DB: ${ruc} - ${existing.nombre_razon_social}`);
       continue;
@@ -62,7 +59,7 @@ async function seedReal() {
         const tipoContribuyente = isPersona ? 'PERSONA NATURAL CON NEGOCIO' : 'SOCIEDAD ANONIMA';
         const direccion = [d.direccion, d.distrito, d.provincia].filter(Boolean).join(', ') || 'Dirección fiscal registrada';
 
-        insertStmt.run(
+        await insertStmt.run(
           d.numeroDocumento || ruc,
           d.nombre || 'EMPRESA PERUANA',
           d.nombre || '-',
@@ -88,8 +85,12 @@ async function seedReal() {
     await sleep(2200);
   }
 
-  const total = db.prepare('SELECT count(*) as count FROM sunat_contribuyentes').get() as any;
+  const total = await db.prepare('SELECT count(*) as count FROM sunat_contribuyentes').get() as any;
   console.log(`Finished. Total in sunat_contribuyentes: ${total.count}`);
 }
 
-seedReal();
+try {
+  await seedReal();
+} finally {
+  await closeDatabases();
+}

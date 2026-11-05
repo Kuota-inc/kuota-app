@@ -1,12 +1,12 @@
 // Utilidades de tiempo. Las columnas nuevas guardan ISO-8601 en UTC; las
-// heredadas con DEFAULT datetime('now') usan 'YYYY-MM-DD HH:MM:SS' (también UTC).
+// heredadas con DEFAULT utc_now_text() usan 'YYYY-MM-DD HH:MM:SS' (también UTC).
 
 export const nowIso = (now = new Date()) => now.toISOString();
 
 export const addMinutes = (date: Date, minutes: number) => new Date(date.getTime() + minutes * 60_000);
 export const addHours = (date: Date, hours: number) => addMinutes(date, hours * 60);
 
-/** Formato de datetime('now') de SQLite, para comparar con columnas heredadas. */
+/** Formato de utc_now_text() de SQLite, para comparar con columnas heredadas. */
 export function sqlTime(date: Date): string {
   return date.toISOString().slice(0, 19).replace('T', ' ');
 }

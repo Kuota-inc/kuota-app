@@ -2,11 +2,11 @@
 
 Este documento compara el *Plan de implementación de seguridad* (v1, 5 nov 2026) con el código de este repositorio. Para cada punto indica qué quedó implementado, dónde está y cómo se prueba, y qué depende de infraestructura, de contratos o del equipo.
 
-- **Pruebas automáticas:** `npm --prefix backend test`. Son 29 pruebas, todas en `backend/test/payments-security.test.ts`, y usan una base y unos secretos temporales.
-- **Código de seguridad:** `backend/src/security/`.
+- **Pruebas automáticas:** `npm --prefix backend test`. Son 29 pruebas de seguridad en `backend/test/payments-security.test.ts` y 11 de plataforma (aislamiento por roles, migraciones, flujos del núcleo) en `backend/test/platform.test.ts`. Corren sobre Postgres: PGlite en memoria o un Postgres 16 real si hay `DATABASE_URL`, como en el CI.
+- **Código de seguridad:** `backend/src/security/`. Tablas, triggers de inmutabilidad y roles: `backend/migrations/0002_payments.sql` y `0003_roles.sql`.
 - **Rutas:** `backend/src/routes/` (paymentLink, security, webhook, internal).
 
-> **Diferencia con un supuesto del plan.** El plan asume una app Android en Kotlin. La app real es React con Capacitor (WebView) y un backend Node/Express con SQLite. Los controles del servidor no cambian. Los nativos sí: BiometricPrompt, Keystore, Play Integrity, bloqueo de capturas y detección de root u overlays necesitan plugins de Capacitor o código en `MainActivity`. Quedan como pendientes (punto 6).
+> **Diferencia con un supuesto del plan.** El plan asume una app Android en Kotlin. La app real es React con Capacitor (WebView) y un backend Node/Express con Postgres. Los controles del servidor no cambian. Los nativos sí: BiometricPrompt, Keystore, Play Integrity, bloqueo de capturas y detección de root u overlays necesitan plugins de Capacitor o código en `MainActivity`. Quedan como pendientes (punto 6).
 
 **Leyenda.**
 - ✅ Implementado y probado.
@@ -19,7 +19,7 @@ Este documento compara el *Plan de implementación de seguridad* (v1, 5 nov 2026
 |---|---|---|---|---|
 | 1 | Gobierno y SGSI | ⬜ | Este documento y el checklist como punto de partida | Política aprobada, registro de riesgos, roles, gestión del cambio |
 | 2 | Terceros y nube | ⬜ | Dependencias fijadas en `package-lock.json` | Inventario de terceros, cuestionarios, cláusulas, plan de salida |
-| 3 | Arquitectura y aislamiento | 🟡 | El dinero se mueve solo por rutas definidas (links, webhook, conciliación). Las rutas internas están separadas y exigen token | Separar redes y cuentas (AWS multi-cuenta, subredes, mTLS), usar Terraform y dar acceso administrativo efímero |
+| 3 | Arquitectura y aislamiento | 🟡 | El dinero se mueve solo por rutas definidas (links, webhook, conciliación). Las rutas internas están separadas y exigen token. La zona de dinero tiene su esquema (`payments`) y su usuario de base: el núcleo no puede leerla y pagos no puede editar ni borrar las tablas de solo agregado (probado) | Proyectos de GCP por entorno, red privada para Cloud SQL, Terraform y acceso administrativo efímero |
 | 4 | Protección de datos | 🟡 | PIN con scrypt y pimienta; migración de los PIN que estaban en texto plano. Secretos fuera de git (`.dev-secrets.json` en desarrollo; en producción el proceso no arranca sin ellos). Sin datos de tarjeta. RUC enmascarado en la página de pago. Logs sin cuerpos de respuesta. `Cache-Control: no-store` | TLS en todo el tráfico (hoy el APK usa HTTP en la LAN), KMS, tokenizar DNI, RUC y teléfono, revisión de la Ley 29733, bloqueo de capturas en Android |
 | 5 | Verificación por niveles | 🟡 | Dos niveles (Básico y Ampliado, según `kyc_status`) con sus límites. El pagador ve el nombre y el nivel de verificación antes de pagar (`/pay/<código>`) | Proveedor de identidad con prueba de vida, validar la titularidad de la cuenta de abono y señales anti SIM-swap |
 | 6 | Autenticación, dispositivo y consentimiento | 🟡 | Sesión corta (15 min) ligada al dispositivo, revocable. Bloqueo tras 5 PIN fallidos (15 min). Un dispositivo nuevo o un cambio de PIN abren un enfriamiento de 24 h con límites al 25 %. Montos altos, subir límites y desvincular un dispositivo piden PIN con un resumen generado por el servidor, en un permiso de un solo uso para esa acción exacta. El consentimiento se registra (quién, cuándo, dispositivo, resumen). Cierre remoto de sesiones | IdP con OTP en lugar de la identidad demo, BiometricPrompt y Keystore, Play Integrity, pinning, protección en tiempo de ejecución |

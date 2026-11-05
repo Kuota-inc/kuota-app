@@ -20,8 +20,8 @@ providerRouter.get('/kyc/business-lookup/:ruc', async (req, res) => {
 });
 
 // Stats del padrón SUNAT y caché
-providerRouter.get('/kyc/sunat-stats', (req, res) => {
-  res.json(sunatService.getStats());
+providerRouter.get('/kyc/sunat-stats', async (req, res) => {
+  res.json(await sunatService.getStats());
 });
 
 // PRD 11: Consulta SUNAT en vivo (Compatibilidad hacia atrás)
@@ -64,17 +64,17 @@ providerRouter.post('/businesses/confirm', async (req, res) => {
   }
 
   // 1. Check if business already exists in KUOTA
-  const existing = db.prepare('SELECT id, ruc, razon_social FROM businesses WHERE ruc = ?').get(ruc) as any;
+  const existing = await db.prepare('SELECT id, ruc, razon_social FROM businesses WHERE ruc = ?').get(ruc) as any;
   if (existing) {
     // Si ya existe, actualiza los datos de contacto y retorna éxito para permitir re-ingreso sin bloquear
-    db.prepare(`
+    await db.prepare(`
       UPDATE businesses
       SET usuario_propietario = coalesce(?, usuario_propietario),
-          fecha_actualizacion = datetime('now')
+          fecha_actualizacion = utc_now_text()
       WHERE id = ?
     `).run(legal_rep_dni, existing.id);
 
-    const existingReq = db.prepare('SELECT public_id FROM kyc_requests WHERE session_id = ? ORDER BY created_at DESC LIMIT 1').get(session_id || '') as any;
+    const existingReq = await db.prepare('SELECT public_id FROM kyc_requests WHERE session_id = ? ORDER BY created_at DESC LIMIT 1').get(session_id || '') as any;
     const reqId = existingReq?.public_id || 'PRV-89420-PE';
 
     return res.status(200).json({
@@ -99,7 +99,7 @@ providerRouter.post('/businesses/confirm', async (req, res) => {
   const now = new Date().toISOString();
 
   // 3. Insert into businesses table
-  db.prepare(`
+  await db.prepare(`
     INSERT INTO businesses (
       id, ruc, razon_social, nombre_comercial, tipo_contribuyente,
       actividad_principal, actividades_secundarias, estado_contribuyente,
@@ -130,15 +130,15 @@ providerRouter.post('/businesses/confirm', async (req, res) => {
 
   // 4. Update or create provider profile with verified business details
   const provId = 'prov_' + uuidv4().substring(0, 10);
-  const existingProv = db.prepare('SELECT id FROM provider_profiles WHERE ruc = ?').get(ruc) as any;
+  const existingProv = await db.prepare('SELECT id FROM provider_profiles WHERE ruc = ?').get(ruc) as any;
   if (existingProv) {
-    db.prepare(`
+    await db.prepare(`
       UPDATE provider_profiles
       SET legal_name = ?, legal_rep_dni = coalesce(?, legal_rep_dni), whatsapp = coalesce(?, whatsapp)
       WHERE id = ?
     `).run(d.razon_social, legal_rep_dni, whatsapp, existingProv.id);
   } else {
-    db.prepare(`
+    await db.prepare(`
       INSERT INTO provider_profiles (
         id, session_id, ruc, legal_name, legal_rep_dni, whatsapp, category,
         seniority_range, kyc_status, fee_bps
@@ -150,7 +150,7 @@ providerRouter.post('/businesses/confirm', async (req, res) => {
   const requestId = 'req_' + uuidv4().substring(0, 10);
   const publicId = 'PRV-' + Math.floor(10000 + Math.random() * 90000) + '-PE';
 
-  db.prepare(`
+  await db.prepare(`
     INSERT INTO kyc_requests (id, provider_id, session_id, public_id, status, progress_pct)
     VALUES (?, ?, ?, ?, 'IN_PROGRESS', 78)
   `).run(requestId, provId, session_id || 'ses_anon', publicId);
@@ -166,7 +166,7 @@ providerRouter.post('/businesses/confirm', async (req, res) => {
 });
 
 // PRD 11: Iniciar solicitud KYC (actualizado)
-providerRouter.post('/kyc/requests', (req, res) => {
+providerRouter.post('/kyc/requests', async (req, res) => {
   const { session_id, ruc, legal_rep_dni, whatsapp } = req.body;
 
   if (!ruc || ruc.length !== 11) {
@@ -182,7 +182,7 @@ providerRouter.post('/kyc/requests', (req, res) => {
   const requestId = 'req_' + uuidv4().substring(0, 10);
   const publicId = 'PRV-' + Math.floor(10000 + Math.random() * 90000) + '-PE';
 
-  db.prepare(`
+  await db.prepare(`
     INSERT INTO kyc_requests (id, session_id, public_id, status, progress_pct)
     VALUES (?, ?, ?, 'IN_PROGRESS', 33)
   `).run(requestId, session_id || 'ses_anon', publicId);
@@ -190,17 +190,17 @@ providerRouter.post('/kyc/requests', (req, res) => {
   // Seed KYC Checks
   const insertCheck = db.prepare(`
     INSERT INTO kyc_checks (id, request_id, type, status, started_at)
-    VALUES (?, ?, ?, ?, datetime('now'))
+    VALUES (?, ?, ?, ?, utc_now_text())
   `);
-  insertCheck.run('chk_sunat_' + uuidv4().substring(0, 8), requestId, 'SUNAT', 'DONE');
-  insertCheck.run('chk_reniec_' + uuidv4().substring(0, 8), requestId, 'RENIEC', 'DONE');
-  insertCheck.run('chk_scoring_' + uuidv4().substring(0, 8), requestId, 'SCORING', 'RUNNING');
+  await insertCheck.run('chk_sunat_' + uuidv4().substring(0, 8), requestId, 'SUNAT', 'DONE');
+  await insertCheck.run('chk_reniec_' + uuidv4().substring(0, 8), requestId, 'RENIEC', 'DONE');
+  await insertCheck.run('chk_scoring_' + uuidv4().substring(0, 8), requestId, 'SCORING', 'RUNNING');
 
   // Upsert provider profile
-  let prov = db.prepare('SELECT id FROM provider_profiles WHERE ruc = ?').get(ruc) as any;
+  let prov = await db.prepare('SELECT id FROM provider_profiles WHERE ruc = ?').get(ruc) as any;
   if (!prov) {
     const provId = 'prov_' + uuidv4().substring(0, 10);
-    db.prepare(`
+    await db.prepare(`
       INSERT INTO provider_profiles (id, session_id, ruc, legal_name, legal_rep_dni, whatsapp, kyc_status)
       VALUES (?, ?, ?, 'DISTRIBUIDORA ANDINA DEL SUR S.A.C.', ?, ?, 'IN_REVIEW')
     `).run(provId, session_id, ruc, legal_rep_dni, whatsapp);
@@ -215,9 +215,9 @@ providerRouter.post('/kyc/requests', (req, res) => {
 });
 
 // PRD 12: Estado de validación asíncrona
-providerRouter.get('/kyc/requests/:publicId', (req, res) => {
+providerRouter.get('/kyc/requests/:publicId', async (req, res) => {
   const publicId = req.params.publicId;
-  const kyc = db.prepare('SELECT * FROM kyc_requests WHERE public_id = ?').get(publicId) as any;
+  const kyc = await db.prepare('SELECT * FROM kyc_requests WHERE public_id = ?').get(publicId) as any;
 
   if (!kyc) {
     // Generate deterministic response for mock request ids
@@ -256,19 +256,19 @@ providerRouter.get('/kyc/requests/:publicId', (req, res) => {
 });
 
 // Subida y Registro de Documentos KYC Proveedor (DNI Anverso, Reverso y Selfie Biométrico del Representante Legal)
-providerRouter.post('/kyc/requests/:publicId/documents', (req, res) => {
+providerRouter.post('/kyc/requests/:publicId/documents', async (req, res) => {
   const publicId = req.params.publicId;
   const { dni_front, dni_back, selfie } = req.body || {};
 
-  const kyc = db.prepare('SELECT * FROM kyc_requests WHERE public_id = ?').get(publicId) as any;
+  const kyc = await db.prepare('SELECT * FROM kyc_requests WHERE public_id = ?').get(publicId) as any;
   if (kyc) {
-    db.prepare(`
+    await db.prepare(`
       UPDATE kyc_requests 
       SET status = 'APPROVED', current_stage = 'SCORING',
           dni_front = coalesce(?, dni_front),
           dni_back = coalesce(?, dni_back),
           selfie = coalesce(?, selfie),
-          updated_at = datetime('now')
+          updated_at = utc_now_text()
       WHERE id = ?
     `).run(dni_front || null, dni_back || null, selfie || null, kyc.id);
   }

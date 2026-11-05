@@ -5,7 +5,7 @@
 //   antes de tocar la base (anti-enumeración).
 // - La fila guarda una firma HMAC de titular, monto, moneda y vencimiento: si
 //   alguien altera el monto en la base, el link deja de ser pagable.
-import { db } from '../db/database.js';
+import { paymentsDb as db } from '../db/client.js';
 import { config, secrets } from './config.js';
 import { hmac, safeEqual } from './crypto.js';
 import { paymentEvent } from './events.js';
@@ -66,28 +66,28 @@ export function tokenFromPublicCode(code: unknown): string | null {
 
 export const payUrl = (token: string) => `${config.payBaseUrl}/${publicCode(token)}`;
 
-export const getLinkByToken = (token: string) =>
-  (db.prepare('SELECT * FROM payment_links WHERE token = ?').get(token) as LinkRow | undefined) ?? null;
+export const getLinkByToken = async (token: string) =>
+  (await db.prepare('SELECT * FROM payment_links WHERE token = ?').get(token) as LinkRow | undefined) ?? null;
 
-export const getLinkById = (id: string) => (db.prepare('SELECT * FROM payment_links WHERE id = ?').get(id) as LinkRow | undefined) ?? null;
+export const getLinkById = async (id: string) => (await db.prepare('SELECT * FROM payment_links WHERE id = ?').get(id) as LinkRow | undefined) ?? null;
 
 const OPEN = new Set(['DRAFT', 'ACTIVE', 'ON_HOLD']);
 
 /** Marca como vencido un link abierto cuyo plazo ya pasó y devuelve su estado actual. */
-export function refreshStatus(link: LinkRow): LinkRow {
+export async function refreshStatus(link: LinkRow): Promise<LinkRow> {
   if (OPEN.has(link.status) && new Date(link.expires_at) <= new Date()) {
-    const changed = db
+    const changed = (await db
       .prepare("UPDATE payment_links SET status = 'EXPIRED' WHERE id = ? AND status IN ('DRAFT', 'ACTIVE', 'ON_HOLD')")
-      .run(link.id).changes;
-    if (changed) paymentEvent(link.id, 'EXPIRED', { expires_at: link.expires_at });
+      .run(link.id)).changes;
+    if (changed) await paymentEvent(link.id, 'EXPIRED', { expires_at: link.expires_at });
     return { ...link, status: 'EXPIRED' };
   }
   return link;
 }
 
 /** Vista del link para su dueño (sin firma ni datos internos). */
-export function ownerView(l: LinkRow) {
-  const link = refreshStatus(l);
+export async function ownerView(l: LinkRow) {
+  const link = await refreshStatus(l);
   return {
     id: link.id,
     amount_cents: link.amount_cents,

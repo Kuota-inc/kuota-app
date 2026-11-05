@@ -3,26 +3,27 @@ import { v4 as uuidv4 } from 'uuid';
 import { db } from '../db/database.js';
 import { sunatService } from '../services/sunat.service.js';
 import { hashPin, pinProblem } from '../security/crypto.js';
+import { setMerchantPinHash } from '../security/auth.js';
 
 export const onboardingRouter = Router();
 
 // Helper para auto-asegurar la existencia de la sesión (idempotente y resiliente ante sesiones optimistas)
-function ensureSession(sessionId: string, role: 'MERCHANT' | 'PROVIDER' = 'MERCHANT') {
-  let session = db.prepare('SELECT * FROM onboarding_sessions WHERE id = ?').get(sessionId) as any;
+async function ensureSession(sessionId: string, role: 'MERCHANT' | 'PROVIDER' = 'MERCHANT') {
+  let session = await db.prepare('SELECT * FROM onboarding_sessions WHERE id = ?').get(sessionId) as any;
   if (!session) {
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
     const nextStep = role === 'MERCHANT' ? 'merchant_identity' : 'provider_fiscal';
-    db.prepare(`
+    await db.prepare(`
       INSERT INTO onboarding_sessions (id, role, device_id, status, current_step, terms_version, privacy_version, accepted_at, expires_at)
-      VALUES (?, ?, 'dev_auto', 'IN_PROGRESS', ?, '2026.1', '2026.1', datetime('now'), ?)
+      VALUES (?, ?, 'dev_auto', 'IN_PROGRESS', ?, '2026.1', '2026.1', utc_now_text(), ?)
     `).run(sessionId, role, nextStep, expiresAt);
-    session = db.prepare('SELECT * FROM onboarding_sessions WHERE id = ?').get(sessionId) as any;
+    session = await db.prepare('SELECT * FROM onboarding_sessions WHERE id = ?').get(sessionId) as any;
   }
   return session;
 }
 
 // PRD 01: Crear sesión de onboarding
-onboardingRouter.post('/sessions', (req, res) => {
+onboardingRouter.post('/sessions', async (req, res) => {
   const { role, device_id, accepted_terms_version, accepted_privacy_version } = req.body;
 
   if (!role || !['MERCHANT', 'PROVIDER'].includes(role)) {
@@ -38,9 +39,9 @@ onboardingRouter.post('/sessions', (req, res) => {
   const nextStep = role === 'MERCHANT' ? 'merchant_identity' : 'provider_fiscal';
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
-  db.prepare(`
+  await db.prepare(`
     INSERT INTO onboarding_sessions (id, role, device_id, status, current_step, terms_version, privacy_version, accepted_at, expires_at)
-    VALUES (?, ?, ?, 'IN_PROGRESS', ?, ?, ?, datetime('now'), ?)
+    VALUES (?, ?, ?, 'IN_PROGRESS', ?, ?, ?, utc_now_text(), ?)
   `).run(sessionId, role, device_id || 'dev_unknown', nextStep, termsVer, privVer, expiresAt);
 
   res.status(201).json({
@@ -103,7 +104,7 @@ onboardingRouter.post('/sessions/:id/merchant-identity', async (req, res) => {
     return res.status(422).json({ error: { code: 'PHONE_INVALID', message: 'Ingresa un celular peruano de 9 dígitos.' } });
   }
 
-  const session = ensureSession(sessionId, 'MERCHANT');
+  const session = await ensureSession(sessionId, 'MERCHANT');
 
   const cleanPhone = phone.replace(/\s+/g, '');
   let businessData: any = null;
@@ -121,12 +122,12 @@ onboardingRouter.post('/sessions/:id/merchant-identity', async (req, res) => {
     businessData = sunatRes.data;
 
     // Registrar o actualizar en la tabla businesses (KYB)
-    const existingBiz = db.prepare('SELECT id FROM businesses WHERE ruc = ?').get(ruc) as any;
+    const existingBiz = await db.prepare('SELECT id FROM businesses WHERE ruc = ?').get(ruc) as any;
     const businessId = existingBiz ? existingBiz.id : 'biz_' + uuidv4().substring(0, 10);
     const now = new Date().toISOString();
 
     if (!existingBiz) {
-      db.prepare(`
+      await db.prepare(`
         INSERT INTO businesses (
           id, ruc, razon_social, nombre_comercial, tipo_contribuyente,
           actividad_principal, actividades_secundarias, estado_contribuyente,
@@ -156,7 +157,7 @@ onboardingRouter.post('/sessions/:id/merchant-identity', async (req, res) => {
     }
   }
 
-  const existing = db.prepare('SELECT id FROM merchant_profiles WHERE session_id = ?').get(sessionId) as any;
+  const existing = await db.prepare('SELECT id FROM merchant_profiles WHERE session_id = ?').get(sessionId) as any;
   let merchantId = existing?.id;
   const bName = businessData ? businessData.razon_social : (existing?.business_name || 'Mi Negocio Kuota');
   const bRuc = businessData ? businessData.ruc : null;
@@ -164,15 +165,15 @@ onboardingRouter.post('/sessions/:id/merchant-identity', async (req, res) => {
   const bDistrict = businessData ? businessData.distrito : null;
 
   if (existing) {
-    db.prepare(`
+    await db.prepare(`
       UPDATE merchant_profiles
       SET dni = ?, full_name = ?, phone = ?, ruc = coalesce(?, ruc), business_name = coalesce(?, business_name),
-          address = coalesce(?, address), district = coalesce(?, district), kyc_status = 'IN_PROGRESS', updated_at = datetime('now')
+          address = coalesce(?, address), district = coalesce(?, district), kyc_status = 'IN_PROGRESS', updated_at = utc_now_text()
       WHERE session_id = ?
     `).run(dni, full_name.trim().toUpperCase(), cleanPhone, bRuc, bName, bAddress, bDistrict, sessionId);
   } else {
     merchantId = 'mer_' + uuidv4().substring(0, 10);
-    db.prepare(`
+    await db.prepare(`
       INSERT INTO merchant_profiles (id, session_id, dni, full_name, phone, ruc, business_name, address, district, kyc_status)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'IN_PROGRESS')
     `).run(merchantId, sessionId, dni, full_name.trim().toUpperCase(), cleanPhone, bRuc, bName, bAddress, bDistrict);
@@ -182,7 +183,7 @@ onboardingRouter.post('/sessions/:id/merchant-identity', async (req, res) => {
   const requestId = 'req_' + uuidv4().substring(0, 10);
   const publicId = (account_type === 'BUSINESS' ? 'BIZ-' : 'MER-') + Math.floor(10000 + Math.random() * 90000) + '-PE';
 
-  db.prepare(`
+  await db.prepare(`
     INSERT INTO kyc_requests (id, session_id, public_id, status, progress_pct)
     VALUES (?, ?, ?, 'IN_PROGRESS', 33)
   `).run(requestId, sessionId, publicId);
@@ -190,16 +191,16 @@ onboardingRouter.post('/sessions/:id/merchant-identity', async (req, res) => {
   // Crear checks de validación (KYB + KYC)
   const insertCheck = db.prepare(`
     INSERT INTO kyc_checks (id, request_id, type, status, started_at)
-    VALUES (?, ?, ?, ?, datetime('now'))
+    VALUES (?, ?, ?, ?, utc_now_text())
   `);
 
   if (account_type === 'BUSINESS') {
-    insertCheck.run('chk_' + uuidv4().substring(0, 8), requestId, 'SUNAT', 'PENDING');
+    await insertCheck.run('chk_' + uuidv4().substring(0, 8), requestId, 'SUNAT', 'PENDING');
   }
-  insertCheck.run('chk_' + uuidv4().substring(0, 8), requestId, 'RENIEC', 'PENDING');
-  insertCheck.run('chk_' + uuidv4().substring(0, 8), requestId, 'SCORING', 'PENDING');
+  await insertCheck.run('chk_' + uuidv4().substring(0, 8), requestId, 'RENIEC', 'PENDING');
+  await insertCheck.run('chk_' + uuidv4().substring(0, 8), requestId, 'SCORING', 'PENDING');
 
-  db.prepare("UPDATE onboarding_sessions SET current_step = 'merchant_kyc_validating' WHERE id = ?").run(sessionId);
+  await db.prepare("UPDATE onboarding_sessions SET current_step = 'merchant_kyc_validating' WHERE id = ?").run(sessionId);
 
   res.status(201).json({
     success: true,
@@ -214,9 +215,9 @@ onboardingRouter.post('/sessions/:id/merchant-identity', async (req, res) => {
 });
 
 // Estado de validación KYC & KYB del Emprendedor / Comercio
-onboardingRouter.get('/merchant-kyc/:requestId', (req, res) => {
+onboardingRouter.get('/merchant-kyc/:requestId', async (req, res) => {
   const publicId = req.params.requestId;
-  const kyc = db.prepare('SELECT * FROM kyc_requests WHERE public_id = ?').get(publicId) as any;
+  const kyc = await db.prepare('SELECT * FROM kyc_requests WHERE public_id = ?').get(publicId) as any;
 
   if (!kyc) {
     return res.json({
@@ -245,9 +246,9 @@ onboardingRouter.get('/merchant-kyc/:requestId', (req, res) => {
     });
   }
 
-  const merchant = db.prepare('SELECT * FROM merchant_profiles WHERE session_id = ?').get(kyc.session_id) as any;
+  const merchant = await db.prepare('SELECT * FROM merchant_profiles WHERE session_id = ?').get(kyc.session_id) as any;
   const isBusiness = publicId.startsWith('BIZ-') || !!merchant?.ruc;
-  const business = merchant?.ruc ? db.prepare('SELECT * FROM businesses WHERE ruc = ?').get(merchant.ruc) as any : null;
+  const business = merchant?.ruc ? await db.prepare('SELECT * FROM businesses WHERE ruc = ?').get(merchant.ruc) as any : null;
 
   const stages = isBusiness ? [
     {
@@ -316,19 +317,19 @@ onboardingRouter.get('/merchant-kyc/:requestId', (req, res) => {
 });
 
 // Subida y Registro de Documentos KYC (DNI Anverso, Reverso y Selfie Biométrico)
-onboardingRouter.post('/merchant-kyc/:requestId/documents', (req, res) => {
+onboardingRouter.post('/merchant-kyc/:requestId/documents', async (req, res) => {
   const publicId = req.params.requestId;
   const { dni_front, dni_back, selfie } = req.body || {};
 
-  const kyc = db.prepare('SELECT * FROM kyc_requests WHERE public_id = ?').get(publicId) as any;
+  const kyc = await db.prepare('SELECT * FROM kyc_requests WHERE public_id = ?').get(publicId) as any;
   if (kyc) {
-    db.prepare(`
+    await db.prepare(`
       UPDATE kyc_requests 
       SET status = 'APPROVED', current_stage = 'SCORING',
           dni_front = coalesce(?, dni_front),
           dni_back = coalesce(?, dni_back),
           selfie = coalesce(?, selfie),
-          updated_at = datetime('now')
+          updated_at = utc_now_text()
       WHERE id = ?
     `).run(dni_front || null, dni_back || null, selfie || null, kyc.id);
   }
@@ -358,14 +359,14 @@ onboardingRouter.post('/merchant-kyc/:requestId/documents', (req, res) => {
 });
 
 // Obtener estado de la sesión
-onboardingRouter.get('/sessions/:id', (req, res) => {
-  const session = db.prepare('SELECT * FROM onboarding_sessions WHERE id = ?').get(req.params.id) as any;
+onboardingRouter.get('/sessions/:id', async (req, res) => {
+  const session = await db.prepare('SELECT * FROM onboarding_sessions WHERE id = ?').get(req.params.id) as any;
   if (!session) {
     return res.status(404).json({ error: { code: 'SESSION_NOT_FOUND', message: 'Sesión no encontrada.' } });
   }
 
-  const merchant = db.prepare('SELECT * FROM merchant_profiles WHERE session_id = ?').get(session.id);
-  const products = db.prepare('SELECT * FROM products WHERE session_id = ? AND deleted_at IS NULL').all(session.id);
+  const merchant = await db.prepare('SELECT * FROM merchant_profiles WHERE session_id = ?').get(session.id);
+  const products = await db.prepare('SELECT * FROM products WHERE session_id = ? AND deleted_at IS NULL').all(session.id);
 
   res.json({
     session,
@@ -375,7 +376,7 @@ onboardingRouter.get('/sessions/:id', (req, res) => {
 });
 
 // PRD 02: Emprendedor - Actividad comercial (Paso 1 de 3)
-onboardingRouter.put('/sessions/:id/merchant-activity', (req, res) => {
+onboardingRouter.put('/sessions/:id/merchant-activity', async (req, res) => {
   const sessionId = req.params.id;
   const { category, seniority_range, business_name } = req.body;
 
@@ -386,26 +387,26 @@ onboardingRouter.put('/sessions/:id/merchant-activity', (req, res) => {
     return res.status(422).json({ error: { code: 'SENIORITY_REQUIRED', message: 'Cuéntanos hace cuánto tienes tu negocio.' } });
   }
 
-  const session = ensureSession(sessionId, 'MERCHANT');
+  const session = await ensureSession(sessionId, 'MERCHANT');
 
   const tierHint = seniority_range === 'CONSOLIDATED' ? 'EXTENDED_ELIGIBLE' : 'STANDARD';
 
-  const existing = db.prepare('SELECT id FROM merchant_profiles WHERE session_id = ?').get(sessionId) as any;
+  const existing = await db.prepare('SELECT id FROM merchant_profiles WHERE session_id = ?').get(sessionId) as any;
   if (existing) {
-    db.prepare(`
+    await db.prepare(`
       UPDATE merchant_profiles
-      SET category = ?, seniority_range = ?, tier_hint = ?, business_name = coalesce(?, business_name), updated_at = datetime('now')
+      SET category = ?, seniority_range = ?, tier_hint = ?, business_name = coalesce(?, business_name), updated_at = utc_now_text()
       WHERE session_id = ?
     `).run(category, seniority_range, tierHint, business_name, sessionId);
   } else {
     const profileId = 'mer_' + uuidv4().substring(0, 10);
-    db.prepare(`
+    await db.prepare(`
       INSERT INTO merchant_profiles (id, session_id, category, seniority_range, tier_hint, business_name)
       VALUES (?, ?, ?, ?, ?, ?)
     `).run(profileId, sessionId, category, seniority_range, tierHint, business_name || 'Mi Negocio Kuota');
   }
 
-  db.prepare("UPDATE onboarding_sessions SET current_step = 'merchant_products' WHERE id = ?").run(sessionId);
+  await db.prepare("UPDATE onboarding_sessions SET current_step = 'merchant_products' WHERE id = ?").run(sessionId);
 
   res.json({
     session_id: sessionId,
@@ -416,7 +417,7 @@ onboardingRouter.put('/sessions/:id/merchant-activity', (req, res) => {
 });
 
 // PRD 03: Emprendedor - Añadir productos (Paso 2 de 3)
-onboardingRouter.put('/sessions/:id/products', (req, res) => {
+onboardingRouter.put('/sessions/:id/products', async (req, res) => {
   const sessionId = req.params.id;
   const { products } = req.body;
 
@@ -425,7 +426,7 @@ onboardingRouter.put('/sessions/:id/products', (req, res) => {
   }
 
   // Soft-delete previous products for this session
-  db.prepare("UPDATE products SET deleted_at = datetime('now') WHERE session_id = ?").run(sessionId);
+  await db.prepare("UPDATE products SET deleted_at = utc_now_text() WHERE session_id = ?").run(sessionId);
 
   const insertStmt = db.prepare(`
     INSERT INTO products (id, session_id, name, price_cents, is_frequent, sort_order)
@@ -436,7 +437,7 @@ onboardingRouter.put('/sessions/:id/products', (req, res) => {
   for (let i = 0; i < products.length; i++) {
     const p = products[i];
     if (p.name && p.name.trim() && p.price_cents > 0) {
-      insertStmt.run(
+      await insertStmt.run(
         p.id || 'prod_' + uuidv4().substring(0, 10),
         sessionId,
         p.name.trim(),
@@ -448,7 +449,7 @@ onboardingRouter.put('/sessions/:id/products', (req, res) => {
     }
   }
 
-  db.prepare("UPDATE onboarding_sessions SET current_step = 'merchant_ready' WHERE id = ?").run(sessionId);
+  await db.prepare("UPDATE onboarding_sessions SET current_step = 'merchant_ready' WHERE id = ?").run(sessionId);
 
   res.json({
     count: validCount,
@@ -458,23 +459,23 @@ onboardingRouter.put('/sessions/:id/products', (req, res) => {
 });
 
 // PRD 04: Onboarding exitoso - Cierre y creación de línea
-onboardingRouter.post('/sessions/:id/complete', (req, res) => {
+onboardingRouter.post('/sessions/:id/complete', async (req, res) => {
   const sessionId = req.params.id;
-  const session = ensureSession(sessionId, 'MERCHANT');
+  const session = await ensureSession(sessionId, 'MERCHANT');
 
-  let merchant = db.prepare('SELECT * FROM merchant_profiles WHERE session_id = ?').get(sessionId) as any;
+  let merchant = await db.prepare('SELECT * FROM merchant_profiles WHERE session_id = ?').get(sessionId) as any;
   if (!merchant) {
     const merchantId = 'mer_' + uuidv4().substring(0, 10);
-    db.prepare(`
+    await db.prepare(`
       INSERT INTO merchant_profiles (id, session_id, dni, full_name, phone, business_name, category, seniority_range, kyc_status)
       VALUES (?, ?, '47891234', 'CARLOS ALBERTO MENDOZA QUISPE', '987654321', 'Bodega San Martín', 'FOOD', 'CONSOLIDATED', 'APPROVED')
     `).run(merchantId, sessionId);
-    merchant = db.prepare('SELECT * FROM merchant_profiles WHERE id = ?').get(merchantId) as any;
+    merchant = await db.prepare('SELECT * FROM merchant_profiles WHERE id = ?').get(merchantId) as any;
   }
 
   // Idempotent: check if user already created for this session
   if (session.user_id) {
-    const line = db.prepare('SELECT * FROM credit_lines WHERE merchant_id = ?').get(merchant.id) as any;
+    const line = await db.prepare('SELECT * FROM credit_lines WHERE merchant_id = ?').get(merchant.id) as any;
     return res.json({
       user_id: session.user_id,
       merchant_id: merchant.id,
@@ -506,35 +507,47 @@ onboardingRouter.post('/sessions/:id/complete', (req, res) => {
 
   const userId = 'usr_' + uuidv4().substring(0, 10);
   const phone = req.body.phone || '+519' + Math.floor(10000000 + Math.random() * 90000000);
+  if (await db.prepare('SELECT 1 FROM users WHERE phone = ?').get(phone)) {
+    return res.status(409).json({
+      error: { code: 'PHONE_ALREADY_REGISTERED', message: 'Este celular ya tiene una cuenta Kuota. Ingresa con tu PIN o usa otro número.' }
+    });
+  }
 
-  db.prepare(`
+  await db.prepare(`
     INSERT INTO users (id, phone, role, status, first_name, last_name, terms_accepted_at, privacy_accepted_at)
-    VALUES (?, ?, 'MERCHANT', 'ACTIVE', ?, 'Comerciante', datetime('now'), datetime('now'))
+    VALUES (?, ?, 'MERCHANT', 'ACTIVE', ?, 'Comerciante', utc_now_text(), utc_now_text())
   `).run(userId, phone, req.body.first_name || 'Emprendedor');
 
-  db.prepare(`
+  await db.prepare(`
     UPDATE merchant_profiles
-    SET user_id = ?, business_name = coalesce(?, business_name, 'Mi Negocio Kuota'), ruc = coalesce(?, ruc, '10' || substr(replace(hex(randomblob(5)), 'A', '8'), 1, 9))
+    SET user_id = ?, business_name = coalesce(?, business_name, 'Mi Negocio Kuota'), ruc = coalesce(?, ruc, ?)
     WHERE id = ?
-  `).run(userId, req.body.business_name, req.body.ruc, merchant.id);
+  `).run(
+    userId,
+    req.body.business_name,
+    req.body.ruc,
+    // RUC provisional de persona natural (10 + 9 dígitos) mientras no declare uno.
+    `10${String(Math.floor(Math.random() * 1e9)).padStart(9, '0')}`,
+    merchant.id
+  );
 
   // Link products to merchant_id
-  db.prepare('UPDATE products SET merchant_id = ? WHERE session_id = ?').run(merchant.id, sessionId);
+  await db.prepare('UPDATE products SET merchant_id = ? WHERE session_id = ?').run(merchant.id, sessionId);
 
   // Create Initial Credit Line: S/ 1,400.00 (140,000 cents), Nivel 1 Brote
   const lineId = 'line_' + uuidv4().substring(0, 10);
-  db.prepare(`
+  await db.prepare(`
     INSERT INTO credit_lines (id, merchant_id, level, total_limit_cents, used_cents, consecutive_on_time, status)
     VALUES (?, ?, 1, 140000, 0, 0, 'ACTIVE')
   `).run(lineId, merchant.id);
 
   // Init Score Kuota: 720 points
-  db.prepare(`
+  await db.prepare(`
     INSERT INTO credit_scores (merchant_id, score, level)
     VALUES (?, 720, 1)
   `).run(merchant.id);
 
-  db.prepare("UPDATE onboarding_sessions SET status = 'COMPLETED', user_id = ? WHERE id = ?").run(userId, sessionId);
+  await db.prepare("UPDATE onboarding_sessions SET status = 'COMPLETED', user_id = ? WHERE id = ?").run(userId, sessionId);
 
   res.status(201).json({
     user_id: userId,
@@ -565,7 +578,7 @@ onboardingRouter.post('/sessions/:id/complete', (req, res) => {
 });
 
 // PRD Security: Crear y confirmar PIN de seguridad de 6 dígitos
-onboardingRouter.post('/sessions/:id/security-pin', (req, res) => {
+onboardingRouter.post('/sessions/:id/security-pin', async (req, res) => {
   const sessionId = req.params.id;
   const { pin } = req.body ?? {};
 
@@ -579,26 +592,21 @@ onboardingRouter.post('/sessions/:id/security-pin', (req, res) => {
     return res.status(422).json({ error: { code: 'WEAK_PIN', message: problem } });
   }
 
-  const session = db.prepare('SELECT id, user_id FROM onboarding_sessions WHERE id = ?').get(sessionId) as any;
+  const session = await db.prepare('SELECT id, user_id FROM onboarding_sessions WHERE id = ?').get(sessionId) as any;
   if (!session) {
     return res.status(404).json({ error: { code: 'SESSION_NOT_FOUND', message: 'Sesión de registro no encontrada.' } });
   }
   // El PIN nunca se guarda en texto plano: scrypt con pimienta (ver security/crypto.ts).
   const pinHash = hashPin(pin);
-  db.transaction(() => {
-    db.prepare('UPDATE onboarding_sessions SET security_pin = ?, current_step = ? WHERE id = ?').run(pinHash, 'PIN_CONFIGURED', sessionId);
+  const merchant = await db.transaction(async () => {
+    await db.prepare('UPDATE onboarding_sessions SET security_pin = ?, current_step = ? WHERE id = ?').run(pinHash, 'PIN_CONFIGURED', sessionId);
     if (session.user_id) {
-      db.prepare('UPDATE users SET security_pin = ? WHERE id = ?').run(pinHash, session.user_id);
+      await db.prepare('UPDATE users SET security_pin = ? WHERE id = ?').run(pinHash, session.user_id);
     }
-    const merchant = db.prepare('SELECT id FROM merchant_profiles WHERE session_id = ?').get(sessionId) as any;
-    if (merchant) {
-      db.prepare(`
-        INSERT INTO merchant_credentials (merchant_id, pin_hash, pin_updated_at) VALUES (?, ?, ?)
-        ON CONFLICT(merchant_id) DO UPDATE SET pin_hash = excluded.pin_hash, pin_updated_at = excluded.pin_updated_at,
-          failed_attempts = 0, locked_until = NULL
-      `).run(merchant.id, pinHash, new Date().toISOString());
-    }
+    return (await db.prepare('SELECT id FROM merchant_profiles WHERE session_id = ?').get(sessionId)) as { id: string } | undefined;
   })();
+  // La credencial de cobro vive en la zona de dinero: la escribe ese módulo, con su usuario de base.
+  if (merchant) await setMerchantPinHash(merchant.id, pinHash);
 
   res.status(200).json({
     success: true,

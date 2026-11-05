@@ -108,7 +108,7 @@ export class SunatRucService {
     }
 
     // Comprobar si ya está registrado en negocios de KUOTA
-    const existingBusiness = db.prepare('SELECT id, ruc, razon_social FROM businesses WHERE ruc = ?').get(cleaned) as any;
+    const existingBusiness = await db.prepare('SELECT id, ruc, razon_social FROM businesses WHERE ruc = ?').get(cleaned) as any;
     const isAlreadyRegistered = !!existingBusiness;
 
     // 1. Verificar Cache en Memoria
@@ -125,7 +125,7 @@ export class SunatRucService {
     }
 
     // 2. Verificar SQLite local
-    let record = db.prepare('SELECT * FROM sunat_contribuyentes WHERE ruc = ?').get(cleaned) as any;
+    let record = await db.prepare('SELECT * FROM sunat_contribuyentes WHERE ruc = ?').get(cleaned) as any;
     let fuente = 'SUNAT Padrón Registrado';
 
     // Si el registro local es de prueba sintética antigua ("COMERCIALIZADORA..."), lo reemplazamos por datos reales
@@ -256,13 +256,14 @@ export class SunatRucService {
 
             // Guardar inmediatamente en SQLite
             try {
-              db.prepare(`
-                INSERT OR REPLACE INTO sunat_contribuyentes (
+              await db.prepare(`
+                INSERT INTO sunat_contribuyentes (
                   ruc, nombre_razon_social, nombre_comercial, tipo_contribuyente,
                   actividad_principal, actividades_secundarias, estado_contribuyente,
                   condicion_domicilio, ubigeo, direccion_fiscal, departamento,
                   provincia, distrito, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, utc_now_text())
+                ON CONFLICT (ruc) DO UPDATE SET nombre_razon_social = excluded.nombre_razon_social, nombre_comercial = excluded.nombre_comercial, tipo_contribuyente = excluded.tipo_contribuyente, actividad_principal = excluded.actividad_principal, actividades_secundarias = excluded.actividades_secundarias, estado_contribuyente = excluded.estado_contribuyente, condicion_domicilio = excluded.condicion_domicilio, ubigeo = excluded.ubigeo, direccion_fiscal = excluded.direccion_fiscal, departamento = excluded.departamento, provincia = excluded.provincia, distrito = excluded.distrito, created_at = excluded.created_at
               `).run(
                 record.ruc,
                 record.nombre_razon_social,
@@ -300,13 +301,14 @@ export class SunatRucService {
       const pythonRecord = await this.queryPythonScraper(ruc);
       if (pythonRecord && pythonRecord.nombre_razon_social) {
         try {
-          db.prepare(`
-            INSERT OR REPLACE INTO sunat_contribuyentes (
+          await db.prepare(`
+            INSERT INTO sunat_contribuyentes (
               ruc, nombre_razon_social, nombre_comercial, tipo_contribuyente,
               actividad_principal, actividades_secundarias, estado_contribuyente,
               condicion_domicilio, ubigeo, direccion_fiscal, departamento,
               provincia, distrito, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, utc_now_text())
+            ON CONFLICT (ruc) DO UPDATE SET nombre_razon_social = excluded.nombre_razon_social, nombre_comercial = excluded.nombre_comercial, tipo_contribuyente = excluded.tipo_contribuyente, actividad_principal = excluded.actividad_principal, actividades_secundarias = excluded.actividades_secundarias, estado_contribuyente = excluded.estado_contribuyente, condicion_domicilio = excluded.condicion_domicilio, ubigeo = excluded.ubigeo, direccion_fiscal = excluded.direccion_fiscal, departamento = excluded.departamento, provincia = excluded.provincia, distrito = excluded.distrito, created_at = excluded.created_at
           `).run(
             pythonRecord.ruc,
             pythonRecord.nombre_razon_social,
@@ -379,7 +381,7 @@ export class SunatRucService {
     });
   }
 
-  public getStats() {
+  public async getStats() {
     const avgTime = this.stats.total_consultas > 0
       ? (this.stats.tiempo_total_ms / this.stats.total_consultas).toFixed(1)
       : '0.0';
@@ -388,7 +390,7 @@ export class SunatRucService {
       ? ((this.stats.consultas_exitosas / this.stats.total_consultas) * 100).toFixed(1) + '%'
       : '100%';
 
-    const totalDb = db.prepare('SELECT count(*) as count FROM sunat_contribuyentes').get() as { count: number };
+    const totalDb = await db.prepare('SELECT count(*) as count FROM sunat_contribuyentes').get() as { count: number };
 
     return {
       total_consultas: this.stats.total_consultas,

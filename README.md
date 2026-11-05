@@ -8,8 +8,11 @@ Ecosistema financiero y comercial B2B/B2C desarrollado para emprendedores y prov
 
 - **Backend REST API v1 (`/backend`):**
   - **Runtime:** Node.js + TypeScript
-  - **Framework:** Express + CORS + Dotenv + UUID
-  - **Base de Datos:** SQLite de alto rendimiento con `better-sqlite3` en modo WAL y llaves foráneas activas.
+  - **Framework:** Express 5 + CORS + Dotenv + UUID
+  - **Base de Datos:** Postgres con migraciones versionadas (`backend/migrations/`). En desarrollo y pruebas
+    corre embebido con PGlite (sin instalar nada); en producción, Cloud SQL Postgres 16 (`DATABASE_URL`).
+    La zona de dinero vive en el esquema `payments` con su propio usuario de privilegio mínimo.
+    Arquitectura y despliegue en GCP: [docs/BACKEND-GCP.md](docs/BACKEND-GCP.md).
   - **Convenciones financieras:** Montos en céntimos enteros PEN (`amount_cents`), fechas ISO 8601 UTC (presentación `America/Lima`), partida doble en `ledger_entries`, y respuestas de error en español según PRD 00.
 - **Frontend App Móvil Interactiva (`/frontend`):**
   - **Framework:** React + Vite + TypeScript
@@ -54,8 +57,9 @@ npm --prefix frontend install
 
 `scrapers/scrap-sunat` es un submódulo de [debugsito/scrap-sunat](https://github.com/debugsito/scrap-sunat)
 (MIT). El backend lo usa como respaldo opcional para consultar RUC; si no está instalado,
-usa las otras fuentes. La base SQLite (`backend/kuota.db`) se crea y siembra al arrancar, y el
-APK de Android no se versiona: va en GitHub Releases.
+usa las otras fuentes. La base Postgres local (`backend/.pgdata`, PGlite) se crea, migra y siembra
+al arrancar; para empezar de cero basta con borrar esa carpeta. El APK de Android no se versiona:
+va en GitHub Releases.
 
 ### 1. Iniciar el Backend API
 ```bash
@@ -103,7 +107,8 @@ en [docs/SEGURIDAD-PAYMENTS.md](docs/SEGURIDAD-PAYMENTS.md).
 - **QR desde el celular:** para que el QR abra la página de pago en el celular, define
   `KUOTA_PAY_BASE_URL=http://<ip-de-tu-pc>:5173/pay` en `backend/.env` y arranca el frontend
   con `npm run dev -- --host`.
-- **Pruebas de seguridad:** `npm --prefix backend test`.
+- **Pruebas:** `npm --prefix backend test` (40 pruebas: seguridad de cobros, aislamiento de roles y flujos del
+  núcleo). Con `DATABASE_URL` apuntando a un Postgres, corren contra ese servidor en bases temporales.
 
 ### 3. Probar los Endpoints del Backend con cURL o PowerShell
 ```powershell

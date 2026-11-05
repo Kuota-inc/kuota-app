@@ -1,6 +1,6 @@
 // Conciliación: cada sol cobrado, notificado y abonado debe coincidir entre el
 // link, el pago, el libro de doble partida, los webhooks y el reporte de 360pay.
-import { db } from '../db/database.js';
+import { paymentsDb as db } from '../db/client.js';
 import { randomId } from './crypto.js';
 import { audit } from './audit.js';
 import { getLinkById, linkSignatureValid } from './links.js';
@@ -41,14 +41,14 @@ export function validProviderReport(value: unknown): ProviderLine[] | null {
   return ok ? (value as ProviderLine[]) : null;
 }
 
-export function runReconciliation(opts: { businessDate?: string; providerReport?: ProviderLine[] } = {}) {
+export async function runReconciliation(opts: { businessDate?: string; providerReport?: ProviderLine[] } = {}) {
   const date = opts.businessDate ?? limaDate();
   const from = new Date(`${date}T05:00:00Z`); // 00:00 en Lima
   const to = new Date(from.getTime() + 86_400_000);
   const exceptions: ReconException[] = [];
   const add = (type: string, ref: string, detail: string) => exceptions.push({ type, ref, detail });
 
-  const payments = db
+  const payments = await db
     .prepare("SELECT * FROM payments WHERE status = 'SUCCESS' AND created_at >= ? AND created_at < ?")
     .all(sqlTime(from), sqlTime(to)) as { id: string; payment_link_id: string; gateway_ref: string; amount_cents: number }[];
 
@@ -57,7 +57,7 @@ export function runReconciliation(opts: { businessDate?: string; providerReport?
   let fee = 0;
   for (const pay of payments) {
     gross += pay.amount_cents;
-    const link = getLinkById(pay.payment_link_id);
+    const link = await getLinkById(pay.payment_link_id);
     if (!link) {
       add('PAYMENT_WITHOUT_LINK', pay.id, 'Pago sin link de cobro asociado');
       continue;
@@ -67,7 +67,7 @@ export function runReconciliation(opts: { businessDate?: string; providerReport?
     if (link.gateway_ref !== pay.gateway_ref) add('GATEWAY_REF_MISMATCH', pay.id, 'La referencia del link no coincide con la del pago');
     if (!linkSignatureValid(link)) add('LINK_TAMPERED', link.id, 'La firma del link no coincide con sus datos');
 
-    const entries = db.prepare('SELECT account, type, amount_cents FROM ledger_entries WHERE payment_id = ?').all(pay.id) as {
+    const entries = await db.prepare('SELECT account, type, amount_cents FROM ledger_entries WHERE payment_id = ?').all(pay.id) as {
       account: string;
       type: string;
       amount_cents: number;
@@ -86,7 +86,7 @@ export function runReconciliation(opts: { businessDate?: string; providerReport?
     }
   }
 
-  const orphanPaid = db
+  const orphanPaid = await db
     .prepare(`
       SELECT l.id FROM payment_links l
       LEFT JOIN payments p ON p.payment_link_id = l.id AND p.status = 'SUCCESS'
@@ -95,16 +95,16 @@ export function runReconciliation(opts: { businessDate?: string; providerReport?
     .all(from.toISOString(), to.toISOString()) as { id: string }[];
   for (const l of orphanPaid) add('LINK_PAID_WITHOUT_PAYMENT', l.id, 'Link marcado como pagado sin pago registrado');
 
-  const multi = db
+  const multi = await db
     .prepare(`
       SELECT link_id, COUNT(*) AS n FROM webhook_events
       WHERE status = 'PROCESSED' AND reason IS NULL AND received_at >= ? AND received_at < ?
-      GROUP BY link_id HAVING n > 1
+      GROUP BY link_id HAVING COUNT(*) > 1
     `)
     .all(from.toISOString(), to.toISOString()) as { link_id: string; n: number }[];
   for (const m of multi) add('DUPLICATE_PROCESSING', m.link_id, `${m.n} cobros procesados para un link de uso único`);
 
-  const rejectedCaptures = db
+  const rejectedCaptures = await db
     .prepare(`
       SELECT event_id, reason, gateway_ref, amount_minor FROM webhook_events
       WHERE type = 'payment_captured' AND status = 'REJECTED' AND received_at >= ? AND received_at < ?
@@ -116,7 +116,7 @@ export function runReconciliation(opts: { businessDate?: string; providerReport?
     }
   }
 
-  const balance = db
+  const balance = await db
     .prepare("SELECT COALESCE(SUM(CASE WHEN type = 'DEBIT' THEN amount_cents ELSE -amount_cents END), 0) AS diff FROM ledger_entries")
     .get() as { diff: number };
   if (balance.diff !== 0) add('LEDGER_GLOBAL_UNBALANCED', 'ledger', `Diferencia global debe − haber = ${balance.diff}`);
@@ -147,7 +147,7 @@ export function runReconciliation(opts: { businessDate?: string; providerReport?
   };
   const id = randomId('rec', 8);
   const status = exceptions.length ? 'EXCEPTIONS' : 'OK';
-  db.prepare('INSERT INTO reconciliation_runs (id, run_at, business_date, status, summary_json, exceptions_json) VALUES (?, ?, ?, ?, ?, ?)').run(
+  await db.prepare('INSERT INTO reconciliation_runs (id, run_at, business_date, status, summary_json, exceptions_json) VALUES (?, ?, ?, ?, ?, ?)').run(
     id,
     new Date().toISOString(),
     date,
@@ -155,6 +155,6 @@ export function runReconciliation(opts: { businessDate?: string; providerReport?
     JSON.stringify(summary),
     JSON.stringify(exceptions)
   );
-  audit({ actorType: 'SYSTEM', action: 'RECONCILIATION_RUN', target: date, result: status === 'OK' ? 'OK' : 'FAILED', details: { run_id: id, ...summary } });
+  await audit({ actorType: 'SYSTEM', action: 'RECONCILIATION_RUN', target: date, result: status === 'OK' ? 'OK' : 'FAILED', details: { run_id: id, ...summary } });
   return { id, status, summary, exceptions };
 }

@@ -6,37 +6,37 @@ import { getNotificationState, markSeen, parsePreferences, savePreferences, unre
 export const merchantRouter = Router();
 
 // Helper to get demo or current merchant profile
-function getMerchantProfile(req: any) {
+async function getMerchantProfile(req: any) {
   const merchantId = req.headers['x-merchant-id'] as string;
   if (merchantId) {
-    const m = db.prepare('SELECT * FROM merchant_profiles WHERE id = ?').get(merchantId);
+    const m = await db.prepare('SELECT * FROM merchant_profiles WHERE id = ?').get(merchantId);
     if (m) return m as any;
   }
-  let profile = db.prepare("SELECT * FROM merchant_profiles WHERE id = 'mer_carlos'").get() as any;
+  let profile = await db.prepare("SELECT * FROM merchant_profiles WHERE id = 'mer_carlos'").get() as any;
   if (!profile) {
-    profile = db.prepare("SELECT * FROM merchant_profiles LIMIT 1").get() as any;
+    profile = await db.prepare("SELECT * FROM merchant_profiles LIMIT 1").get() as any;
   }
   if (!profile) {
     const newId = 'mer_carlos';
-    db.prepare(`
+    await db.prepare(`
       INSERT INTO merchant_profiles (id, dni, full_name, phone, business_name, category, seniority_range, kyc_status)
       VALUES (?, '47891234', 'CARLOS ALBERTO MENDOZA QUISPE', '987654321', 'Bodega San Martín', 'FOOD', 'CONSOLIDATED', 'APPROVED')
     `).run(newId);
-    profile = db.prepare("SELECT * FROM merchant_profiles WHERE id = 'mer_carlos'").get() as any;
+    profile = await db.prepare("SELECT * FROM merchant_profiles WHERE id = 'mer_carlos'").get() as any;
   }
   return profile;
 }
 
 // PRD 05: Inicio (Home agregado p95 < 400ms)
-merchantRouter.get('/home', (req, res) => {
-  const merchant = getMerchantProfile(req);
+merchantRouter.get('/home', async (req, res) => {
+  const merchant = await getMerchantProfile(req);
   if (!merchant) {
     return res.status(404).json({ error: { code: 'MERCHANT_NOT_FOUND', message: 'Comercio no encontrado.' } });
   }
 
-  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(merchant.user_id) as any;
-  const line = db.prepare('SELECT * FROM credit_lines WHERE merchant_id = ?').get(merchant.id) as any;
-  const level = db.prepare('SELECT * FROM credit_levels WHERE level = ?').get(line?.level || 1) as any;
+  const user = await db.prepare('SELECT * FROM users WHERE id = ?').get(merchant.user_id) as any;
+  const line = await db.prepare('SELECT * FROM credit_lines WHERE merchant_id = ?').get(merchant.id) as any;
+  const level = await db.prepare('SELECT * FROM credit_levels WHERE level = ?').get(line?.level || 1) as any;
 
   const totalLimit = line?.total_limit_cents || 140000;
   const used = line?.used_cents || 0;
@@ -45,7 +45,7 @@ merchantRouter.get('/home', (req, res) => {
   const purchasingPower = downPaymentPct > 0 ? Math.round((available * 100) / downPaymentPct) : available;
 
   // Next pending installment
-  const nextInstallment = db.prepare(`
+  const nextInstallment = await db.prepare(`
     SELECT i.*, p.plan_code, p.provider_id, prov.legal_name as provider_name
     FROM installments i
     JOIN credit_purchases p ON i.purchase_id = p.id
@@ -56,7 +56,7 @@ merchantRouter.get('/home', (req, res) => {
   `).get(merchant.id) as any;
 
   // Active Promotions
-  const promotions = db.prepare(`
+  const promotions = await db.prepare(`
     SELECT * FROM promotions WHERE active = 1 ORDER BY ends_in_days ASC LIMIT 3
   `).all();
 
@@ -93,46 +93,46 @@ merchantRouter.get('/home', (req, res) => {
       next_down_payment_pct: (line?.level || 1) === 1 ? 40 : 30
     },
     promotions,
-    unread_notifications: unreadCount(merchant.id)
+    unread_notifications: await unreadCount(merchant.id)
   });
 });
 
 // Notificaciones (campana del Home)
-merchantRouter.get('/notifications/preferences', (req, res) => {
-  const merchant = getMerchantProfile(req);
-  res.json(getNotificationState(merchant.id));
+merchantRouter.get('/notifications/preferences', async (req, res) => {
+  const merchant = await getMerchantProfile(req);
+  res.json(await getNotificationState(merchant.id));
 });
 
-merchantRouter.put('/notifications/preferences', (req, res) => {
-  const merchant = getMerchantProfile(req);
+merchantRouter.put('/notifications/preferences', async (req, res) => {
+  const merchant = await getMerchantProfile(req);
   const input = parsePreferences(req.body);
   if (typeof input === 'string') {
     return res.status(400).json({ error: { code: 'INVALID_PREFERENCES', message: input } });
   }
-  res.json(savePreferences(merchant.id, input));
+  res.json(await savePreferences(merchant.id, input));
 });
 
 // Abrir el sheet marca las notificaciones como vistas (apaga el punto rojo).
-merchantRouter.post('/notifications/seen', (req, res) => {
-  const merchant = getMerchantProfile(req);
-  markSeen(merchant.id);
+merchantRouter.post('/notifications/seen', async (req, res) => {
+  const merchant = await getMerchantProfile(req);
+  await markSeen(merchant.id);
   res.json({ unread_count: 0 });
 });
 
 // PRD 07: Modal Kuotear
-merchantRouter.get('/kuotear', (req, res) => {
-  const merchant = getMerchantProfile(req);
-  const line = db.prepare('SELECT * FROM credit_lines WHERE merchant_id = ?').get(merchant.id) as any;
-  const level = db.prepare('SELECT * FROM credit_levels WHERE level = ?').get(line?.level || 1) as any;
-  const score = db.prepare('SELECT * FROM credit_scores WHERE merchant_id = ?').get(merchant.id) as any;
+merchantRouter.get('/kuotear', async (req, res) => {
+  const merchant = await getMerchantProfile(req);
+  const line = await db.prepare('SELECT * FROM credit_lines WHERE merchant_id = ?').get(merchant.id) as any;
+  const level = await db.prepare('SELECT * FROM credit_levels WHERE level = ?').get(line?.level || 1) as any;
+  const score = await db.prepare('SELECT * FROM credit_scores WHERE merchant_id = ?').get(merchant.id) as any;
 
   // Active purchase verification for Rule 3.2
-  const activePurchase = db.prepare(`
+  const activePurchase = await db.prepare(`
     SELECT id FROM credit_purchases
     WHERE merchant_id = ? AND status IN ('ACTIVE_ON_TIME', 'ACTIVE_OVERDUE')
   `).get(merchant.id);
 
-  const nextInstallment = db.prepare(`
+  const nextInstallment = await db.prepare(`
     SELECT i.*, prov.legal_name as provider_name
     FROM installments i
     JOIN credit_purchases p ON i.purchase_id = p.id
@@ -173,10 +173,10 @@ merchantRouter.get('/kuotear', (req, res) => {
 });
 
 // PRD 04: Welcome Summary
-merchantRouter.get('/welcome-summary', (req, res) => {
-  const merchant = getMerchantProfile(req);
-  const line = db.prepare('SELECT * FROM credit_lines WHERE merchant_id = ?').get(merchant.id) as any;
-  const level = db.prepare('SELECT * FROM credit_levels WHERE level = ?').get(line?.level || 1) as any;
+merchantRouter.get('/welcome-summary', async (req, res) => {
+  const merchant = await getMerchantProfile(req);
+  const line = await db.prepare('SELECT * FROM credit_lines WHERE merchant_id = ?').get(merchant.id) as any;
+  const level = await db.prepare('SELECT * FROM credit_levels WHERE level = ?').get(line?.level || 1) as any;
 
   res.json({
     business: {
@@ -200,9 +200,9 @@ merchantRouter.get('/welcome-summary', (req, res) => {
 });
 
 // PRD 03: CRUD de Productos
-merchantRouter.get('/products', (req, res) => {
-  const merchant = getMerchantProfile(req);
-  const products = db.prepare(`
+merchantRouter.get('/products', async (req, res) => {
+  const merchant = await getMerchantProfile(req);
+  const products = await db.prepare(`
     SELECT * FROM products
     WHERE merchant_id = ? AND deleted_at IS NULL
     ORDER BY sort_order ASC
@@ -210,8 +210,8 @@ merchantRouter.get('/products', (req, res) => {
   res.json(products);
 });
 
-merchantRouter.post('/products', (req, res) => {
-  const merchant = getMerchantProfile(req);
+merchantRouter.post('/products', async (req, res) => {
+  const merchant = await getMerchantProfile(req);
   const { name, price_cents, is_frequent } = req.body;
 
   if (!name || name.trim().length < 2) {
@@ -222,7 +222,7 @@ merchantRouter.post('/products', (req, res) => {
   }
 
   const id = 'prod_' + uuidv4().substring(0, 10);
-  db.prepare(`
+  await db.prepare(`
     INSERT INTO products (id, merchant_id, name, price_cents, is_frequent, sort_order)
     VALUES (?, ?, ?, ?, ?, (SELECT coalesce(max(sort_order), 0) + 1 FROM products WHERE merchant_id = ?))
   `).run(id, merchant.id, name.trim(), Math.round(price_cents), is_frequent ? 1 : 0, merchant.id);
@@ -231,14 +231,14 @@ merchantRouter.post('/products', (req, res) => {
 });
 
 // PRD 06: Ventas de mi negocio
-merchantRouter.get('/sales/summary', (req, res) => {
-  const merchant = getMerchantProfile(req);
-  const verified = db.prepare(`
+merchantRouter.get('/sales/summary', async (req, res) => {
+  const merchant = await getMerchantProfile(req);
+  const verified = await db.prepare(`
     SELECT count(*) as count, coalesce(sum(amount_cents), 0) as total_cents
     FROM sales WHERE merchant_id = ? AND verified = 1
   `).get(merchant.id) as any;
 
-  const declared = db.prepare(`
+  const declared = await db.prepare(`
     SELECT count(*) as count, coalesce(sum(amount_cents), 0) as total_cents
     FROM sales WHERE merchant_id = ? AND verified = 0
   `).get(merchant.id) as any;
@@ -260,8 +260,8 @@ merchantRouter.get('/sales/summary', (req, res) => {
   });
 });
 
-merchantRouter.get('/sales', (req, res) => {
-  const merchant = getMerchantProfile(req);
+merchantRouter.get('/sales', async (req, res) => {
+  const merchant = await getMerchantProfile(req);
   const { source, q } = req.query;
 
   let query = 'SELECT * FROM sales WHERE merchant_id = ?';
@@ -274,18 +274,18 @@ merchantRouter.get('/sales', (req, res) => {
   }
 
   if (q) {
-    query += ' AND (concept LIKE ? OR operation_ref LIKE ?)';
+    query += ' AND (concept ILIKE ? OR operation_ref ILIKE ?)';
     params.push(`%${q}%`, `%${q}%`);
   }
 
   query += ' ORDER BY occurred_at DESC LIMIT 50';
 
-  const sales = db.prepare(query).all(...params);
+  const sales = await db.prepare(query).all(...params);
   res.json(sales);
 });
 
-merchantRouter.post('/sales', (req, res) => {
-  const merchant = getMerchantProfile(req);
+merchantRouter.post('/sales', async (req, res) => {
+  const merchant = await getMerchantProfile(req);
   const { amount_cents, concept, source = 'MANUAL' } = req.body;
 
   if (!amount_cents || amount_cents <= 0) {
@@ -295,26 +295,26 @@ merchantRouter.post('/sales', (req, res) => {
   const id = 'sale_' + uuidv4().substring(0, 10);
   const verified = source === 'PAYMENT_LINK' ? 1 : 0;
 
-  db.prepare(`
+  await db.prepare(`
     INSERT INTO sales (id, merchant_id, source, amount_cents, concept, verified, occurred_at)
-    VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
+    VALUES (?, ?, ?, ?, ?, ?, utc_now_text())
   `).run(id, merchant.id, source, Math.round(amount_cents), concept || 'Venta manual', verified);
 
   // Increase score points (+2 for declared, +5 for verified)
   const points = verified ? 5 : 2;
-  db.prepare(`
+  await db.prepare(`
     INSERT INTO score_events (id, merchant_id, type, points, ref_id)
     VALUES (?, ?, ?, ?, ?)
   `).run('sev_' + uuidv4().substring(0, 10), merchant.id, verified ? 'VERIFIED_SALE' : 'DECLARED_SALE', points, id);
 
-  db.prepare('UPDATE credit_scores SET score = min(850, score + ?) WHERE merchant_id = ?').run(points, merchant.id);
+  await db.prepare('UPDATE credit_scores SET score = LEAST(850, score + ?) WHERE merchant_id = ?').run(points, merchant.id);
 
   res.status(201).json({ id, amount_cents, verified, points_earned: points });
 });
 
 // PRD 06: OCR Comprobante Processing & Verification
-merchantRouter.post('/sales/ocr', (req, res) => {
-  const merchant = getMerchantProfile(req);
+merchantRouter.post('/sales/ocr', async (req, res) => {
+  const merchant = await getMerchantProfile(req);
   const amountCents = req.body?.amount_cents && Number(req.body.amount_cents) > 0
     ? Math.round(Number(req.body.amount_cents))
     : Math.floor(25 + Math.random() * 250) * 100;
@@ -327,13 +327,13 @@ merchantRouter.post('/sales/ocr', (req, res) => {
   const opRef = req.body?.operation_ref || ('OP-' + Math.floor(100000 + Math.random() * 900000));
 
   const id = 'sale_' + uuidv4().substring(0, 10);
-  db.prepare(`
+  await db.prepare(`
     INSERT INTO sales (id, merchant_id, source, amount_cents, concept, operation_ref, verified, occurred_at)
-    VALUES (?, ?, ?, ?, ?, ?, 1, datetime('now'))
+    VALUES (?, ?, ?, ?, ?, ?, 1, utc_now_text())
   `).run(id, merchant.id, source, amountCents, concept, opRef);
 
-  db.prepare('UPDATE credit_scores SET score = min(850, score + 8) WHERE merchant_id = ?').run(merchant.id);
-  const updatedScore = db.prepare('SELECT score FROM credit_scores WHERE merchant_id = ?').get(merchant.id) as any;
+  await db.prepare('UPDATE credit_scores SET score = LEAST(850, score + 8) WHERE merchant_id = ?').run(merchant.id);
+  const updatedScore = await db.prepare('SELECT score FROM credit_scores WHERE merchant_id = ?').get(merchant.id) as any;
 
   res.json({
     id,
@@ -349,9 +349,9 @@ merchantRouter.post('/sales/ocr', (req, res) => {
   });
 });
 
-merchantRouter.get('/score', (req, res) => {
-  const merchant = getMerchantProfile(req);
-  const score = db.prepare('SELECT * FROM credit_scores WHERE merchant_id = ?').get(merchant.id) as any;
+merchantRouter.get('/score', async (req, res) => {
+  const merchant = await getMerchantProfile(req);
+  const score = await db.prepare('SELECT * FROM credit_scores WHERE merchant_id = ?').get(merchant.id) as any;
   res.json({
     score: score?.score || 720,
     level: score?.level || 1,

@@ -9,12 +9,13 @@ import crypto from 'node:crypto';
 import type { AddressInfo } from 'node:net';
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'kuota-sec-'));
-process.env.KUOTA_DB_PATH = path.join(tmp, 'test.db');
 process.env.KUOTA_DEV_SECRETS_FILE = path.join(tmp, 'secrets.json');
 process.env.NODE_ENV = 'test';
 
+const { useTestDatabase } = await import('./helpers.js');
+const dropTestDatabase = await useTestDatabase();
 const { createApp } = await import('../src/app.js');
-const { db } = await import('../src/db/database.js');
+const { db, closeDatabases } = await import('../src/db/database.js');
 const { secrets } = await import('../src/security/config.js');
 const { hashPin } = await import('../src/security/crypto.js');
 const { resetRateLimits } = await import('../src/security/guards.js');
@@ -22,20 +23,26 @@ const { signWebhookBody } = await import('../src/security/webhook.js');
 const { signLink, publicCode } = await import('../src/security/links.js');
 const { DEMO_MERCHANT_PIN } = await import('../src/security/schema.js');
 
+const sqlTime = (d: Date) => d.toISOString().slice(0, 19).replace('T', ' ');
+
 let base = '';
 let server: ReturnType<ReturnType<typeof createApp>['listen']>;
 
 before(async () => {
-  const app = createApp();
+  const app = await createApp();
   await new Promise<void>((resolve) => {
     server = app.listen(0, () => resolve());
   });
   base = `http://127.0.0.1:${(server.address() as AddressInfo).port}/api/v1`;
+  await createMerchant('mer_otro', '739164');
+  await createMerchant('mer_lock', '739164');
+  await createMerchant('mer_risk', '739164');
 });
 
-after(() => {
+after(async () => {
   server?.close();
-  db.close();
+  await closeDatabases();
+  await dropTestDatabase();
   fs.rmSync(tmp, { recursive: true, force: true });
 });
 
@@ -76,14 +83,16 @@ async function login(merchantId = 'mer_carlos', pin = DEMO_MERCHANT_PIN, deviceI
   return { merchantId, deviceId, headers: { Authorization: `Bearer ${r.body.access_token}`, 'X-Device-Id': deviceId } };
 }
 
-function createMerchant(id: string, pin: string, kyc = 'APPROVED') {
-  db.prepare("INSERT INTO users (id, phone, role, status, created_at) VALUES (?, ?, 'MERCHANT', 'ACTIVE', datetime('now', '-60 days'))").run(
+async function createMerchant(id: string, pin: string, kyc = 'APPROVED') {
+  await db.run(
+    "INSERT INTO users (id, phone, role, status, created_at) VALUES (?, ?, 'MERCHANT', 'ACTIVE', ?)",
     `usr_${id}`,
-    `+519${crypto.randomInt(10_000_000, 99_999_999)}`
+    `+519${crypto.randomInt(10_000_000, 99_999_999)}`,
+    sqlTime(new Date(Date.now() - 60 * 86_400_000))
   );
-  db.prepare('INSERT INTO merchant_profiles (id, user_id, business_name, ruc, kyc_status) VALUES (?, ?, ?, ?, ?)').run(id, `usr_${id}`, `Comercio ${id}`, '20123456789', kyc);
-  db.prepare('INSERT INTO merchant_credentials (merchant_id, pin_hash, pin_updated_at) VALUES (?, ?, ?)').run(id, hashPin(pin), new Date().toISOString());
-  db.prepare('INSERT INTO credit_scores (merchant_id, score, level) VALUES (?, 600, 1)').run(id);
+  await db.prepare('INSERT INTO merchant_profiles (id, user_id, business_name, ruc, kyc_status) VALUES (?, ?, ?, ?, ?)').run(id, `usr_${id}`, `Comercio ${id}`, '20123456789', kyc);
+  await db.prepare('INSERT INTO merchant_credentials (merchant_id, pin_hash, pin_updated_at) VALUES (?, ?, ?)').run(id, hashPin(pin), new Date().toISOString());
+  await db.prepare('INSERT INTO credit_scores (merchant_id, score, level) VALUES (?, 600, 1)').run(id);
 }
 
 async function createLink(s: Session, amount: number, extra: Record<string, string> = {}) {
@@ -113,16 +122,11 @@ const captured = (code: string, amount: number, gatewayRef = `GW-${crypto.random
   payment: { reference: code, amount_minor: amount, currency: 'PEN', method: 'YAPE', gateway_ref: gatewayRef }
 });
 
-before(() => {
-  createMerchant('mer_otro', '739164');
-  createMerchant('mer_lock', '739164');
-  createMerchant('mer_risk', '739164');
-});
 
 // ------------------------------------------------------------------ pruebas
 describe('PIN y sesión', () => {
-  test('el PIN se guarda como hash, nunca en texto plano', () => {
-    const row = db.prepare("SELECT pin_hash FROM merchant_credentials WHERE merchant_id = 'mer_carlos'").get() as { pin_hash: string };
+  test('el PIN se guarda como hash, nunca en texto plano', async () => {
+    const row = await db.prepare("SELECT pin_hash FROM merchant_credentials WHERE merchant_id = 'mer_carlos'").get() as { pin_hash: string };
     assert.match(row.pin_hash, /^scrypt\$/);
     assert.ok(!row.pin_hash.includes(DEMO_MERCHANT_PIN));
   });
@@ -190,7 +194,7 @@ describe('Links de cobro', () => {
   test('token de 128 bits y URL con MAC; un código inventado da 404', async () => {
     const s = await login();
     const link = await createActiveLink(s, 3000);
-    const token = (db.prepare('SELECT token FROM payment_links WHERE id = ?').get(link.id) as { token: string }).token;
+    const token = (await db.prepare('SELECT token FROM payment_links WHERE id = ?').get(link.id) as { token: string }).token;
     assert.equal(Buffer.from(token, 'base64url').length, 16);
     const ok = await call('GET', `/payment-links/public/${link.code}`);
     assert.equal(ok.status, 200);
@@ -216,10 +220,10 @@ describe('Links de cobro', () => {
     }
   });
 
-  test('monto, titular y vencimiento son inmutables en la base', () => {
-    const id = (db.prepare("SELECT id FROM payment_links WHERE merchant_id = 'mer_carlos' LIMIT 1").get() as { id: string }).id;
-    assert.throws(() => db.prepare('UPDATE payment_links SET amount_cents = 1 WHERE id = ?').run(id), /inmutables/);
-    assert.throws(() => db.prepare("UPDATE payment_links SET merchant_id = 'mer_otro' WHERE id = ?").run(id), /inmutables/);
+  test('monto, titular y vencimiento son inmutables en la base', async () => {
+    const id = (await db.get<{ id: string }>("SELECT id FROM payment_links WHERE merchant_id = 'mer_carlos' LIMIT 1"))!.id;
+    await assert.rejects(db.run('UPDATE payment_links SET amount_cents = 1 WHERE id = ?', id), /inmutables/);
+    await assert.rejects(db.run("UPDATE payment_links SET merchant_id = 'mer_otro' WHERE id = ?", id), /inmutables/);
   });
 
   test('un link vencido no se muestra ni se cobra', async () => {
@@ -233,7 +237,7 @@ describe('Links de cobro', () => {
       currency: 'PEN',
       expires_at: new Date(Date.now() - 60_000).toISOString()
     };
-    db.prepare(`
+    await db.prepare(`
       INSERT INTO payment_links (id, merchant_id, token, amount_cents, fee_cents, net_cents, fee_bps, currency, status, expires_at, sig)
       VALUES (@id, @merchant_id, @token, @amount_cents, @fee_cents, @net_cents, 100, @currency, 'ACTIVE', @expires_at, @sig)
     `).run({ ...fields, sig: signLink(fields) });
@@ -276,7 +280,7 @@ describe('Límites y confirmación con PIN', () => {
     const reused = await createLink(s, 60_000, { 'X-Step-Up-Token': token });
     assert.equal(reused.status, 403, 'el permiso no se reutiliza');
 
-    const consent = db.prepare("SELECT * FROM consent_records WHERE merchant_id = 'mer_carlos' AND action = 'CREATE_LINK' ORDER BY created_at DESC LIMIT 1").get() as Json;
+    const consent = await db.prepare("SELECT * FROM consent_records WHERE merchant_id = 'mer_carlos' AND action = 'CREATE_LINK' ORDER BY created_at DESC LIMIT 1").get() as Json;
     assert.equal(consent.device_id, s.deviceId);
     assert.match(consent.summary, /600\.00/);
   });
@@ -344,16 +348,16 @@ describe('Webhook firmado de 360pay', () => {
     assert.equal(first.status, 200);
     assert.equal(first.body.status, 'PROCESSED');
 
-    const row = db.prepare('SELECT status FROM payment_links WHERE id = ?').get(link.id) as { status: string };
+    const row = await db.prepare('SELECT status FROM payment_links WHERE id = ?').get(link.id) as { status: string };
     assert.equal(row.status, 'PAID');
-    const ledger = db
+    const ledger = await db
       .prepare('SELECT type, SUM(amount_cents) AS s FROM ledger_entries WHERE payment_id = ? GROUP BY type')
       .all(first.body.payment_id) as { type: string; s: number }[];
     assert.deepEqual(Object.fromEntries(ledger.map((l) => [l.type, l.s])), { CREDIT: 5000, DEBIT: 5000 });
 
     const replay = await webhook(payload, { eventId });
     assert.equal(replay.body.duplicate, true);
-    const count = db.prepare('SELECT COUNT(*) AS n FROM payments WHERE payment_link_id = ?').get(link.id) as { n: number };
+    const count = await db.prepare('SELECT COUNT(*) AS n FROM payments WHERE payment_link_id = ?').get(link.id) as { n: number };
     assert.equal(count.n, 1, 'la repetición no crea otro pago');
 
     const sameIdOtherBody = await webhook(captured(link.code, 9999), { eventId });
@@ -369,22 +373,24 @@ describe('Webhook firmado de 360pay', () => {
     const r = await webhook(captured(link.code, 33));
     assert.equal(r.body.status, 'REJECTED');
     assert.equal(r.body.reason, 'AMOUNT_MISMATCH');
-    const row = db.prepare('SELECT status FROM payment_links WHERE id = ?').get(link.id) as { status: string };
+    const row = await db.prepare('SELECT status FROM payment_links WHERE id = ?').get(link.id) as { status: string };
     assert.equal(row.status, 'ACTIVE');
   });
 
   test('un monto alterado en la base invalida la firma del link', async () => {
     const s = await login();
     const link = await createActiveLink(s, 2700);
-    db.exec('DROP TRIGGER payment_links_immutable'); // simula a un atacante con acceso a la base
-    db.prepare('UPDATE payment_links SET amount_cents = 270000 WHERE id = ?').run(link.id);
+    await db.exec('DROP TRIGGER payment_links_guard ON payments.payment_links'); // simula a un atacante con acceso a la base
+    // Cuadra comisión + neto para pasar el CHECK; la firma igual deja de coincidir.
+    await db.prepare('UPDATE payment_links SET amount_cents = 270000, net_cents = 270000 - fee_cents WHERE id = ?').run(link.id);
     const view = await call('GET', `/payment-links/public/${link.code}`);
     assert.equal(view.status, 404);
     const pay = await webhook(captured(link.code, 270000));
     assert.equal(pay.body.reason, 'LINK_TAMPERED');
-    db.prepare('DELETE FROM payment_links WHERE id = ?').run(link.id);
-    const { initSecuritySchema } = await import('../src/security/schema.js');
-    initSecuritySchema(db); // restaura el trigger
+    await db.prepare('DELETE FROM payment_links WHERE id = ?').run(link.id);
+    await db.exec(
+      'CREATE TRIGGER payment_links_guard BEFORE UPDATE ON payments.payment_links FOR EACH ROW EXECUTE FUNCTION payments.payment_links_guard()'
+    ); // restaura el trigger
   });
 
   test('sandbox: el pago simulado pasa por la misma verificación de firma', async () => {
@@ -449,12 +455,13 @@ describe('Antifraude', () => {
 
 describe('Bitácora y conciliación', () => {
   test('la bitácora es de solo agregado y su cadena verifica', async () => {
-    assert.throws(() => db.prepare('UPDATE audit_log SET result = ? WHERE seq = 1').run('OK'), /solo agregado/);
-    assert.throws(() => db.prepare('DELETE FROM ledger_entries').run(), /solo agregado/);
+    await assert.rejects(db.run('UPDATE audit_log SET result = ? WHERE seq = 1', 'OK'), /solo agregado/);
+    await assert.rejects(db.run('DELETE FROM ledger_entries'), /solo agregado/);
+    await assert.rejects(db.exec('TRUNCATE payments.audit_log'), /solo agregado/);
     const v = await call('GET', '/internal/audit/verify', undefined, admin);
     assert.equal(v.body.ok, true);
     assert.ok(v.body.count > 10);
-    const details = (db.prepare('SELECT details_json FROM audit_log WHERE details_json IS NOT NULL').all() as { details_json: string }[]).map(
+    const details = (await db.prepare('SELECT details_json FROM audit_log WHERE details_json IS NOT NULL').all() as { details_json: string }[]).map(
       (r) => JSON.parse(r.details_json) as Json
     );
     const leaked = details.some((d) => Object.values(d).some((v) => v === DEMO_MERCHANT_PIN || v === '739164'));
@@ -465,7 +472,7 @@ describe('Bitácora y conciliación', () => {
     const s = await login();
     const link = await createActiveLink(s, 4100);
     await webhook(captured(link.code, 4100, 'GW-recon0001'));
-    const ours = db.prepare('SELECT gateway_ref, amount_cents FROM payments').all() as { gateway_ref: string; amount_cents: number }[];
+    const ours = await db.prepare('SELECT gateway_ref, amount_cents FROM payments').all() as { gateway_ref: string; amount_cents: number }[];
     const report = [
       ...ours.filter((p) => p.gateway_ref !== 'GW-recon0001').map((p) => ({ gateway_ref: p.gateway_ref, amount_minor: p.amount_cents, status: 'CAPTURED' })),
       { gateway_ref: 'GW-recon0001', amount_minor: 4000, status: 'CAPTURED' },
@@ -481,8 +488,8 @@ describe('Bitácora y conciliación', () => {
   });
 
   test('alterar una fila de la bitácora rompe la cadena', async () => {
-    db.exec('DROP TRIGGER audit_log_no_update');
-    db.prepare("UPDATE audit_log SET result = 'OK' WHERE seq = (SELECT MIN(seq) FROM audit_log WHERE result = 'DENIED')").run();
+    await db.exec('DROP TRIGGER audit_log_append_only ON payments.audit_log');
+    await db.prepare("UPDATE audit_log SET result = 'OK' WHERE seq = (SELECT MIN(seq) FROM audit_log WHERE result = 'DENIED')").run();
     const v = await call('GET', '/internal/audit/verify', undefined, admin);
     assert.equal(v.body.ok, false);
     assert.ok(v.body.broken_at_seq);

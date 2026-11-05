@@ -13,8 +13,8 @@ import { internalRouter } from './routes/internal.routes.js';
 import { config, isAllowedOrigin } from './security/config.js';
 import { rateLimit } from './security/guards.js';
 
-export function createApp() {
-  initDatabase();
+export async function createApp() {
+  await initDatabase();
   const app = express();
   app.disable('x-powered-by');
   // Detrás de un proxy/API Gateway, confiar solo en el primer salto para req.ip.

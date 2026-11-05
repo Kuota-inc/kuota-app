@@ -1,7 +1,7 @@
 // Bitácora inmutable: cada fila guarda el hash de la anterior (cadena SHA-256)
 // y la tabla rechaza UPDATE/DELETE por trigger. Si alguien altera o borra una
 // fila con acceso directo a la base, verifyAuditChain() lo detecta.
-import { db } from '../db/database.js';
+import { paymentsDb as db } from '../db/client.js';
 import { sha256Hex } from './crypto.js';
 
 export type ActorType = 'MERCHANT' | 'PAYER' | 'GATEWAY' | 'ADMIN' | 'SYSTEM';
@@ -49,9 +49,10 @@ function rowHash(r: Omit<Row, 'seq' | 'hash'>): string {
   );
 }
 
-const append = (entry: AuditEntry) => {
+const append = async (entry: AuditEntry) => {
+  await db.lock('kuota:audit-chain');
   const prev =
-    (db.prepare('SELECT hash FROM audit_log ORDER BY seq DESC LIMIT 1').get() as { hash: string } | undefined)?.hash ??
+    (await db.prepare('SELECT hash FROM audit_log ORDER BY seq DESC LIMIT 1').get() as { hash: string } | undefined)?.hash ??
     GENESIS;
   const row = {
     ts: new Date().toISOString(),
@@ -65,19 +66,19 @@ const append = (entry: AuditEntry) => {
     details_json: redact(entry.details),
     prev_hash: prev
   };
-  db.prepare(`
+  await db.prepare(`
     INSERT INTO audit_log (ts, actor_type, actor_id, action, target, result, ip, device_id, details_json, prev_hash, hash)
     VALUES (@ts, @actor_type, @actor_id, @action, @target, @result, @ip, @device_id, @details_json, @prev_hash, @hash)
   `).run({ ...row, hash: rowHash(row) });
 };
 
 /** Agrega un evento; dentro de una transacción en curso queda en ella (se confirma o revierte junto). */
-export function audit(entry: AuditEntry) {
-  db.transaction(append)(entry);
+export async function audit(entry: AuditEntry) {
+  await db.transaction(append)(entry);
 }
 
-export function verifyAuditChain(): { ok: boolean; count: number; broken_at_seq?: number; reason?: string } {
-  const rows = db.prepare('SELECT * FROM audit_log ORDER BY seq ASC').all() as Row[];
+export async function verifyAuditChain(): Promise<{ ok: boolean; count: number; broken_at_seq?: number; reason?: string }> {
+  const rows = await db.prepare('SELECT * FROM audit_log ORDER BY seq ASC').all() as Row[];
   let prev = GENESIS;
   for (const r of rows) {
     if (r.prev_hash !== prev) return { ok: false, count: rows.length, broken_at_seq: r.seq, reason: 'eslabón faltante o reordenado' };

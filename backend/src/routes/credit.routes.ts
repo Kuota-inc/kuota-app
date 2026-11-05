@@ -4,39 +4,39 @@ import { db } from '../db/database.js';
 
 export const creditRouter = Router();
 
-function getMerchantProfile(req: any) {
+async function getMerchantProfile(req: any) {
   const merchantId = req.headers['x-merchant-id'] as string;
   if (merchantId) {
-    const m = db.prepare('SELECT * FROM merchant_profiles WHERE id = ?').get(merchantId);
+    const m = await db.prepare('SELECT * FROM merchant_profiles WHERE id = ?').get(merchantId);
     if (m) return m as any;
   }
-  let profile = db.prepare("SELECT * FROM merchant_profiles WHERE id = 'mer_carlos'").get() as any;
+  let profile = await db.prepare("SELECT * FROM merchant_profiles WHERE id = 'mer_carlos'").get() as any;
   if (!profile) {
-    profile = db.prepare("SELECT * FROM merchant_profiles LIMIT 1").get() as any;
+    profile = await db.prepare("SELECT * FROM merchant_profiles LIMIT 1").get() as any;
   }
   if (!profile) {
     const newId = 'mer_carlos';
-    db.prepare(`
+    await db.prepare(`
       INSERT INTO merchant_profiles (id, dni, full_name, phone, business_name, category, seniority_range, kyc_status)
       VALUES (?, '47891234', 'CARLOS ALBERTO MENDOZA QUISPE', '987654321', 'Bodega San Martín', 'FOOD', 'CONSOLIDATED', 'APPROVED')
     `).run(newId);
-    profile = db.prepare("SELECT * FROM merchant_profiles WHERE id = 'mer_carlos'").get() as any;
+    profile = await db.prepare("SELECT * FROM merchant_profiles WHERE id = 'mer_carlos'").get() as any;
   }
   return profile;
 }
 
 // PRD 10: Mi línea de crédito
-creditRouter.get('/line', (req, res) => {
-  const merchant = getMerchantProfile(req);
-  const line = db.prepare('SELECT * FROM credit_lines WHERE merchant_id = ?').get(merchant.id) as any;
-  const level = db.prepare('SELECT * FROM credit_levels WHERE level = ?').get(line?.level || 1) as any;
-  const nextLevel = db.prepare('SELECT * FROM credit_levels WHERE level = ?').get((line?.level || 1) + 1) as any;
+creditRouter.get('/line', async (req, res) => {
+  const merchant = await getMerchantProfile(req);
+  const line = await db.prepare('SELECT * FROM credit_lines WHERE merchant_id = ?').get(merchant.id) as any;
+  const level = await db.prepare('SELECT * FROM credit_levels WHERE level = ?').get(line?.level || 1) as any;
+  const nextLevel = await db.prepare('SELECT * FROM credit_levels WHERE level = ?').get((line?.level || 1) + 1) as any;
 
   const totalLimit = line?.total_limit_cents || 140000;
   const used = line?.used_cents || 0;
   const available = Math.max(0, totalLimit - used);
 
-  const pendingCount = db.prepare(`
+  const pendingCount = await db.prepare(`
     SELECT count(*) as count FROM installments i
     JOIN credit_purchases p ON i.purchase_id = p.id
     WHERE p.merchant_id = ? AND i.status = 'PENDING'
@@ -70,20 +70,20 @@ creditRouter.get('/line', (req, res) => {
 });
 
 // PRD 10: Catálogo canónico de 6 niveles
-creditRouter.get('/levels', (req, res) => {
-  const levels = db.prepare('SELECT * FROM credit_levels ORDER BY level ASC').all();
+creditRouter.get('/levels', async (req, res) => {
+  const levels = await db.prepare('SELECT * FROM credit_levels ORDER BY level ASC').all();
   res.json(levels);
 });
 
 // PRD 07: Simulador de cuotas
-creditRouter.post('/simulations', (req, res) => {
+creditRouter.post('/simulations', async (req, res) => {
   const { purchase_cents, installments = 3, level = 1 } = req.body;
 
   if (!purchase_cents || purchase_cents <= 0) {
     return res.status(422).json({ error: { code: 'AMOUNT_INVALID', message: 'Ingresa un monto de compra válido.' } });
   }
 
-  const levelInfo = db.prepare('SELECT * FROM credit_levels WHERE level = ?').get(level) as any;
+  const levelInfo = await db.prepare('SELECT * FROM credit_levels WHERE level = ?').get(level) as any;
   const downPaymentPct = levelInfo?.down_payment_pct ?? 50;
 
   const downPaymentCents = Math.round((purchase_cents * downPaymentPct) / 100);
@@ -121,10 +121,10 @@ creditRouter.post('/simulations', (req, res) => {
 });
 
 // PRD 09: Compra activa en curso
-creditRouter.get('/purchases/active', (req, res) => {
-  const merchant = getMerchantProfile(req);
+creditRouter.get('/purchases/active', async (req, res) => {
+  const merchant = await getMerchantProfile(req);
 
-  let purchase = db.prepare(`
+  let purchase = await db.prepare(`
     SELECT p.*, prov.legal_name as provider_name, prov.whatsapp, loc.address_line, loc.district, loc.city
     FROM credit_purchases p
     JOIN provider_profiles prov ON p.provider_id = prov.id
@@ -136,7 +136,7 @@ creditRouter.get('/purchases/active', (req, res) => {
 
   // Fallback to most recent purchase if all are settled
   if (!purchase) {
-    purchase = db.prepare(`
+    purchase = await db.prepare(`
       SELECT p.*, prov.legal_name as provider_name, prov.whatsapp, loc.address_line, loc.district, loc.city
       FROM credit_purchases p
       JOIN provider_profiles prov ON p.provider_id = prov.id
@@ -181,7 +181,7 @@ creditRouter.get('/purchases/active', (req, res) => {
     });
   }
 
-  const installments = db.prepare(`
+  const installments = await db.prepare(`
     SELECT * FROM installments WHERE purchase_id = ? ORDER BY number ASC
   `).all(purchase.id) as any[];
 
@@ -222,13 +222,13 @@ creditRouter.get('/purchases/active', (req, res) => {
 });
 
 // PRD 09: Pagar cuota
-creditRouter.post('/installments/:id/pay', (req, res) => {
+creditRouter.post('/installments/:id/pay', async (req, res) => {
   const installmentId = req.params.id;
-  let inst = db.prepare('SELECT * FROM installments WHERE id = ?').get(installmentId) as any;
+  let inst = await db.prepare('SELECT * FROM installments WHERE id = ?').get(installmentId) as any;
 
   if (!inst) {
     // Fallback: tomar la primera cuota pendiente del sistema para evitar errores 404 en demos
-    inst = db.prepare("SELECT * FROM installments WHERE status = 'PENDING' LIMIT 1").get() as any;
+    inst = await db.prepare("SELECT * FROM installments WHERE status = 'PENDING' LIMIT 1").get() as any;
   }
 
   if (!inst) {
@@ -252,44 +252,44 @@ creditRouter.post('/installments/:id/pay', (req, res) => {
     });
   }
 
-  const purchase = db.prepare('SELECT * FROM credit_purchases WHERE id = ?').get(inst.purchase_id) as any;
-  const line = db.prepare('SELECT * FROM credit_lines WHERE id = ?').get(purchase.line_id) as any;
+  const purchase = await db.prepare('SELECT * FROM credit_purchases WHERE id = ?').get(inst.purchase_id) as any;
+  const line = await db.prepare('SELECT * FROM credit_lines WHERE id = ?').get(purchase.line_id) as any;
 
   // Mark installment as paid
-  db.prepare(`
-    UPDATE installments SET status = 'PAID', paid_at = datetime('now') WHERE id = ?
+  await db.prepare(`
+    UPDATE installments SET status = 'PAID', paid_at = utc_now_text() WHERE id = ?
   `).run(installmentId);
 
   // Auto-reload credit line: decrease used_cents by the principal portion
   const newUsed = Math.max(0, line.used_cents - inst.principal_cents);
   const newConsecutive = (line.consecutive_on_time || 0) + 1;
 
-  db.prepare(`
+  await db.prepare(`
     UPDATE credit_lines
-    SET used_cents = ?, consecutive_on_time = ?, updated_at = datetime('now')
+    SET used_cents = ?, consecutive_on_time = ?, updated_at = utc_now_text()
     WHERE id = ?
   `).run(newUsed, newConsecutive, line.id);
 
   // Check if all installments for this purchase are now paid
-  const pending = db.prepare(`
+  const pending = await db.prepare(`
     SELECT count(*) as count FROM installments WHERE purchase_id = ? AND status = 'PENDING'
   `).get(purchase.id) as any;
 
   let purchaseFinished = false;
   if (pending.count === 0) {
-    db.prepare(`
-      UPDATE credit_purchases SET status = 'PAID', settled_at = datetime('now') WHERE id = ?
+    await db.prepare(`
+      UPDATE credit_purchases SET status = 'PAID', settled_at = utc_now_text() WHERE id = ?
     `).run(purchase.id);
     purchaseFinished = true;
   }
 
   // Score event
-  db.prepare(`
+  await db.prepare(`
     INSERT INTO score_events (id, merchant_id, type, points, ref_id)
     VALUES (?, ?, 'ON_TIME_PAYMENT', 15, ?)
   `).run('sev_' + uuidv4().substring(0, 10), purchase.merchant_id, installmentId);
 
-  db.prepare('UPDATE credit_scores SET score = min(850, score + 15) WHERE merchant_id = ?').run(purchase.merchant_id);
+  await db.prepare('UPDATE credit_scores SET score = LEAST(850, score + 15) WHERE merchant_id = ?').run(purchase.merchant_id);
 
   res.json({
     success: true,
@@ -303,12 +303,12 @@ creditRouter.post('/installments/:id/pay', (req, res) => {
 });
 
 // PRD 09: Liquidación anticipada
-creditRouter.post('/purchases/:id/settle', (req, res) => {
+creditRouter.post('/purchases/:id/settle', async (req, res) => {
   const purchaseId = req.params.id;
-  let purchase = db.prepare('SELECT * FROM credit_purchases WHERE id = ?').get(purchaseId) as any;
+  let purchase = await db.prepare('SELECT * FROM credit_purchases WHERE id = ?').get(purchaseId) as any;
 
   if (!purchase) {
-    purchase = db.prepare("SELECT * FROM credit_purchases WHERE status IN ('ACTIVE_ON_TIME', 'ACTIVE_OVERDUE') LIMIT 1").get() as any;
+    purchase = await db.prepare("SELECT * FROM credit_purchases WHERE status IN ('ACTIVE_ON_TIME', 'ACTIVE_OVERDUE') LIMIT 1").get() as any;
   }
 
   if (!purchase) {
@@ -321,17 +321,17 @@ creditRouter.post('/purchases/:id/settle', (req, res) => {
   }
 
   // Mark all pending installments as PAID
-  db.prepare(`
-    UPDATE installments SET status = 'PAID', paid_at = datetime('now') WHERE purchase_id = ? AND status = 'PENDING'
+  await db.prepare(`
+    UPDATE installments SET status = 'PAID', paid_at = utc_now_text() WHERE purchase_id = ? AND status = 'PENDING'
   `).run(purchaseId);
 
   // Mark purchase as PAID
-  db.prepare(`
-    UPDATE credit_purchases SET status = 'PAID', settled_at = datetime('now') WHERE id = ?
+  await db.prepare(`
+    UPDATE credit_purchases SET status = 'PAID', settled_at = utc_now_text() WHERE id = ?
   `).run(purchaseId);
 
   // Free all used credit on line
-  db.prepare(`
+  await db.prepare(`
     UPDATE credit_lines SET used_cents = 0, consecutive_on_time = consecutive_on_time + 1 WHERE id = ?
   `).run(purchase.line_id);
 

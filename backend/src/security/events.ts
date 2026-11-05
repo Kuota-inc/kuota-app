@@ -1,7 +1,7 @@
 // Eventos del ciclo de vida del cobro (solo agregado), alertas al comercio y
 // interruptores de funciones para respuesta a incidentes.
 import type { NextFunction, Request, Response } from 'express';
-import { db } from '../db/database.js';
+import { paymentsDb as db } from '../db/client.js';
 import { randomId } from './crypto.js';
 import { fail } from './http.js';
 
@@ -16,8 +16,8 @@ export type PaymentEventType =
   | 'PAYMENT_REJECTED'
   | 'TAMPER_DETECTED';
 
-export function paymentEvent(linkId: string, type: PaymentEventType, data: Record<string, unknown> = {}) {
-  db.prepare('INSERT INTO payment_events (link_id, type, data_json, created_at) VALUES (?, ?, ?, ?)').run(
+export async function paymentEvent(linkId: string, type: PaymentEventType, data: Record<string, unknown> = {}) {
+  await db.prepare('INSERT INTO payment_events (link_id, type, data_json, created_at) VALUES (?, ?, ?, ?)').run(
     linkId,
     type,
     JSON.stringify(data),
@@ -41,8 +41,8 @@ export type AlertKind =
  * Alerta al comercio. Queda registrada aquí; en producción la entrega es push
  * (FCM) o la plantilla oficial de WhatsApp Business.
  */
-export function alertMerchant(merchantId: string, kind: AlertKind, title: string, body?: string, refId?: string) {
-  db.prepare(`
+export async function alertMerchant(merchantId: string, kind: AlertKind, title: string, body?: string, refId?: string) {
+  await db.prepare(`
     INSERT INTO merchant_alerts (id, merchant_id, kind, title, body, ref_id, created_at)
     VALUES (?, ?, ?, ?, ?, ?, ?)
   `).run(randomId('alr', 8), merchantId, kind, title, body ?? null, refId ?? null, new Date().toISOString());
@@ -56,15 +56,15 @@ export function recentAlerts(merchantId: string, limit = 30) {
 
 export type Feature = 'LINK_CREATE' | 'PUBLIC_PAY' | 'WEBHOOK_PROCESSING';
 
-export function featureEnabled(name: Feature): boolean {
-  const row = db.prepare('SELECT enabled FROM feature_flags WHERE name = ?').get(name) as { enabled: number } | undefined;
+export async function featureEnabled(name: Feature): Promise<boolean> {
+  const row = await db.prepare('SELECT enabled FROM feature_flags WHERE name = ?').get(name) as { enabled: number } | undefined;
   return row ? row.enabled === 1 : true;
 }
 
 /** Apagado puntual de una función (incidente) sin redeploy. */
 export function requireFeature(name: Feature) {
-  return (_req: Request, res: Response, next: NextFunction) => {
-    if (!featureEnabled(name)) {
+  return async (_req: Request, res: Response, next: NextFunction) => {
+    if (!await featureEnabled(name)) {
       return fail(res, 503, 'FEATURE_DISABLED', 'Esta función está pausada temporalmente por mantenimiento de seguridad. Inténtalo más tarde.');
     }
     next();

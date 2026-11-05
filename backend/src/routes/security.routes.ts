@@ -1,7 +1,7 @@
 // Sesión del comercio (PIN + dispositivo), confirmación con PIN, cambio de PIN,
 // dispositivos vinculados, límites de cobro y alertas de seguridad.
 import { Router } from 'express';
-import { db } from '../db/database.js';
+import { paymentsDb as db } from '../db/client.js';
 import { config } from '../security/config.js';
 import { hashPin, pinProblem, verifyPin } from '../security/crypto.js';
 import { audit } from '../security/audit.js';
@@ -32,10 +32,10 @@ export const paymentSecurityRouter = Router();
 const authLimiter = rateLimit({ name: 'auth', windowMs: 60_000, max: 10 });
 
 // Estado del PIN del comercio (sin sesión: la app decide si pedirlo o crearlo).
-authRouter.get('/pin/status', (req, res) => {
-  const merchant = resolveClaimedMerchant(req);
+authRouter.get('/pin/status', async (req, res) => {
+  const merchant = await resolveClaimedMerchant(req);
   if (!merchant) return fail(res, 404, 'MERCHANT_NOT_FOUND', 'Comercio no encontrado.');
-  const cred = credentialFor(merchant.id);
+  const cred = await credentialFor(merchant.id);
   res.json({
     configured: !!cred,
     locked_until: cred?.locked_until && new Date(cred.locked_until) > new Date() ? cred.locked_until : null
@@ -43,26 +43,26 @@ authRouter.get('/pin/status', (req, res) => {
 });
 
 // Abrir sesión: PIN + dispositivo. Sesión corta (15 min) ligada al dispositivo.
-authRouter.post('/sessions', authLimiter, (req, res) => {
-  const merchant = resolveClaimedMerchant(req);
+authRouter.post('/sessions', authLimiter, async (req, res) => {
+  const merchant = await resolveClaimedMerchant(req);
   if (!merchant) return fail(res, 404, 'MERCHANT_NOT_FOUND', 'Comercio no encontrado.');
   const { device_id: deviceId } = req.body ?? {};
   if (!isValidDeviceId(deviceId)) return fail(res, 422, 'DEVICE_ID_INVALID', 'Identificador de dispositivo inválido.');
   const label = typeof req.body?.device_label === 'string' ? req.body.device_label.replace(/[\u0000-\u001f<>]/g, '').slice(0, 60) : null;
   const ip = clientIp(req);
 
-  const existing = getDevice(merchant.id, deviceId);
+  const existing = await getDevice(merchant.id, deviceId);
   if (existing?.revoked_at) {
-    audit({ actorType: 'MERCHANT', actorId: merchant.id, action: 'SESSION_OPEN', result: 'DENIED', ip, deviceId, details: { reason: 'DEVICE_REVOKED' } });
+    await audit({ actorType: 'MERCHANT', actorId: merchant.id, action: 'SESSION_OPEN', result: 'DENIED', ip, deviceId, details: { reason: 'DEVICE_REVOKED' } });
     return fail(res, 403, 'DEVICE_REVOKED', 'Este dispositivo fue desvinculado de tu cuenta. Comunícate con Kuota por el WhatsApp oficial.');
   }
-  const check = checkPin(merchant.id, req.body?.pin, { ip, deviceId, purpose: 'SESSION_OPEN' });
+  const check = await checkPin(merchant.id, req.body?.pin, { ip, deviceId, purpose: 'SESSION_OPEN' });
   if (!check.ok) return fail(res, check.status, check.code, check.message, check.extra);
 
-  const device = linkDevice(merchant.id, deviceId, label, ip);
+  const device = await linkDevice(merchant.id, deviceId, label, ip);
   if (device.revoked) return fail(res, 403, 'DEVICE_REVOKED', 'Este dispositivo fue desvinculado de tu cuenta.');
-  const session = issueSession(merchant.id, deviceId);
-  audit({ actorType: 'MERCHANT', actorId: merchant.id, action: 'SESSION_OPEN', target: session.sessionId, result: 'OK', ip, deviceId, details: { new_device: device.isNew } });
+  const session = await issueSession(merchant.id, deviceId);
+  await audit({ actorType: 'MERCHANT', actorId: merchant.id, action: 'SESSION_OPEN', target: session.sessionId, result: 'OK', ip, deviceId, details: { new_device: device.isNew } });
   res.status(201).json({
     access_token: session.accessToken,
     token_type: 'Bearer',
@@ -72,42 +72,42 @@ authRouter.post('/sessions', authLimiter, (req, res) => {
   });
 });
 
-authRouter.delete('/sessions/current', requireMerchant, (req, res) => {
+authRouter.delete('/sessions/current', requireMerchant, async (req, res) => {
   const auth = req.auth!;
-  db.prepare('UPDATE merchant_sessions SET revoked_at = ? WHERE id = ? AND revoked_at IS NULL').run(nowIso(), auth.sessionId);
-  audit({ actorType: 'MERCHANT', actorId: auth.merchantId, action: 'SESSION_CLOSE', target: auth.sessionId, result: 'OK', ip: clientIp(req), deviceId: auth.deviceId });
+  await db.prepare('UPDATE merchant_sessions SET revoked_at = ? WHERE id = ? AND revoked_at IS NULL').run(nowIso(), auth.sessionId);
+  await audit({ actorType: 'MERCHANT', actorId: auth.merchantId, action: 'SESSION_CLOSE', target: auth.sessionId, result: 'OK', ip: clientIp(req), deviceId: auth.deviceId });
   res.status(204).end();
 });
 
 // Confirmación reforzada: PIN + resumen de la acción → permiso de un solo uso.
-authRouter.post('/step-up', authLimiter, requireMerchant, (req, res) => {
-  const result = grantStepUp(req, req.auth!, req.body?.pin, req.body?.action, req.body?.params);
+authRouter.post('/step-up', authLimiter, requireMerchant, async (req, res) => {
+  const result = await grantStepUp(req, req.auth!, req.body?.pin, req.body?.action, req.body?.params);
   if (!result.ok) return fail(res, result.status, result.code, result.message, 'extra' in result ? result.extra : {});
   res.status(201).json({ step_up_token: result.token, expires_at: result.expiresAt, summary: result.summary, consent_id: result.consentId });
 });
 
 // Cambio de PIN: exige el PIN actual; cierra las demás sesiones y aplica enfriamiento.
-authRouter.post('/pin/change', authLimiter, requireMerchant, (req, res) => {
+authRouter.post('/pin/change', authLimiter, requireMerchant, async (req, res) => {
   const auth = req.auth!;
   const ip = clientIp(req);
-  const check = checkPin(auth.merchantId, req.body?.current_pin, { ip, deviceId: auth.deviceId, purpose: 'PIN_CHANGE' });
+  const check = await checkPin(auth.merchantId, req.body?.current_pin, { ip, deviceId: auth.deviceId, purpose: 'PIN_CHANGE' });
   if (!check.ok) return fail(res, check.status, check.code, check.message, check.extra);
   const newPin = req.body?.new_pin;
   const problem = pinProblem(newPin);
   if (problem) return fail(res, 422, 'PIN_WEAK', problem);
-  const cred = credentialFor(auth.merchantId)!;
+  const cred = (await credentialFor(auth.merchantId))!;
   if (verifyPin(newPin, cred.pin_hash)) return fail(res, 422, 'PIN_UNCHANGED', 'El nuevo PIN debe ser distinto del actual.');
 
   const cooldownUntil = addHours(new Date(), config.cooldownHours).toISOString();
-  db.prepare('UPDATE merchant_credentials SET pin_hash = ?, pin_updated_at = ?, cooldown_until = ?, failed_attempts = 0, locked_until = NULL WHERE merchant_id = ?').run(
+  await db.prepare('UPDATE merchant_credentials SET pin_hash = ?, pin_updated_at = ?, cooldown_until = ?, failed_attempts = 0, locked_until = NULL WHERE merchant_id = ?').run(
     hashPin(newPin),
     nowIso(),
     cooldownUntil,
     auth.merchantId
   );
-  const closed = revokeSessions(auth.merchantId, { exceptSessionId: auth.sessionId });
-  audit({ actorType: 'MERCHANT', actorId: auth.merchantId, action: 'PIN_CHANGED', result: 'OK', ip, deviceId: auth.deviceId, details: { sessions_closed: closed, cooldown_until: cooldownUntil } });
-  alertMerchant(
+  const closed = await revokeSessions(auth.merchantId, { exceptSessionId: auth.sessionId });
+  await audit({ actorType: 'MERCHANT', actorId: auth.merchantId, action: 'PIN_CHANGED', result: 'OK', ip, deviceId: auth.deviceId, details: { sessions_closed: closed, cooldown_until: cooldownUntil } });
+  await alertMerchant(
     auth.merchantId,
     'PIN_CHANGED',
     'Cambiaste tu PIN de seguridad',
@@ -119,18 +119,18 @@ authRouter.post('/pin/change', authLimiter, requireMerchant, (req, res) => {
 // ------------------------------------------------ /merchants/me/payments/...
 paymentSecurityRouter.use(requireMerchant);
 
-paymentSecurityRouter.get('/limits', (req, res) => {
-  const merchant = getMerchant(req.auth!.merchantId)!;
-  res.json({ ...effectiveLimits(merchant, req.auth!.deviceId), usage_today: usageToday(merchant.id) });
+paymentSecurityRouter.get('/limits', async (req, res) => {
+  const merchant = (await getMerchant(req.auth!.merchantId))!;
+  res.json({ ...await effectiveLimits(merchant, req.auth!.deviceId), usage_today: await usageToday(merchant.id) });
 });
 
 // Bajar un límite rige de inmediato; subirlo exige PIN y entra en vigor tras la espera.
-paymentSecurityRouter.put('/limits', (req, res) => {
+paymentSecurityRouter.put('/limits', async (req, res) => {
   const auth = req.auth!;
-  const merchant = getMerchant(auth.merchantId)!;
+  const merchant = (await getMerchant(auth.merchantId))!;
   const requested = validLimitValues(req.body);
   if (!requested) return fail(res, 422, 'LIMITS_INVALID', 'Ingresa montos y cantidades válidos.');
-  const current = effectiveLimits(merchant, auth.deviceId);
+  const current = await effectiveLimits(merchant, auth.deviceId);
   const max = current.tier_max;
   if (requested.per_tx_cents > max.per_tx_cents || requested.daily_cents > max.daily_cents || requested.daily_count > max.daily_count) {
     return fail(res, 422, 'ABOVE_TIER', `Tu nivel ${current.tier_label} permite hasta ${formatSoles(max.per_tx_cents)} por cobro y ${formatSoles(max.daily_cents)} por día. Completa la verificación ampliada para subirlos.`, { tier_max: max });
@@ -145,7 +145,7 @@ paymentSecurityRouter.put('/limits', (req, res) => {
 
   let consentId: string | null = null;
   if (raises.length) {
-    consentId = consumeStepUp(req, 'RAISE_LIMITS', { ...requested });
+    consentId = await consumeStepUp(req, 'RAISE_LIMITS', { ...requested });
     if (!consentId) return stepUpRequired(res, 'RAISE_LIMITS', { ...requested });
   }
   // Las bajas se aplican ya; las subidas quedan pendientes con fecha de vigencia.
@@ -155,7 +155,7 @@ paymentSecurityRouter.put('/limits', (req, res) => {
     daily_count: Math.min(requested.daily_count, own.daily_count)
   };
   const effectiveAt = raises.length ? addHours(now, config.limitRaiseDelayHours).toISOString() : null;
-  db.prepare(`
+  await db.prepare(`
     INSERT INTO merchant_limit_settings (merchant_id, per_tx_cents, daily_cents, daily_count, pending_json, pending_effective_at, updated_at)
     VALUES (@m, @per_tx_cents, @daily_cents, @daily_count, @pending, @effective_at, @now)
     ON CONFLICT(merchant_id) DO UPDATE SET
@@ -163,8 +163,8 @@ paymentSecurityRouter.put('/limits', (req, res) => {
       pending_json = excluded.pending_json, pending_effective_at = excluded.pending_effective_at, updated_at = excluded.updated_at
   `).run({ m: merchant.id, ...immediate, pending: raises.length ? JSON.stringify(requested) : null, effective_at: effectiveAt, now: now.toISOString() });
 
-  audit({ actorType: 'MERCHANT', actorId: merchant.id, action: 'LIMITS_CHANGED', result: 'OK', ip: clientIp(req), deviceId: auth.deviceId, details: { requested, applied_now: immediate, raise_effective_at: effectiveAt, consent_id: consentId } });
-  alertMerchant(
+  await audit({ actorType: 'MERCHANT', actorId: merchant.id, action: 'LIMITS_CHANGED', result: 'OK', ip: clientIp(req), deviceId: auth.deviceId, details: { requested, applied_now: immediate, raise_effective_at: effectiveAt, consent_id: consentId } });
+  await alertMerchant(
     merchant.id,
     'LIMITS_CHANGED',
     raises.length ? 'Pediste subir tus límites de cobro' : 'Bajaste tus límites de cobro',
@@ -172,21 +172,21 @@ paymentSecurityRouter.put('/limits', (req, res) => {
       ? `Si no fuiste tú, cancélalas desde Perfil › Límites de cobro. Rigen desde el ${formatLimaDateTime(effectiveAt!)}`
       : 'El cambio ya está activo.'
   );
-  res.json({ ...effectiveLimits(merchant, auth.deviceId), usage_today: usageToday(merchant.id) });
+  res.json({ ...await effectiveLimits(merchant, auth.deviceId), usage_today: await usageToday(merchant.id) });
 });
 
 // Cancelar una subida pendiente (protege: no requiere PIN).
-paymentSecurityRouter.delete('/limits/pending', (req, res) => {
+paymentSecurityRouter.delete('/limits/pending', async (req, res) => {
   const auth = req.auth!;
-  db.prepare('UPDATE merchant_limit_settings SET pending_json = NULL, pending_effective_at = NULL, updated_at = ? WHERE merchant_id = ?').run(nowIso(), auth.merchantId);
-  audit({ actorType: 'MERCHANT', actorId: auth.merchantId, action: 'LIMITS_RAISE_CANCELLED', result: 'OK', ip: clientIp(req), deviceId: auth.deviceId });
-  const merchant = getMerchant(auth.merchantId)!;
-  res.json({ ...effectiveLimits(merchant, auth.deviceId), usage_today: usageToday(merchant.id) });
+  await db.prepare('UPDATE merchant_limit_settings SET pending_json = NULL, pending_effective_at = NULL, updated_at = ? WHERE merchant_id = ?').run(nowIso(), auth.merchantId);
+  await audit({ actorType: 'MERCHANT', actorId: auth.merchantId, action: 'LIMITS_RAISE_CANCELLED', result: 'OK', ip: clientIp(req), deviceId: auth.deviceId });
+  const merchant = (await getMerchant(auth.merchantId))!;
+  res.json({ ...await effectiveLimits(merchant, auth.deviceId), usage_today: await usageToday(merchant.id) });
 });
 
-paymentSecurityRouter.get('/devices', (req, res) => {
+paymentSecurityRouter.get('/devices', async (req, res) => {
   const auth = req.auth!;
-  const rows = db
+  const rows = await db
     .prepare('SELECT device_id, label, first_seen_at, last_seen_at, cooldown_until FROM merchant_devices WHERE merchant_id = ? AND revoked_at IS NULL ORDER BY last_seen_at DESC')
     .all(auth.merchantId) as { device_id: string; label: string | null; first_seen_at: string; last_seen_at: string; cooldown_until: string | null }[];
   res.json({
@@ -204,23 +204,23 @@ paymentSecurityRouter.get('/devices', (req, res) => {
 });
 
 // Desvincular otro dispositivo: cierra sus sesiones (cierre remoto). Exige PIN.
-paymentSecurityRouter.delete('/devices/:deviceId', (req, res) => {
+paymentSecurityRouter.delete('/devices/:deviceId', async (req, res) => {
   const auth = req.auth!;
   const deviceId = req.params.deviceId;
   if (deviceId === 'current' || deviceId === auth.deviceId) {
     return fail(res, 409, 'CANNOT_REVOKE_CURRENT', 'No puedes desvincular el dispositivo que estás usando.');
   }
-  const device = isValidDeviceId(deviceId) ? getDevice(auth.merchantId, deviceId) : null;
+  const device = isValidDeviceId(deviceId) ? await getDevice(auth.merchantId, deviceId) : null;
   if (!device || device.revoked_at) return fail(res, 404, 'DEVICE_NOT_FOUND', 'Dispositivo no encontrado.');
-  const consentId = consumeStepUp(req, 'REVOKE_DEVICE', { device_id: deviceId });
+  const consentId = await consumeStepUp(req, 'REVOKE_DEVICE', { device_id: deviceId });
   if (!consentId) return stepUpRequired(res, 'REVOKE_DEVICE', { device_id: deviceId });
-  db.prepare('UPDATE merchant_devices SET revoked_at = ? WHERE merchant_id = ? AND device_id = ?').run(nowIso(), auth.merchantId, deviceId);
-  const closed = revokeSessions(auth.merchantId, { deviceId });
-  audit({ actorType: 'MERCHANT', actorId: auth.merchantId, action: 'DEVICE_REVOKED', target: deviceId, result: 'OK', ip: clientIp(req), deviceId: auth.deviceId, details: { sessions_closed: closed, consent_id: consentId } });
-  alertMerchant(auth.merchantId, 'DEVICE_REVOKED', 'Desvinculaste un dispositivo', `${device.label ?? 'El dispositivo'} ya no puede operar tu cuenta.`);
+  await db.prepare('UPDATE merchant_devices SET revoked_at = ? WHERE merchant_id = ? AND device_id = ?').run(nowIso(), auth.merchantId, deviceId);
+  const closed = await revokeSessions(auth.merchantId, { deviceId });
+  await audit({ actorType: 'MERCHANT', actorId: auth.merchantId, action: 'DEVICE_REVOKED', target: deviceId, result: 'OK', ip: clientIp(req), deviceId: auth.deviceId, details: { sessions_closed: closed, consent_id: consentId } });
+  await alertMerchant(auth.merchantId, 'DEVICE_REVOKED', 'Desvinculaste un dispositivo', `${device.label ?? 'El dispositivo'} ya no puede operar tu cuenta.`);
   res.json({ success: true, sessions_closed: closed });
 });
 
-paymentSecurityRouter.get('/alerts', (req, res) => {
-  res.json({ data: recentAlerts(req.auth!.merchantId) });
+paymentSecurityRouter.get('/alerts', async (req, res) => {
+  res.json({ data: await recentAlerts(req.auth!.merchantId) });
 });

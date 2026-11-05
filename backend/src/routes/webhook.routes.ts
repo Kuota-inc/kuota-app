@@ -10,15 +10,15 @@ import { clientIp, fail, headerString } from '../security/http.js';
 import { getLinkByToken, publicCode, refreshStatus, tokenFromPublicCode } from '../security/links.js';
 import { evaluateRisk } from '../security/risk.js';
 import { handleGatewayWebhook, signWebhookBody } from '../security/webhook.js';
-import { db } from '../db/database.js';
+import { paymentsDb as db } from '../db/client.js';
 import { nowIso } from '../security/time.js';
 
 export const webhookRouter = Router();
 export const sandboxRouter = Router();
 
-webhookRouter.post('/360pay', rateLimit({ name: 'webhook', windowMs: 60_000, max: 600 }), (req, res) => {
+webhookRouter.post('/360pay', rateLimit({ name: 'webhook', windowMs: 60_000, max: 600 }), async (req, res) => {
   if (!req.rawBody) return fail(res, 415, 'JSON_REQUIRED', 'Se espera un cuerpo application/json.');
-  const result = handleGatewayWebhook({
+  const result = await handleGatewayWebhook({
     rawBody: req.rawBody,
     signature: headerString(req, 'x-signature-256'),
     timestamp: headerString(req, 'x-360pay-timestamp'),
@@ -37,13 +37,13 @@ sandboxRouter.post(
   '/360pay/pay',
   rateLimit({ name: 'sandbox-pay', windowMs: 60_000, max: 30 }),
   requireFeature('PUBLIC_PAY'),
-  (req, res) => {
+  async (req, res) => {
     if (!config.sandboxEnabled) return fail(res, 404, 'NOT_FOUND', 'No disponible.');
     const ip = clientIp(req);
     const token = tokenFromPublicCode(req.body?.code);
-    const link = token ? getLinkByToken(token) : null;
+    const link = token ? await getLinkByToken(token) : null;
     if (!link) return fail(res, 404, 'LINK_NOT_FOUND', 'Este link de pago no existe o caducó.');
-    const current = refreshStatus(link);
+    const current = await refreshStatus(link);
     if (current.status !== 'ACTIVE') {
       return fail(res, current.status === 'PAID' ? 409 : 410, current.status === 'PAID' ? 'LINK_ALREADY_PAID' : 'LINK_UNAVAILABLE', current.status === 'PAID' ? 'Este cobro ya fue pagado.' : 'Este link de pago ya no está disponible.');
     }
@@ -52,10 +52,10 @@ sandboxRouter.post(
     // Huella del pagador: en producción la calcula 360pay (dispositivo/tarjeta).
     const payer = sha256Hex(`${ip}|${headerString(req, 'user-agent') ?? ''}`).slice(0, 32);
 
-    const merchant = getMerchant(link.merchant_id)!;
-    const risk = evaluateRisk({ kind: 'PAY_ATTEMPT', merchant, linkId: link.id, payerFingerprint: payer, ip });
+    const merchant = (await getMerchant(link.merchant_id))!;
+    const risk = await evaluateRisk({ kind: 'PAY_ATTEMPT', merchant, linkId: link.id, payerFingerprint: payer, ip });
     if (risk.decision === 'BLOCK') {
-      db.prepare('INSERT INTO payment_attempts (id, link_id, payer_fingerprint, result, reason, created_at) VALUES (?, ?, ?, ?, ?, ?)').run(
+      await db.prepare('INSERT INTO payment_attempts (id, link_id, payer_fingerprint, result, reason, created_at) VALUES (?, ?, ?, ?, ?, ?)').run(
         randomId('att', 8),
         link.id,
         payer,
@@ -63,7 +63,7 @@ sandboxRouter.post(
         'RISK_BLOCKED',
         nowIso()
       );
-      audit({ actorType: 'PAYER', actorId: payer, action: 'PAY_ATTEMPT', target: link.id, result: 'DENIED', ip, details: { risk_decision_id: risk.id } });
+      await audit({ actorType: 'PAYER', actorId: payer, action: 'PAY_ATTEMPT', target: link.id, result: 'DENIED', ip, details: { risk_decision_id: risk.id } });
       return fail(res, 403, 'RISK_BLOCKED', 'No pudimos procesar este pago. Inténtalo más tarde.');
     }
 
@@ -81,7 +81,7 @@ sandboxRouter.post(
     };
     const raw = JSON.stringify(event);
     const ts = String(Math.floor(Date.now() / 1000));
-    const result = handleGatewayWebhook({
+    const result = await handleGatewayWebhook({
       rawBody: raw,
       signature: signWebhookBody(raw, ts),
       timestamp: ts,

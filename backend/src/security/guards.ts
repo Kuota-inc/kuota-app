@@ -3,7 +3,7 @@
 // El limitador es en memoria (un solo proceso). En producción esta función la
 // cumplen el WAF/API Gateway y un almacén compartido (Redis) entre réplicas.
 import type { NextFunction, Request, Response } from 'express';
-import { db } from '../db/database.js';
+import { paymentsDb as db } from '../db/client.js';
 import { canonicalJson, sha256Hex } from './crypto.js';
 import { clientIp, fail, headerString } from './http.js';
 import { nowIso } from './time.js';
@@ -44,35 +44,58 @@ const IDEM_KEY = /^[A-Za-z0-9_-]{16,80}$/;
 /**
  * Idempotencia para operaciones de dinero (Idempotency-Key obligatorio): un
  * reintento con la misma clave y el mismo cuerpo devuelve la respuesta original
- * sin repetir la operación; con otro cuerpo responde 409. Solo se guardan las
- * respuestas exitosas, para que un pedido de PIN (403) pueda reintentarse.
+ * sin repetir la operación; con otro cuerpo responde 409.
+ *
+ * La clave se reserva ANTES de procesar (fila con status_code 0), así dos
+ * reintentos simultáneos no ejecutan la operación dos veces. Solo se conservan
+ * las respuestas exitosas: si falla (p. ej. pide PIN, 403) se libera la clave
+ * para que el reintento con la misma clave pueda completarse.
  */
-export function idempotent(req: Request, res: Response, next: NextFunction) {
+export async function idempotent(req: Request, res: Response, next: NextFunction) {
   const key = headerString(req, 'idempotency-key');
   if (!key || !IDEM_KEY.test(key)) {
     return fail(res, 400, 'IDEMPOTENCY_KEY_REQUIRED', 'Falta la cabecera Idempotency-Key (16 a 80 caracteres).');
   }
   const owner = req.auth?.merchantId ?? 'anon';
   const requestHash = sha256Hex(`${req.method} ${req.baseUrl}${req.path}\n${canonicalJson(req.body ?? null)}`);
-  const prior = db.prepare('SELECT request_hash, status_code, response_json FROM idempotency_keys WHERE merchant_id = ? AND idem_key = ?').get(owner, key) as
-    | { request_hash: string; status_code: number; response_json: string }
-    | undefined;
-  if (prior) {
-    if (prior.request_hash !== requestHash) {
+  const reserved = await db.run(
+    `INSERT INTO idempotency_keys (merchant_id, idem_key, request_hash, status_code, response_json, created_at)
+     VALUES (?, ?, ?, 0, '', ?) ON CONFLICT (merchant_id, idem_key) DO NOTHING`,
+    owner,
+    key,
+    requestHash,
+    nowIso()
+  );
+  if (reserved.changes === 0) {
+    const prior = await db.get<{ request_hash: string; status_code: number; response_json: string }>(
+      'SELECT request_hash, status_code, response_json FROM idempotency_keys WHERE merchant_id = ? AND idem_key = ?',
+      owner,
+      key
+    );
+    if (!prior || prior.request_hash !== requestHash) {
       return fail(res, 409, 'IDEMPOTENCY_KEY_REUSED', 'Esta clave de idempotencia ya se usó con otros datos.');
+    }
+    if (prior.status_code === 0) {
+      return fail(res, 409, 'IDEMPOTENCY_IN_PROGRESS', 'Esta operación ya se está procesando. Espera un momento.');
     }
     res.setHeader('Idempotent-Replayed', 'true');
     return res.status(prior.status_code).json(JSON.parse(prior.response_json));
   }
+
+  // Se completa (o libera) la reserva antes de enviar la respuesta.
   const originalJson = res.json.bind(res);
+  // res.json tiene que seguir siendo síncrono: la escritura se encadena y la
+  // respuesta sale cuando terminó.
   res.json = (body: unknown) => {
-    if (res.statusCode >= 200 && res.statusCode < 300) {
-      db.prepare(`
-        INSERT OR IGNORE INTO idempotency_keys (merchant_id, idem_key, request_hash, status_code, response_json, created_at)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `).run(owner, key, requestHash, res.statusCode, JSON.stringify(body), nowIso());
-    }
-    return originalJson(body);
+    const ok = res.statusCode >= 200 && res.statusCode < 300;
+    const settle = async (): Promise<unknown> =>
+      ok
+        ? await db.run('UPDATE idempotency_keys SET status_code = ?, response_json = ? WHERE merchant_id = ? AND idem_key = ?', res.statusCode, JSON.stringify(body), owner, key)
+        : await db.run('DELETE FROM idempotency_keys WHERE merchant_id = ? AND idem_key = ? AND status_code = 0', owner, key);
+    void settle()
+      .catch((e: unknown) => console.error('[idempotency]', e instanceof Error ? e.message : e))
+      .then(() => originalJson(body));
+    return res;
   };
   next();
 }
