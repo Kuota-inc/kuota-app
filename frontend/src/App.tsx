@@ -1,6 +1,7 @@
 import React, { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { App as NativeApp } from '@capacitor/app';
+import { StatusBar, Style } from '@capacitor/status-bar';
 import { useDeviceMode } from './hooks/useDeviceMode';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PhoneSimulator } from './components/PhoneSimulator';
@@ -175,6 +176,13 @@ function AppShell() {
     return () => {
       sub.then((h) => h.remove());
     };
+  }, []);
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    StatusBar.setOverlaysWebView({ overlay: false });
+    StatusBar.setStyle({ style: Style.Light });
+    StatusBar.setBackgroundColor({ color: '#f9f9ff' });
   }, []);
 
   // Reset to initial screen

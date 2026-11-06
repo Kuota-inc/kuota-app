@@ -12,12 +12,10 @@ const config: CapacitorConfig = {
     cleartext: true
   },
   plugins: {
-    SystemBars: {
-      // Inyecta --safe-area-inset-* para respetar barra de estado y navegación.
-      insetsHandling: 'css',
-      initialViewportFitValueHint: 'cover',
-      // Fondo claro de la app: íconos oscuros en la barra de estado.
-      style: 'LIGHT'
+    StatusBar: {
+      style: 'LIGHT',
+      backgroundColor: '#f9f9ff',
+      overlaysWebView: false
     }
   }
 };
