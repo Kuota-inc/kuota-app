@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { db } from '../db/database.js';
 import { sunatService } from '../services/sunat.service.js';
+import { startVerification } from '../services/kyc.service.js';
 
 export const providerRouter = Router();
 
@@ -287,6 +288,17 @@ providerRouter.post('/kyc/requests/:publicId/documents', async (req, res) => {
     },
     message: 'Documentos DNI y biometría del Representante Legal validados exitosamente.'
   });
+});
+
+// Iniciar verificación Didit (o modo DEMO) para KYC de proveedor
+providerRouter.post('/kyc/requests/:publicId/verification', async (req, res) => {
+  const publicId = req.params.publicId;
+  try {
+    const result = await startVerification(publicId);
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ error: { code: 'VERIFICATION_ERROR', message: err?.message || 'Error al iniciar verificación.' } });
+  }
 });
 
 // PRD 13: Actividad Comercial

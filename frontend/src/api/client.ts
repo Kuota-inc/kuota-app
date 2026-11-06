@@ -255,6 +255,8 @@ export const api = {
       body: JSON.stringify(data)
     }),
   getKycStatus: (requestId: string) => apiRequest(`/kyc/requests/${requestId}`),
+  startProviderVerification: (requestId: string) =>
+    apiRequest<{ provider: 'DIDIT' | 'DEMO'; url: string | null; status: string }>(`/kyc/requests/${requestId}/verification`, { method: 'POST' }),
   submitProviderKycDocuments: (requestId: string, data: { dni_front?: string; dni_back?: string; selfie?: string }) =>
     apiRequest(`/kyc/requests/${requestId}/documents`, {
       method: 'POST',

@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../../api/client';
+import { Geolocation } from '@capacitor/geolocation';
+import { Capacitor } from '@capacitor/core';
 import {
   MapPin,
   Navigation,
@@ -35,87 +37,92 @@ export const ProviderGpsScreen: React.FC<ProviderGpsScreenProps> = ({ onNext }) 
   const [detectedSuccess, setDetectedSuccess] = useState<boolean>(false);
 
   // 1. Obtención de ubicación del dispositivo (Obligatoria para registrar el negocio)
-  const handleUseLocation = () => {
-    if (!navigator.geolocation) {
-      setGeoError('Tu navegador o dispositivo no soporta geolocalización. Por favor utiliza un dispositivo con GPS.');
-      return;
-    }
-
+  const handleUseLocation = async () => {
     setDetecting(true);
     setGeoError(null);
     setPermissionPrompt(true);
     setStatusMessage('Accediendo a la ubicación de tu dispositivo...');
 
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        setPermissionPrompt(false);
-        const userLat = position.coords.latitude;
-        const userLng = position.coords.longitude;
-        const userAccuracy = Math.round(position.coords.accuracy || 10);
-
-        setCoords({ lat: userLat, lng: userLng });
-        setStatusMessage(`Ubicación obtenida (precisión ±${userAccuracy} m). Identificando tu dirección...`);
-
-        try {
-          // Reverse geocoding con las coordenadas del dispositivo
-          const geoData = await api.reverseGeocode(userLat, userLng);
-          if (geoData) {
-            const resolvedAddress = geoData.full_address || geoData.address || geoData.full_display || 'Ubicación identificada';
-            setAddress(resolvedAddress);
-          }
-          setHasAcquiredLocation(true);
-          setDetectedSuccess(true);
-          setTimeout(() => setDetectedSuccess(false), 4500);
-        } catch (err) {
-          console.warn('Error al identificar dirección:', err);
-          setAddress('Ubicación detectada por coordenadas');
-          setHasAcquiredLocation(true);
-        } finally {
+    try {
+      // En Android nativo pedir permisos explícitamente
+      if (Capacitor.isNativePlatform()) {
+        const perm = await Geolocation.requestPermissions();
+        if (perm.location !== 'granted' && perm.coarseLocation !== 'granted') {
           setDetecting(false);
+          setPermissionPrompt(false);
           setStatusMessage('');
+          setGeoError(
+            'Permiso de ubicación denegado. Ve a Ajustes > Aplicaciones > Kuota > Permisos y activa "Ubicación".'
+          );
+          return;
         }
-      },
-      (error) => {
-        setDetecting(false);
-        setPermissionPrompt(false);
-        setStatusMessage('');
-        console.warn('Geolocation error:', error);
+      }
 
-        if (error.code === error.PERMISSION_DENIED) {
-          setGeoError(
-            'Permiso requerido: Para registrar tu negocio es obligatorio activar tu ubicación. Haz clic en el ícono de candado 🔒 en la barra de direcciones de tu navegador y activa "Ubicación".'
-          );
-        } else if (error.code === error.POSITION_UNAVAILABLE) {
-          setGeoError(
-            'No se pudo determinar la ubicación de tu dispositivo. Asegúrate de tener activada la ubicación en tu celular o computadora e inténtalo de nuevo.'
-          );
-        } else if (error.code === error.TIMEOUT) {
-          setGeoError(
-            'Tiempo de espera agotado buscando tu ubicación. Presiona nuevamente "Usar mi ubicación actual" y confirma el permiso.'
-          );
-        } else {
-          setGeoError('No se pudo obtener la ubicación. Por favor reintenta con el botón de abajo.');
-        }
-      },
-      {
+      const position = await Geolocation.getCurrentPosition({
         enableHighAccuracy: true,
         timeout: 15000,
-        maximumAge: 0
+      });
+
+      setPermissionPrompt(false);
+      const userLat = position.coords.latitude;
+      const userLng = position.coords.longitude;
+      const userAccuracy = Math.round(position.coords.accuracy || 10);
+
+      setCoords({ lat: userLat, lng: userLng });
+      setStatusMessage(`Ubicación obtenida (precisión ±${userAccuracy} m). Identificando tu dirección...`);
+
+      try {
+        // Reverse geocoding con las coordenadas del dispositivo
+        const geoData = await api.reverseGeocode(userLat, userLng);
+        if (geoData) {
+          const resolvedAddress = geoData.full_address || geoData.address || geoData.full_display || 'Ubicación identificada';
+          setAddress(resolvedAddress);
+        }
+        setHasAcquiredLocation(true);
+        setDetectedSuccess(true);
+        setTimeout(() => setDetectedSuccess(false), 4500);
+      } catch (err) {
+        console.warn('Error al identificar dirección:', err);
+        setAddress('Ubicación detectada por coordenadas');
+        setHasAcquiredLocation(true);
+      } finally {
+        setDetecting(false);
+        setStatusMessage('');
       }
-    );
+    } catch (error: any) {
+      setDetecting(false);
+      setPermissionPrompt(false);
+      setStatusMessage('');
+      console.warn('Geolocation error:', error);
+
+      const msg: string = error?.message || '';
+      if (msg.toLowerCase().includes('denied') || msg.toLowerCase().includes('permission')) {
+        setGeoError(
+          'Permiso de ubicación denegado. Ve a Ajustes > Aplicaciones > Kuota > Permisos y activa "Ubicación".'
+        );
+      } else if (msg.toLowerCase().includes('unavailable') || msg.toLowerCase().includes('position')) {
+        setGeoError(
+          'No se pudo determinar la ubicación. Asegúrate de tener el GPS activado e inténtalo de nuevo.'
+        );
+      } else if (msg.toLowerCase().includes('timeout')) {
+        setGeoError(
+          'Tiempo de espera agotado. Asegúrate de tener el GPS activado y presiona nuevamente "Usar mi ubicación actual".'
+        );
+      } else {
+        setGeoError('No se pudo obtener la ubicación. Por favor reintenta con el botón de abajo.');
+      }
+    }
   };
 
   // Autodetectar automáticamente si el usuario ya concedió permisos previamente
   useEffect(() => {
-    if (navigator.permissions && navigator.permissions.query) {
-      navigator.permissions.query({ name: 'geolocation' as PermissionName }).then((status) => {
-        if (status.state === 'granted') {
-          handleUseLocation();
-        }
-      }).catch(() => {
-        // Ignorar si el navegador no soporta permissions.query
-      });
-    }
+    Geolocation.checkPermissions().then((status) => {
+      if (status.location === 'granted' || status.coarseLocation === 'granted') {
+        handleUseLocation();
+      }
+    }).catch(() => {
+      // En web o si no soporta checkPermissions, ignorar
+    });
   }, []);
 
   // 2. Guardar y continuar (valida que se haya obtenido la ubicación del dispositivo)
@@ -260,7 +267,7 @@ export const ProviderGpsScreen: React.FC<ProviderGpsScreenProps> = ({ onNext }) 
             <div className="leading-tight">
               <span className="font-bold">Permiso requerido:</span>
               <p className="text-[11px] mt-0.5">
-                Por favor haz clic en <strong>"Permitir"</strong> en la ventana emergente de tu navegador para que Kuota registre la dirección exacta de tu negocio.
+                Por favor toca <strong>"Permitir"</strong> en el diálogo de permisos para que Kuota registre la dirección exacta de tu negocio.
               </p>
             </div>
           </motion.div>

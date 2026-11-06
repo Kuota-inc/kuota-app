@@ -23,7 +23,8 @@ import {
   Radio,
   Info,
   Gauge,
-  BellRing
+  BellRing,
+  LogOut
 } from 'lucide-react';
 import { useDialog } from '../../hooks/useDialog';
 import { ChangePinPanel, DevicesPanel, LimitsPanel, SecurityActivityPanel } from './PaymentSecurityPanels';
@@ -491,15 +492,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onLogout }
             </button>
             <button
               type="button"
-              onClick={() => {
-                if (window.confirm('¿Deseas cerrar tu sesión de Kuota?')) {
-                  if (onLogout) {
-                    onLogout();
-                  } else {
-                    onBack();
-                  }
-                }
-              }}
+              onClick={() => setActiveModal('modal-logout')}
               className="p-3 rounded-2xl bg-red-50 text-red-700 hover:bg-red-100 text-xs font-bold text-center transition cursor-pointer"
             >
               Cerrar sesión
@@ -923,6 +916,39 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onLogout }
                   >
                     Cerrar
                   </button>
+                </div>
+              )}
+              {/* Modal Logout */}
+              {activeModal === 'modal-logout' && (
+                <div className="space-y-5">
+                  <div className="flex flex-col items-center text-center space-y-2 pt-2">
+                    <div className="w-14 h-14 rounded-full bg-red-50 flex items-center justify-center">
+                      <LogOut size={26} className="text-red-500" />
+                    </div>
+                    <h4 className="text-base font-black text-[#151c27]">Cerrar sesión</h4>
+                    <p className="text-xs text-[#4a5f7e] leading-relaxed">
+                      ¿Estás seguro que deseas cerrar tu sesión de Kuota? Tendrás que ingresar tus credenciales para volver a acceder.
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 pt-1">
+                    <button
+                      type="button"
+                      onClick={closeModal}
+                      className="h-12 rounded-2xl bg-[#eff3ff] hover:bg-[#e7eefe] text-[#151c27] text-xs font-bold transition cursor-pointer"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        closeModal();
+                        if (onLogout) { onLogout(); } else { onBack(); }
+                      }}
+                      className="h-12 rounded-2xl bg-red-500 hover:bg-red-600 text-white text-xs font-bold transition cursor-pointer shadow-md shadow-red-200"
+                    >
+                      Sí, cerrar sesión
+                    </button>
+                  </div>
                 </div>
               )}
             </motion.div>
