@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-
+import { Capacitor } from '@capacitor/core';
+import { KuotaNotifications } from '../../plugins/kuotaNotifications';
 import { api } from '../../api/client';
 import { AnimatedNumber } from '../../components/AnimatedNumber';
 import { Info } from 'lucide-react';
@@ -47,6 +48,7 @@ export const CreditLineScreen: React.FC<CreditLineScreenProps> = ({ onViewInstal
   const [activePurchase, setActivePurchase] = useState<any>(null);
   const [showExplanation, setShowExplanation] = useState<boolean>(false);
   const [paying, setPaying] = useState<boolean>(false);
+  const [listenerGranted, setListenerGranted] = useState<boolean | null>(null);
 
   const loadData = () => {
     api.getCreditLine().then(setLineData).catch(console.error);
@@ -56,6 +58,11 @@ export const CreditLineScreen: React.FC<CreditLineScreenProps> = ({ onViewInstal
 
   useEffect(() => {
     loadData();
+    if (Capacitor.isNativePlatform()) {
+      KuotaNotifications.checkPermission()
+        .then(({ granted }) => setListenerGranted(granted))
+        .catch(() => setListenerGranted(false));
+    }
   }, []);
 
   const handlePay = async (instId: string) => {
@@ -168,6 +175,26 @@ export const CreditLineScreen: React.FC<CreditLineScreenProps> = ({ onViewInstal
                 {paying ? '...' : 'Pagar'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bloque 3: Banner listener de pagos */}
+      {Capacitor.isNativePlatform() && listenerGranted === false && (
+        <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-2xl flex items-start gap-3">
+          <span className="material-symbols-outlined text-amber-600 text-xl mt-0.5 shrink-0">notifications_active</span>
+          <div className="flex-1 min-w-0 space-y-2">
+            <div className="text-xs font-bold text-amber-900">Detecta pagos Yape/Plin automáticamente</div>
+            <p className="text-[10px] text-amber-800 leading-snug">
+              Activa el acceso a notificaciones y Kuota registrará tus cobros para mejorar tu score sin que hagas nada.
+            </p>
+            <button
+              type="button"
+              onClick={() => KuotaNotifications.openSettings()}
+              className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-[10px] font-bold"
+            >
+              Activar ahora
+            </button>
           </div>
         </div>
       )}

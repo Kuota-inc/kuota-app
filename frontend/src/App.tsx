@@ -1,6 +1,8 @@
 import React, { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { App as NativeApp } from '@capacitor/app';
+import { KuotaNotifications } from './plugins/kuotaNotifications';
+import { api } from './api/client';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { useDeviceMode } from './hooks/useDeviceMode';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -187,6 +189,18 @@ function AppShell() {
     StatusBar.setOverlaysWebView({ overlay: false });
     StatusBar.setStyle({ style: Style.Light });
     StatusBar.setBackgroundColor({ color: '#f9f9ff' });
+  }, []);
+
+  // Bloque 3: suscribirse al listener de notificaciones de pago
+  useEffect(() => {
+    let handle: { remove: () => void } | null = null;
+    KuotaNotifications.checkPermission().then(({ granted }) => {
+      if (!granted) return;
+      KuotaNotifications.addListener('notificationCaptured', (data) => {
+        api.postScoringSignal('PAYMENT_CAPTURED', data.appPackage).catch(() => {});
+      }).then((h) => { handle = h; });
+    }).catch(() => {});
+    return () => { handle?.remove(); };
   }, []);
 
   // Reset to initial screen
