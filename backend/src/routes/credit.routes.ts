@@ -120,6 +120,97 @@ creditRouter.post('/simulations', async (req, res) => {
   });
 });
 
+// P2P aKuotas: crear nueva compra al crédito
+creditRouter.post('/purchases', async (req, res) => {
+  const merchant = await getMerchantProfile(req);
+  const { provider_id, total_cents, installments = 3 } = req.body;
+
+  if (!provider_id || !total_cents || total_cents <= 0) {
+    return res.status(422).json({ error: { code: 'AMOUNT_INVALID', message: 'Proveedor y monto requeridos.' } });
+  }
+
+  // Regla 3.2: solo 1 compra activa a la vez
+  const activePurchase = await db.prepare(`
+    SELECT id FROM credit_purchases WHERE merchant_id = ? AND status IN ('ACTIVE_ON_TIME', 'ACTIVE_OVERDUE')
+  `).get(merchant.id) as any;
+
+  if (activePurchase) {
+    return res.status(422).json({ error: { code: 'RULE_3_2', message: 'Regla 3.2: Ya tienes una compra activa. Debes saldarla para comprar de nuevo.' } });
+  }
+
+  // Verificar línea de crédito
+  let line = await db.prepare('SELECT * FROM credit_lines WHERE merchant_id = ?').get(merchant.id) as any;
+  if (!line) {
+    // Crear línea si no existe
+    const lineId = 'lin_' + uuidv4().substring(0, 10);
+    await db.prepare(`
+      INSERT INTO credit_lines (id, merchant_id, level, total_limit_cents, used_cents, status)
+      VALUES (?, ?, 1, 140000, 0, 'ACTIVE')
+    `).run(lineId, merchant.id);
+    line = await db.prepare('SELECT * FROM credit_lines WHERE merchant_id = ?').get(merchant.id) as any;
+  }
+
+  const available = line.total_limit_cents - line.used_cents;
+  if (available < total_cents) {
+    return res.status(422).json({ error: { code: 'INSUFFICIENT_CREDIT', message: `Crédito insuficiente. Disponible: S/ ${(available / 100).toFixed(2)}` } });
+  }
+
+  const levelInfo = await db.prepare('SELECT * FROM credit_levels WHERE level = ?').get(line.level || 1) as any;
+  const downPaymentPct = levelInfo?.down_payment_pct ?? 50;
+  const downPaymentCents = Math.round((total_cents * downPaymentPct) / 100);
+  const financedCents = total_cents - downPaymentCents;
+
+  const interestRate = 0.0998;
+  const totalInterestCents = Math.round(financedCents * interestRate);
+  const totalToPayCents = financedCents + totalInterestCents;
+  const installmentCents = Math.round(totalToPayCents / installments);
+  const principalPerInstallment = Math.round(financedCents / installments);
+  const interestPerInstallment = Math.round(totalInterestCents / installments);
+
+  const purchaseId = 'pur_' + uuidv4().substring(0, 10);
+  const receiptNumber = 'KT-' + Date.now().toString().slice(-6);
+
+  await db.prepare(`
+    INSERT INTO credit_purchases (id, merchant_id, line_id, provider_id, plan_code, total_cents,
+      down_payment_pct, down_payment_cents, financed_cents, installments_count, receipt_number, status)
+    VALUES (?, ?, ?, ?, 'KUOTA_3X', ?, ?, ?, ?, ?, ?, 'ACTIVE_ON_TIME')
+  `).run(purchaseId, merchant.id, line.id, provider_id, total_cents, downPaymentPct, downPaymentCents, financedCents, installments, receiptNumber);
+
+  const today = new Date();
+  for (let i = 1; i <= installments; i++) {
+    const dueDate = new Date(today);
+    dueDate.setDate(today.getDate() + i * 14);
+    const amount = i === installments ? totalToPayCents - installmentCents * (installments - 1) : installmentCents;
+    const instId = 'ins_' + uuidv4().substring(0, 10);
+    await db.prepare(`
+      INSERT INTO installments (id, purchase_id, number, amount_cents, principal_cents, interest_cents, due_date, status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDING')
+    `).run(instId, purchaseId, i, amount, principalPerInstallment, interestPerInstallment, dueDate.toISOString().split('T')[0]);
+  }
+
+  // Usar el crédito financiado en la línea
+  await db.prepare(`
+    UPDATE credit_lines SET used_cents = used_cents + ?, updated_at = utc_now_text() WHERE id = ?
+  `).run(financedCents, line.id);
+
+  await db.prepare(`
+    INSERT INTO score_events (id, merchant_id, type, points, ref_id)
+    VALUES (?, ?, 'NEW_PURCHASE', 0, ?)
+  `).run('sev_' + uuidv4().substring(0, 10), merchant.id, purchaseId);
+
+  res.status(201).json({
+    purchase_id: purchaseId,
+    receipt_number: receiptNumber,
+    total_cents,
+    down_payment_cents: downPaymentCents,
+    down_payment_pct: downPaymentPct,
+    financed_cents: financedCents,
+    installments_count: installments,
+    status: 'ACTIVE_ON_TIME',
+    message: `¡Compra creada! Cuota inicial S/ ${(downPaymentCents / 100).toFixed(2)} procesada. Tu mercadería está en camino.`
+  });
+});
+
 // PRD 09: Compra activa en curso
 creditRouter.get('/purchases/active', async (req, res) => {
   const merchant = await getMerchantProfile(req);

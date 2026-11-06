@@ -649,3 +649,69 @@ providerRouter.get('/recommended', (req, res) => {
     }
   ]);
 });
+
+// P2P aKuotas: lista de proveedores afiliados con datos completos para la pantalla de compra
+providerRouter.get('/affiliated', (req, res) => {
+  res.json([
+    {
+      id: 'prov_donlucho',
+      name: 'Confecciones Don Lucho & Hnos. S.A.C.',
+      category: 'Textil e Insumos',
+      description: 'Polos, pantalones y ropa deportiva al por mayor. Despacho el mismo día.',
+      badge: 'Mayorista Verificado',
+      address: 'Galería Santa Rosa, Tda. 204 – Jr. Gamarra 840, La Victoria',
+      district: 'La Victoria',
+      zone: 'Gamarra, Lima',
+      phone: '+51 984 521 893',
+      min_order_cents: 20000,
+      max_order_cents: 120000,
+      rating: 4.9,
+      reviews: 142
+    },
+    {
+      id: 'prov_distlima',
+      name: 'Distribuidora Lima Mayorista S.R.L.',
+      category: 'Abarrotes y Alimentos',
+      description: 'Aceites, azúcar, arroz y abarrotes al por mayor. Entrega a domicilio gratis >S/300.',
+      badge: 'Top Proveedor',
+      address: 'Pab. B, Stand 112 – Mercado Central de Lima, Cercado de Lima',
+      district: 'Cercado de Lima',
+      zone: 'Mercado Central, Lima',
+      phone: '+51 976 112 340',
+      min_order_cents: 15000,
+      max_order_cents: 80000,
+      rating: 4.8,
+      reviews: 98
+    },
+    {
+      id: 'prov_alicorp',
+      name: 'Alicorp Distribución Directa S.A.',
+      category: 'Insumos Alimentarios',
+      description: 'Fideos, aceites y harinas Alicorp directo del fabricante. Sin intermediarios.',
+      badge: 'Oficial',
+      address: 'Av. Argentina 4793, Callao',
+      district: 'Callao',
+      zone: 'Callao, Lima',
+      phone: '+51 1 315 0800',
+      min_order_cents: 50000,
+      max_order_cents: 140000,
+      rating: 5.0,
+      reviews: 311
+    },
+    {
+      id: 'prov_textilnorte',
+      name: 'Textiles del Norte E.I.R.L.',
+      category: 'Textil e Insumos',
+      description: 'Telas, hilos y accesorios de costura al por mayor. Especialistas en tela jersey.',
+      badge: 'Verificado',
+      address: 'Av. Aviación 2345, San Borja',
+      district: 'San Borja',
+      zone: 'San Borja, Lima',
+      phone: '+51 981 445 220',
+      min_order_cents: 10000,
+      max_order_cents: 60000,
+      rating: 4.7,
+      reviews: 67
+    }
+  ]);
+});

@@ -299,5 +299,11 @@ export const api = {
     }),
   getSavingsEstimate: () => apiRequest('/providers/savings-estimate'),
   activateProvider: () => apiRequest('/providers/activate', { method: 'POST' }),
-  getRecommendedProviders: () => apiRequest('/providers/recommended')
+  getRecommendedProviders: () => apiRequest('/providers/recommended'),
+  getAffiliatedProviders: () => apiRequest('/providers/affiliated'),
+  createPurchase: (data: { provider_id: string; total_cents: number; installments?: number }) =>
+    apiRequest('/credit/purchases', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    })
 };
