@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft,
@@ -13,6 +13,7 @@ import {
   ExternalLink,
   Users,
   Video,
+  Fingerprint,
   KeyRound,
   Store,
   FileText,
@@ -26,6 +27,7 @@ import {
   BellRing,
   LogOut
 } from 'lucide-react';
+import { api } from '../../api/client';
 import { useDialog } from '../../hooks/useDialog';
 import { ChangePinPanel, DevicesPanel, LimitsPanel, SecurityActivityPanel } from './PaymentSecurityPanels';
 
@@ -40,11 +42,35 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onLogout }
 
   // Profile data states
   const [selectedRucType, setSelectedRucType] = useState<'10' | '20' | 'NONE'>('10');
-  const [rucNumber] = useState<string>('10428791024');
-  const [rubro, setRubro] = useState<string>('Textil y Confección');
-  const [zona, setZona] = useState<string>('Gamarra (La Victoria)');
+  const [rucNumber, setRucNumber] = useState<string>('');
+  const [businessName, setBusinessName] = useState<string>('');
+  const [rubro, setRubro] = useState<string>('');
+  const [zona, setZona] = useState<string>('');
+
   const [isListenerActive, setIsListenerActive] = useState<boolean>(true);
+  const [biometricEnabled, setBiometricEnabled] = useState<boolean>(false);
+  const [catalogProducts, setCatalogProducts] = useState<any[] | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (activeModal === 'modal-productos' && catalogProducts === null) {
+      api.getProducts().then((data: any) => setCatalogProducts(data?.products ?? data ?? [])).catch(() => setCatalogProducts([]));
+    }
+  }, [activeModal, catalogProducts]);
+
+  useEffect(() => {
+    api.getWelcomeSummary().then((data: any) => {
+      if (!data?.business) return;
+      const b = data.business;
+      if (b.name) setBusinessName(b.name);
+      if (b.ruc) {
+        setRucNumber(b.ruc);
+        setSelectedRucType(b.ruc.startsWith('20') ? '20' : '10');
+      }
+      if (b.category) setRubro(b.category);
+      if (b.district) setZona(b.district);
+    }).catch(() => {});
+  }, []);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -129,7 +155,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onLogout }
           <div className="flex items-center gap-3.5">
             <div className="relative">
               <div className="w-13 h-13 rounded-full bg-[#e7eefe] flex items-center justify-center text-[#00248b] text-lg font-black shadow-inner">
-                DL
+                {businessName ? businessName.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase() : '?'}
               </div>
               <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-[#00248b] text-white flex items-center justify-center shadow-sm">
                 <BadgeCheck size={14} />
@@ -137,7 +163,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onLogout }
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5">
-                <h2 className="text-sm font-black text-[#151c27] truncate">Confecciones Don Lucho</h2>
+                <h2 className="text-sm font-black text-[#151c27] truncate">{businessName || 'Mi Negocio'}</h2>
               </div>
               <p className="text-[11px] text-[#4a5f7e] truncate mt-0.5">
                 {rubro} · {zona.split(' ')[0]}
@@ -163,8 +189,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onLogout }
                 <div className="min-w-0">
                   <p className="text-[10px] text-[#4a5f7e]">Estado de formalidad</p>
                   <p className="text-xs font-bold text-[#151c27] truncate">
-                    {selectedRucType === '10' && `RUC 10 · ${rucNumber}`}
-                    {selectedRucType === '20' && `RUC 20 · 20601894231`}
+                    {selectedRucType === '10' && `RUC 10 · ${rucNumber || '—'}`}
+                    {selectedRucType === '20' && `RUC 20 · ${rucNumber || '—'}`}
                     {selectedRucType === 'NONE' && 'Sin RUC (En proceso)'}
                   </p>
                 </div>
@@ -395,6 +421,32 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onLogout }
                 </div>
               </div>
               <ChevronRight size={16} className="text-[#4a5f7e]" />
+            </button>
+
+            {/* Huella / FaceID */}
+            <button
+              type="button"
+              onClick={() => {
+                setBiometricEnabled(v => {
+                  const next = !v;
+                  showToast(next ? 'Huella digital activada para esta cuenta.' : 'Huella digital desactivada.');
+                  return next;
+                });
+              }}
+              className="w-full flex items-center justify-between p-3 rounded-2xl bg-[#eff3ff] hover:bg-[#e7eefe] active:scale-[0.99] transition text-left cursor-pointer border border-transparent hover:border-blue-200"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-xl bg-[#d8e2ff] text-[#00248b] flex items-center justify-center">
+                  <Fingerprint size={18} />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-[#151c27]">Huella digital / FaceID</p>
+                  <p className="text-[10px] text-[#4a5f7e]">Desbloquea la app con biometría</p>
+                </div>
+              </div>
+              <div className={`w-10 h-5 rounded-full transition-colors ${biometricEnabled ? 'bg-[#1a3bb0]' : 'bg-slate-200'} flex items-center px-0.5`}>
+                <div className={`w-4 h-4 rounded-full bg-white shadow transition-transform ${biometricEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
+              </div>
             </button>
 
             {/* Dispositivos Activos */}
@@ -818,22 +870,18 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onLogout }
                     </button>
                   </div>
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between p-3 rounded-2xl bg-[#eff3ff]">
-                      <span className="text-xs font-bold text-[#151c27]">Polo Piqué Premium 24/1</span>
-                      <span className="text-xs font-black text-[#00248b]">S/ 28.00</span>
-                    </div>
-                    <div className="flex items-center justify-between p-3 rounded-2xl bg-[#eff3ff]">
-                      <span className="text-xs font-bold text-[#151c27]">Camisa Oxford Slim Fit</span>
-                      <span className="text-xs font-black text-[#00248b]">S/ 45.00</span>
-                    </div>
-                    <div className="flex items-center justify-between p-3 rounded-2xl bg-[#eff3ff]">
-                      <span className="text-xs font-bold text-[#151c27]">Pantalón Drill Stretch</span>
-                      <span className="text-xs font-black text-[#00248b]">S/ 58.00</span>
-                    </div>
-                    <div className="flex items-center justify-between p-3 rounded-2xl bg-[#eff3ff]">
-                      <span className="text-xs font-bold text-[#151c27]">Casaca Denim Clásica</span>
-                      <span className="text-xs font-black text-[#00248b]">S/ 79.00</span>
-                    </div>
+                    {catalogProducts === null && (
+                      <p className="text-xs text-[#4a5f7e] text-center py-4">Cargando catálogo…</p>
+                    )}
+                    {catalogProducts !== null && catalogProducts.length === 0 && (
+                      <p className="text-xs text-[#4a5f7e] text-center py-4">Aún no tienes productos registrados.</p>
+                    )}
+                    {catalogProducts !== null && catalogProducts.map((p: any) => (
+                      <div key={p.id} className="flex items-center justify-between p-3 rounded-2xl bg-[#eff3ff]">
+                        <span className="text-xs font-bold text-[#151c27]">{p.name}</span>
+                        <span className="text-xs font-black text-[#00248b]">S/ {(p.price_cents / 100).toFixed(2)}</span>
+                      </div>
+                    ))}
                   </div>
                   <button
                     type="button"

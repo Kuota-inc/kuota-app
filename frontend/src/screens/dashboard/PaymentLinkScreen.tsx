@@ -77,8 +77,19 @@ export const PaymentLinkScreen: React.FC<PaymentLinkScreenProps> = ({ onBack, on
   }, [watching, linkId, toast]);
 
   const handleKeyPress = (num: string) => {
+    if (num === '.') {
+      if (!amountStr.includes('.') && amountStr.length < 7) {
+        setAmountStr((amountStr === '0' ? '0' : amountStr) + '.');
+      }
+      return;
+    }
+    if (amountStr.includes('.')) {
+      const decimals = amountStr.split('.')[1] ?? '';
+      if (decimals.length < 2) setAmountStr(amountStr + num);
+      return;
+    }
     if (amountStr === '0') {
-      setAmountStr(num === '00' ? '0' : num);
+      setAmountStr(num);
     } else if (amountStr.length < 6) {
       setAmountStr(amountStr + num);
     }
@@ -213,7 +224,7 @@ export const PaymentLinkScreen: React.FC<PaymentLinkScreenProps> = ({ onBack, on
               </span>
               <div className="text-4xl font-black text-[#0b2545] tracking-tight">
                 <span className="text-2xl text-[#1a3bb0] mr-1">S/</span>
-                {parseFloat(amountStr || '0').toLocaleString('es-PE', { minimumFractionDigits: 2 })}
+                {amountStr.endsWith('.') ? amountStr : parseFloat(amountStr || '0').toLocaleString('es-PE', { minimumFractionDigits: 2 })}
               </div>
 
               {/* Commission breakdown (PRD 08) */}
@@ -260,7 +271,7 @@ export const PaymentLinkScreen: React.FC<PaymentLinkScreenProps> = ({ onBack, on
 
             {/* Numeric Keypad */}
             <div className="grid grid-cols-3 gap-2">
-              {['1', '2', '3', '4', '5', '6', '7', '8', '9', '00', '0'].map((digit) => (
+              {['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0'].map((digit) => (
                 <motion.button
                   key={digit}
                   whileTap={{ scale: 0.88 }}
@@ -319,6 +330,12 @@ export const PaymentLinkScreen: React.FC<PaymentLinkScreenProps> = ({ onBack, on
                 {link.url && (
                   <div className="flex justify-center p-2 bg-slate-50 rounded-2xl border border-slate-100">
                     <QrCode value={link.url} label={`QR para pagar ${formatSoles(link.amount_cents)}`} />
+                  </div>
+                )}
+                {link.url && link.url.includes('localhost') && (
+                  <div className="flex items-start gap-2 p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-[11px] text-amber-800">
+                    <span className="shrink-0 mt-0.5">⚠️</span>
+                    <span>Este QR apunta a localhost y solo funciona en red local. Configura <strong>KUOTA_PAY_BASE_URL</strong> en Railway para producción.</span>
                   </div>
                 )}
 

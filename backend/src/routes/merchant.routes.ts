@@ -183,6 +183,8 @@ merchantRouter.get('/welcome-summary', async (req, res) => {
       name: merchant.business_name,
       ruc: merchant.ruc,
       city: merchant.city || 'Lima',
+      category: merchant.category || null,
+      district: merchant.district || null,
       status: 'ACTIVE'
     },
     credit_line: {

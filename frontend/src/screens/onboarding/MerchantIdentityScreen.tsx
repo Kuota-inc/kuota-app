@@ -46,7 +46,7 @@ export const MerchantIdentityScreen: React.FC<MerchantIdentityScreenProps> = ({ 
       try {
         const res = await api.lookupDni(clean);
         if (res && res.full_name) {
-          setFullName(res.full_name);
+          if (!fullName.trim()) setFullName(res.full_name);
           setDniVerified(true);
         }
       } catch {
@@ -64,7 +64,7 @@ export const MerchantIdentityScreen: React.FC<MerchantIdentityScreenProps> = ({ 
     try {
       const res = await api.lookupDni(dni);
       if (res && res.full_name) {
-        setFullName(res.full_name);
+        if (!fullName.trim()) setFullName(res.full_name);
         setDniVerified(true);
       }
     } catch {

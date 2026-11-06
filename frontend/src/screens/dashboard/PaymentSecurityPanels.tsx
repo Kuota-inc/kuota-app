@@ -113,6 +113,14 @@ export const ChangePinPanel: React.FC<{ onClose: () => void }> = ({ onClose }) =
       <PinField id="pin-actual" label="PIN actual" value={current} onChange={setCurrent} />
       <PinField id="pin-nuevo" label="Nuevo PIN (6 dígitos)" value={next} onChange={setNext} />
       <PinField id="pin-confirmar" label="Confirma el nuevo PIN" value={confirm} onChange={setConfirm} />
+      {confirm.length === 6 && (
+        <p className={`text-[11px] font-semibold flex items-center gap-1 ${next === confirm ? 'text-emerald-600' : 'text-red-600'}`}>
+          {next === confirm ? '✓ Los PINs coinciden' : '✗ Los PINs no coinciden'}
+        </p>
+      )}
+      {confirm.length > 0 && confirm.length < 6 && !next.startsWith(confirm) && (
+        <p className="text-[11px] font-semibold text-red-600">✗ Los PINs no coinciden</p>
+      )}
       <p className="text-[10px] text-[#4a5f7e]">
         Al cambiarlo cerramos tus sesiones en otros dispositivos y, durante 24 horas, tus límites de cobro quedan reducidos.
       </p>

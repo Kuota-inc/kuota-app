@@ -650,68 +650,33 @@ providerRouter.get('/recommended', (req, res) => {
   ]);
 });
 
-// P2P aKuotas: lista de proveedores afiliados con datos completos para la pantalla de compra
-providerRouter.get('/affiliated', (req, res) => {
-  res.json([
-    {
-      id: 'prov_donlucho',
-      name: 'Confecciones Don Lucho & Hnos. S.A.C.',
-      category: 'Textil e Insumos',
-      description: 'Polos, pantalones y ropa deportiva al por mayor. Despacho el mismo día.',
-      badge: 'Mayorista Verificado',
-      address: 'Galería Santa Rosa, Tda. 204 – Jr. Gamarra 840, La Victoria',
-      district: 'La Victoria',
-      zone: 'Gamarra, Lima',
-      phone: '+51 984 521 893',
-      min_order_cents: 20000,
-      max_order_cents: 120000,
-      rating: 4.9,
-      reviews: 142
-    },
-    {
-      id: 'prov_distlima',
-      name: 'Distribuidora Lima Mayorista S.R.L.',
-      category: 'Abarrotes y Alimentos',
-      description: 'Aceites, azúcar, arroz y abarrotes al por mayor. Entrega a domicilio gratis >S/300.',
-      badge: 'Top Proveedor',
-      address: 'Pab. B, Stand 112 – Mercado Central de Lima, Cercado de Lima',
-      district: 'Cercado de Lima',
-      zone: 'Mercado Central, Lima',
-      phone: '+51 976 112 340',
-      min_order_cents: 15000,
-      max_order_cents: 80000,
-      rating: 4.8,
-      reviews: 98
-    },
-    {
-      id: 'prov_alicorp',
-      name: 'Alicorp Distribución Directa S.A.',
-      category: 'Insumos Alimentarios',
-      description: 'Fideos, aceites y harinas Alicorp directo del fabricante. Sin intermediarios.',
-      badge: 'Oficial',
-      address: 'Av. Argentina 4793, Callao',
-      district: 'Callao',
-      zone: 'Callao, Lima',
-      phone: '+51 1 315 0800',
-      min_order_cents: 50000,
-      max_order_cents: 140000,
-      rating: 5.0,
-      reviews: 311
-    },
-    {
-      id: 'prov_textilnorte',
-      name: 'Textiles del Norte E.I.R.L.',
-      category: 'Textil e Insumos',
-      description: 'Telas, hilos y accesorios de costura al por mayor. Especialistas en tela jersey.',
-      badge: 'Verificado',
-      address: 'Av. Aviación 2345, San Borja',
-      district: 'San Borja',
-      zone: 'San Borja, Lima',
-      phone: '+51 981 445 220',
-      min_order_cents: 10000,
-      max_order_cents: 60000,
-      rating: 4.7,
-      reviews: 67
-    }
-  ]);
+// P2P aKuotas: lista de proveedores afiliados desde la base de datos
+providerRouter.get('/affiliated', async (_req, res) => {
+  const rows = await db.prepare(`
+    SELECT pp.id, pp.legal_name AS name, pp.category, pp.fee_bps,
+           pp.approved_limit_cents AS max_order_cents,
+           pl.address_line AS address, pl.district, pl.city,
+           u.phone
+    FROM provider_profiles pp
+    LEFT JOIN provider_locations pl ON pl.provider_id = pp.id AND pl.is_primary = 1
+    LEFT JOIN users u ON u.id = pp.user_id
+    WHERE pp.kyc_status IN ('APPROVED', 'IN_REVIEW')
+    ORDER BY pp.created_at ASC
+  `).all() as any[];
+
+  res.json(rows.map((p) => ({
+    id: p.id,
+    name: p.name || 'Proveedor Kuota',
+    category: p.category || 'General',
+    description: `Proveedor registrado en Kuota.`,
+    badge: 'Verificado',
+    address: p.address || p.district || 'Lima',
+    district: p.district || 'Lima',
+    zone: p.city || 'Lima',
+    phone: p.phone || '',
+    min_order_cents: 10000,
+    max_order_cents: p.max_order_cents || 140000,
+    rating: null,
+    reviews: 0
+  })));
 });
