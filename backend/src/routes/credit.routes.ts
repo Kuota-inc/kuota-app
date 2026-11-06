@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { db } from '../db/database.js';
+import { computeScore, persistScore } from '../services/scoring.service.js';
 
 export const creditRouter = Router();
 
@@ -413,4 +414,38 @@ creditRouter.post('/purchases/:id/settle', async (req, res) => {
     status: 'PAID',
     message: 'Compra liquidada anticipadamente con éxito. Regla 3.2 liberada para nuevas compras.'
   });
+});
+
+// GET /credit/score/me — Bloque 1: score calculado desde datos de la app
+creditRouter.get('/score/me', async (req, res) => {
+  const merchant = await getMerchantProfile(req);
+  const breakdown = await computeScore(merchant.id);
+  await persistScore(merchant.id, breakdown);
+  res.json(breakdown);
+});
+
+// POST /scoring/signals — registra una señal de comportamiento
+creditRouter.post('/scoring/signals', async (req, res) => {
+  const merchant = await getMerchantProfile(req);
+  const { type, ref_id, metadata } = req.body as { type: string; ref_id?: string; metadata?: Record<string, unknown> };
+  if (!type) return res.status(400).json({ error: { code: 'MISSING_TYPE', message: 'El campo type es requerido.' } });
+
+  const SIGNAL_POINTS: Record<string, number> = {
+    NOTIFICATION_READ: 1,
+    APP_OPEN: 0,
+    SALE_REGISTERED: 2,
+    LOCATION_SHARED: 3,
+  };
+  const points = SIGNAL_POINTS[type] ?? 0;
+  const eventId = 'sev_' + uuidv4().substring(0, 10);
+
+  await db.prepare(`
+    INSERT INTO score_events (id, merchant_id, type, points, ref_id)
+    VALUES (?, ?, ?, ?, ?)
+  `).run(eventId, merchant.id, type, points, ref_id ?? null);
+
+  const breakdown = await computeScore(merchant.id);
+  await persistScore(merchant.id, breakdown);
+
+  res.status(201).json({ event_id: eventId, type, points, new_score: breakdown.total });
 });

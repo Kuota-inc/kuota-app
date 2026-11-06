@@ -305,5 +305,13 @@ export const api = {
     apiRequest('/credit/purchases', {
       method: 'POST',
       body: JSON.stringify(data)
+    }),
+
+  // Scoring — Bloque 1
+  getMyScore: () => apiRequest('/credit/score/me'),
+  postScoringSignal: (type: string, ref_id?: string) =>
+    apiRequest('/credit/scoring/signals', {
+      method: 'POST',
+      body: JSON.stringify({ type, ref_id })
     })
 };

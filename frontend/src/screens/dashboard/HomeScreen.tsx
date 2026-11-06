@@ -65,6 +65,7 @@ const itemVariants: Variants = {
 export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateTab, onOpenKuotear, onOpenProfile, onOpenNotifications, notificationsSeen }) => {
   const toast = useToast();
   const [data, setData] = useState<any>(DEFAULT_HOME_DATA);
+  const [scoreData, setScoreData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [paying, setPaying] = useState(false);
 
@@ -73,6 +74,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateTab, onOpenKuo
       .then(setData)
       .catch(console.error)
       .finally(() => setLoading(false));
+    api.getMyScore()
+      .then(setScoreData)
+      .catch(() => {/* score no crítico */});
   };
 
   useEffect(() => {
@@ -378,6 +382,45 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateTab, onOpenKuo
           Al completar 3 compras consecutivas sin retrasos, asciendes a <strong>Nivel 2</strong> y tu inicial baja de 50% a 40%.
         </p>
       </motion.div>
+
+      {/* Score Kuota — Bloque 1 */}
+      {scoreData && (
+        <motion.div
+          variants={itemVariants}
+          whileHover={{ scale: 1.01 }}
+          className="p-3.5 bg-white rounded-2xl border border-[#e1e8f8] shadow-sm space-y-2"
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-[#0b2545]">
+              <span className="material-symbols-outlined text-base text-[#1a3bb0]">speed</span>
+              <span>Score Kuota · Nivel {scoreData.level} {scoreData.label}</span>
+            </div>
+            <span className="text-sm font-black text-[#1a3bb0]">
+              <AnimatedNumber value={scoreData.total} decimals={0} />
+            </span>
+          </div>
+          <div className="h-1.5 w-full bg-[#e1e8f8] rounded-full overflow-hidden">
+            <motion.div
+              initial={{ width: 0 }}
+              animate={{ width: `${Math.round(((scoreData.total - 300) / 600) * 100)}%` }}
+              transition={{ duration: 0.8, ease: 'easeOut' }}
+              className="h-full bg-gradient-to-r from-[#1a3bb0] to-teal-400 rounded-full"
+            />
+          </div>
+          <div className="grid grid-cols-3 gap-1 pt-0.5">
+            {[
+              { label: 'Pagos', val: scoreData.payment_behavior, max: 200 },
+              { label: 'Ventas', val: scoreData.sales_regularity, max: 150 },
+              { label: 'Clientes', val: scoreData.payer_diversity, max: 100 },
+            ].map(({ label, val, max }) => (
+              <div key={label} className="text-center">
+                <div className="text-[9px] text-[#4a5f7e] font-medium">{label}</div>
+                <div className="text-[10px] font-bold text-[#0b2545]">{val}/{max}</div>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+      )}
 
       {/* Beneficios de la Semana */}
       <motion.div variants={itemVariants} className="space-y-2 pb-2">
