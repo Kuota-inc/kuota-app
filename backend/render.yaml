@@ -5,7 +5,7 @@ services:
     region: oregon          # us-west-2 (más cerca de PE que Frankfurt)
     plan: free
     rootDir: backend
-    buildCommand: npm ci --include=dev && npm run build
+    buildCommand: npm ci && npm run build
     startCommand: node dist/db/migrate-cli.js && node dist/server.js
     healthCheckPath: /api/v1/health
     envVars:
