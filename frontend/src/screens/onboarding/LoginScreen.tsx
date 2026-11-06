@@ -34,7 +34,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, onBack }) =
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [shake, setShake] = useState(false);
-  const [retryLabel, setRetryLabel] = useState<string | null>(null);
 
   const handlePhoneNext = () => {
     const digits = phone.replace(/\D/g, '');
@@ -67,57 +66,37 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, onBack }) =
     }
   };
 
-  const doAuthRequest = (pinStr: string) =>
-    apiRequest<{ access_token: string; merchant_id: string; expires_at: string }>(
-      '/auth/sessions',
-      {
-        method: 'POST',
-        body: JSON.stringify({
-          pin: pinStr,
-          device_id: deviceId(),
-          device_label: Capacitor.isNativePlatform() ? 'App Kuota (Android)' : 'Navegador (Web)',
-        }),
-      }
-    );
-
   const submitLogin = async (pinStr: string) => {
     setLoading(true);
-    setRetryLabel(null);
     setError(null);
-    const MAX_RETRIES = 3;
-    let lastErr: any;
-    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-      try {
-        const res = await doAuthRequest(pinStr);
-        if (res.merchant_id) setMerchantId(res.merchant_id);
-        onSuccess();
-        return;
-      } catch (err: any) {
-        lastErr = err;
-        // Solo reintentamos errores de red (Render cold start); errores de PIN no
-        if (err?.code !== 'NETWORK') break;
-        if (attempt < MAX_RETRIES) {
-          setRetryLabel(`Despertando el servidor... (${attempt}/${MAX_RETRIES - 1})`);
-          await new Promise((r) => setTimeout(r, 5000));
-          setRetryLabel(null);
+    try {
+      const res = await apiRequest<{ access_token: string; merchant_id: string; expires_at: string }>(
+        '/auth/sessions',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            pin: pinStr,
+            device_id: deviceId(),
+            device_label: Capacitor.isNativePlatform() ? 'App Kuota (Android)' : 'Navegador (Web)',
+          }),
         }
+      );
+      if (res.merchant_id) setMerchantId(res.merchant_id);
+      onSuccess();
+    } catch (err: any) {
+      const msg: string = err?.message ?? '';
+      if (msg.includes('bloqueado') || msg.includes('locked') || err?.code === 'PIN_LOCKED') {
+        setError('Tu cuenta está bloqueada temporalmente. Espera unos minutos e inténtalo de nuevo.');
+      } else if (err?.code === 'PIN_INCORRECT' || msg.includes('incorrecto') || msg.includes('incorrect')) {
+        setError('PIN incorrecto. Inténtalo de nuevo.');
+      } else {
+        setError(msg || 'Error al iniciar sesión. Verifica tu conexión.');
       }
+      setPin([]);
+      triggerShake();
+    } finally {
+      setLoading(false);
     }
-    // Todos los intentos fallaron
-    const msg: string = lastErr?.message ?? '';
-    if (msg.includes('bloqueado') || msg.includes('locked') || lastErr?.code === 'PIN_LOCKED') {
-      setError('Tu cuenta está bloqueada temporalmente. Espera unos minutos e inténtalo de nuevo.');
-    } else if (lastErr?.code === 'PIN_INCORRECT' || msg.includes('incorrecto') || msg.includes('incorrect')) {
-      setError('PIN incorrecto. Inténtalo de nuevo.');
-    } else if (lastErr?.code === 'NETWORK') {
-      setError('No se pudo conectar con Kuota. Verifica tu internet e inténtalo de nuevo.');
-    } else {
-      setError(msg || 'Error al iniciar sesión. Verifica tu conexión.');
-    }
-    setPin([]);
-    triggerShake();
-    setLoading(false);
-    setRetryLabel(null);
   };
 
   return (
@@ -267,7 +246,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, onBack }) =
                       className="flex items-center justify-center gap-2 text-xs text-[#1a3bb0] font-bold"
                     >
                       <CheckCircle2 size={15} className="animate-pulse" />
-                      <span>{retryLabel ?? 'Verificando...'}</span>
+                      <span>Verificando...</span>
                     </motion.div>
                   )}
                 </AnimatePresence>

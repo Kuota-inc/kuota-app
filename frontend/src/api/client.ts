@@ -9,8 +9,8 @@ function defaultApiBase(): string {
 export const API_BASE = ((import.meta.env.VITE_API_BASE as string | undefined) || defaultApiBase()).replace(/\/+$/, '');
 
 // Sin timeout, un backend inalcanzable (celular fuera de la red) dejaría las
-// pantallas cargando indefinidamente. 20s cubre el cold start de Render (free tier).
-const TIMEOUT_MS = 20000;
+// pantallas cargando indefinidamente.
+const TIMEOUT_MS = 10000;
 
 /** Error de la API con el código del backend ({ error: { code, message } }). */
 export class ApiError extends Error {

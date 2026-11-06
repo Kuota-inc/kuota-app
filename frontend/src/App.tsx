@@ -64,14 +64,6 @@ function AppShell() {
   const [currentScreen, setCurrentScreen] = useState<string>(() =>
     Capacitor.isNativePlatform() && !readFlag(ONBOARDED_KEY) ? 'welcome' : 'dashboard'
   );
-
-  // Despierta el backend de Render (free tier) al arrancar la app, antes de que
-  // el usuario llegue al login. Sin await — se dispara y se olvida.
-  useEffect(() => {
-    import('./api/client').then(({ api }) => {
-      api.getStats().catch(() => {});
-    });
-  }, []);
   const [activeTab, setActiveTab] = useState<string>('inicio');
   const [isKuotearOpen, setIsKuotearOpen] = useState<boolean>(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState<boolean>(false);
