@@ -35,10 +35,15 @@ export async function resolveClaimedMerchant(req: Request): Promise<MerchantRow 
   const claimed = headerString(req, 'x-merchant-id') || (typeof req.body?.merchant_id === 'string' ? req.body.merchant_id : '');
   if (claimed) return getMerchant(claimed);
 
-  // Sin merchant_id en caché: buscar por teléfono (reinstalación o datos borrados).
+  // Sin merchant_id en caché: buscar por users.phone (formato +51XXXXXXXXX) → merchant_profiles.user_id.
+  // merchant_profiles.phone guarda solo los 9 dígitos sin prefijo; users.phone guarda el número completo.
   const phone = typeof req.body?.phone === 'string' ? req.body.phone.trim() : '';
   if (phone) {
-    const row = await db.prepare('SELECT id FROM merchant_profiles WHERE phone = ?').get<{ id: string }>(phone);
+    const row = await db.prepare(`
+      SELECT m.id FROM merchant_profiles m
+      JOIN users u ON u.id = m.user_id
+      WHERE u.phone = ?
+    `).get<{ id: string }>(phone);
     if (row?.id) return getMerchant(row.id);
   }
 
