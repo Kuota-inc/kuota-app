@@ -33,10 +33,14 @@ export async function getMerchant(id: string): Promise<MerchantRow | null> {
  */
 export async function resolveClaimedMerchant(req: Request): Promise<MerchantRow | null> {
   const claimed = headerString(req, 'x-merchant-id') || (typeof req.body?.merchant_id === 'string' ? req.body.merchant_id : '');
-  if (claimed) return getMerchant(claimed);
+  if (claimed) {
+    const merchant = await getMerchant(claimed);
+    if (merchant) return merchant;
+    // ID obsoleto (DB reseteada, cuenta eliminada): no devolver null, seguir con el teléfono.
+  }
 
-  // Sin merchant_id en caché: buscar por users.phone (formato +51XXXXXXXXX) → merchant_profiles.user_id.
-  // merchant_profiles.phone guarda solo los 9 dígitos sin prefijo; users.phone guarda el número completo.
+  // Buscar por users.phone (formato +51XXXXXXXXX) → merchant_profiles.user_id.
+  // merchant_profiles.phone guarda solo 9 dígitos; users.phone guarda el número completo.
   const phone = typeof req.body?.phone === 'string' ? req.body.phone.trim() : '';
   if (phone) {
     const row = await db.prepare(`
