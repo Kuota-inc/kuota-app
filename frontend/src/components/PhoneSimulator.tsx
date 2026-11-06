@@ -99,7 +99,7 @@ export const PhoneSimulator: React.FC<PhoneSimulatorProps> = ({
         </div>
 
         {/* Bottom Navigation Bar for Dashboard (5 components: Home, Mis ventas, Botón azul Comprar/Vender, Crédito, Mi cuenta) */}
-        {showBottomNav && !isOnboarding && currentScreenKey !== 'welcome' && (
+        {showBottomNav && !isOnboarding && currentScreenKey !== 'welcome' && currentScreenKey !== 'login' && (
           <nav aria-label="Navegación principal" className="bg-white border-t border-[#e1e8f8] px-2 py-1.5 flex items-center justify-around z-40 shadow-lg">
             {/* 1. Home */}
             <button
