@@ -383,7 +383,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateTab, onOpenKuo
         </p>
       </motion.div>
 
-      {/* Score Kuota — Bloque 1 */}
+      {/* Score Kuota — Bloque 1 + 5 */}
       {scoreData && (
         <motion.div
           variants={itemVariants}
@@ -395,9 +395,16 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateTab, onOpenKuo
               <span className="material-symbols-outlined text-base text-[#1a3bb0]">speed</span>
               <span>Score Kuota · Nivel {scoreData.level} {scoreData.label}</span>
             </div>
-            <span className="text-sm font-black text-[#1a3bb0]">
-              <AnimatedNumber value={scoreData.total} decimals={0} />
-            </span>
+            <div className="flex items-center gap-1.5">
+              {scoreData.scoring_level >= 1 && (
+                <span className="text-[9px] font-bold bg-teal-50 text-teal-700 border border-teal-200 px-1.5 py-0.5 rounded-full">
+                  SUNAT ✓
+                </span>
+              )}
+              <span className="text-sm font-black text-[#1a3bb0]">
+                <AnimatedNumber value={scoreData.total} decimals={0} />
+              </span>
+            </div>
           </div>
           <div className="h-1.5 w-full bg-[#e1e8f8] rounded-full overflow-hidden">
             <motion.div
@@ -407,6 +414,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateTab, onOpenKuo
               className="h-full bg-gradient-to-r from-[#1a3bb0] to-teal-400 rounded-full"
             />
           </div>
+          {/* Level 0 dimensions */}
           <div className="grid grid-cols-3 gap-1 pt-0.5">
             {[
               { label: 'Pagos', val: scoreData.payment_behavior, max: 200 },
@@ -419,6 +427,21 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateTab, onOpenKuo
               </div>
             ))}
           </div>
+          {/* Level 1 dimensions — solo si hay datos externos */}
+          {scoreData.scoring_level >= 1 && (
+            <div className="grid grid-cols-3 gap-1 border-t border-[#f0f4ff] pt-1.5">
+              {[
+                { label: 'SUNAT', val: scoreData.sunat_activo, max: 80 },
+                { label: 'Formal', val: scoreData.formalizacion, max: 70 },
+                { label: 'Yape/Plin', val: scoreData.captura_pagos, max: 50 },
+              ].map(({ label, val, max }) => (
+                <div key={label} className="text-center">
+                  <div className="text-[9px] text-teal-600 font-medium">{label}</div>
+                  <div className="text-[10px] font-bold text-teal-800">{val}/{max}</div>
+                </div>
+              ))}
+            </div>
+          )}
         </motion.div>
       )}
 
