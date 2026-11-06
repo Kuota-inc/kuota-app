@@ -31,6 +31,7 @@ const ProviderGpsScreen = lazy(() => import('./screens/provider/ProviderGpsScree
 const ProviderNotificationsScreen = lazy(() => import('./screens/provider/ProviderNotificationsScreen').then((m) => ({ default: m.ProviderNotificationsScreen })));
 const ProviderSavingsScreen = lazy(() => import('./screens/provider/ProviderSavingsScreen').then((m) => ({ default: m.ProviderSavingsScreen })));
 const SecurityPinScreen = lazy(() => import('./screens/onboarding/SecurityPinScreen').then((m) => ({ default: m.SecurityPinScreen })));
+const LoginScreen = lazy(() => import('./screens/onboarding/LoginScreen').then((m) => ({ default: m.LoginScreen })));
 const ProfileScreen = lazy(() => import('./screens/dashboard/ProfileScreen').then((m) => ({ default: m.ProfileScreen })));
 
 function ScreenFallback() {
@@ -96,6 +97,9 @@ function AppShell() {
   const handleBack = () => {
     switch (currentScreen) {
       // Merchant flow steps
+      case 'login':
+        setCurrentScreen('welcome');
+        break;
       case 'onboarding_merchant_identity':
         setCurrentScreen('welcome');
         break;
@@ -149,7 +153,7 @@ function AppShell() {
     }
   };
 
-  const showBack = currentScreen !== 'welcome' && currentScreen !== 'dashboard' && currentScreen !== 'profile';
+  const showBack = currentScreen !== 'welcome' && currentScreen !== 'dashboard' && currentScreen !== 'profile' && currentScreen !== 'login';
 
   // Botón Atrás de Android: cierra el diálogo abierto, retrocede un paso, vuelve
   // al Inicio o, desde el Inicio, sale de la app.
@@ -196,7 +200,18 @@ function AppShell() {
   const renderScreen = () => {
     switch (currentScreen) {
       case 'welcome':
-        return <WelcomeScreen onSelectRole={handleSelectRole} />;
+        return <WelcomeScreen onSelectRole={handleSelectRole} onLogin={() => setCurrentScreen('login')} />;
+
+      case 'login':
+        return (
+          <LoginScreen
+            onSuccess={() => {
+              writeFlag(ONBOARDED_KEY, true);
+              setCurrentScreen('dashboard');
+            }}
+            onBack={() => setCurrentScreen('welcome')}
+          />
+        );
 
       // Merchant Onboarding Flow (Con Identidad DNI y KYC RENIEC)
       case 'onboarding_merchant_identity':

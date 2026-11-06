@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../api/client';
-import { CheckCircle2, ShieldCheck, Sparkles, Building2, Store } from 'lucide-react';
+import { CheckCircle2, ShieldCheck, Sparkles, Building2, Store, KeyRound } from 'lucide-react';
 
 interface WelcomeScreenProps {
   onSelectRole: (role: 'MERCHANT' | 'PROVIDER', sessionId: string) => void;
+  onLogin: () => void;
 }
 
-export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onSelectRole }) => {
+export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onSelectRole, onLogin }) => {
   const [stats, setStats] = useState({ active_businesses: 18500 });
 
   useEffect(() => {
@@ -123,8 +124,18 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onSelectRole }) =>
           </div>
         </button>
 
+        {/* Ya tengo cuenta */}
+        <button
+          type="button"
+          onClick={onLogin}
+          className="w-full py-3 rounded-2xl border-2 border-[#1a3bb0]/20 bg-white/60 hover:bg-white text-[#1a3bb0] font-black text-xs flex items-center justify-center gap-2 transition cursor-pointer active:scale-[0.98]"
+        >
+          <KeyRound size={15} />
+          <span>Ya tengo cuenta · Iniciar sesión</span>
+        </button>
+
         {/* Legal disclaimer */}
-        <p className="text-[10px] text-center text-[#4a5f7e] pt-1 px-1">
+        <p className="text-[10px] text-center text-[#4a5f7e] px-1">
           Al continuar, aceptas nuestros{' '}
           <a href="https://kuota.pe/legal/terminos" target="_blank" rel="noopener noreferrer" className="underline font-semibold text-[#1a3bb0] hover:text-[#00248b]">Términos</a> y la{' '}
           <a href="https://kuota.pe/legal/privacidad" target="_blank" rel="noopener noreferrer" className="underline font-semibold text-[#1a3bb0] hover:text-[#00248b]">Privacidad</a>.
