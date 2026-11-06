@@ -168,6 +168,10 @@ function AppShell() {
         setIsKuotearOpen(false);
       } else if (showBack) {
         handleBack();
+      } else if (currentScreen === 'login') {
+        setCurrentScreen('welcome');
+      } else if (currentScreen === 'welcome') {
+        NativeApp.exitApp();
       } else if (currentScreen !== 'dashboard' || activeTab !== 'inicio') {
         setCurrentScreen('dashboard');
         setActiveTab('inicio');

@@ -87,8 +87,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, onBack }) =
       const msg: string = err?.message ?? '';
       if (msg.includes('bloqueado') || msg.includes('locked') || err?.code === 'PIN_LOCKED') {
         setError('Tu cuenta está bloqueada temporalmente. Espera unos minutos e inténtalo de nuevo.');
-      } else if (err?.code === 'PIN_INCORRECT' || msg.includes('incorrecto') || msg.includes('incorrect')) {
-        setError('PIN incorrecto. Inténtalo de nuevo.');
+      } else if (err?.code === 'PIN_INVALID' || msg.includes('incorrecto') || msg.includes('incorrect')) {
+        setError(msg || 'PIN incorrecto. Inténtalo de nuevo.');
       } else {
         setError(msg || 'Error al iniciar sesión. Verifica tu conexión.');
       }
