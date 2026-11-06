@@ -6,8 +6,7 @@ services:
     plan: free
     rootDir: backend
     buildCommand: npm ci && npm run build
-    preDeployCommand: node dist/db/migrate-cli.js
-    startCommand: node dist/server.js
+    startCommand: node dist/db/migrate-cli.js && node dist/server.js
     healthCheckPath: /api/v1/health
     envVars:
       - key: NODE_ENV
@@ -15,7 +14,7 @@ services:
       - key: PORT
         value: "3001"
       - key: KUOTA_AUTO_MIGRATE
-        value: "0"           # migraciones en preDeployCommand, no en start
+        value: "0"           # migrate-cli.js corre en startCommand antes del servidor
       - key: KUOTA_TRUST_PROXY
         value: "1"           # Render pone un proxy delante
       - key: KUOTA_SANDBOX
