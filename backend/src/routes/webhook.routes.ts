@@ -4,7 +4,7 @@ import { config } from '../security/config.js';
 import { randomId, randomToken, sha256Hex } from '../security/crypto.js';
 import { audit } from '../security/audit.js';
 import { getMerchant } from '../security/auth.js';
-import { requireFeature } from '../security/events.js';
+import { alertMerchant, requireFeature } from '../security/events.js';
 import { rateLimit } from '../security/guards.js';
 import { clientIp, fail, headerString } from '../security/http.js';
 import { getLinkByToken, publicCode, refreshStatus, tokenFromPublicCode } from '../security/links.js';
@@ -12,8 +12,9 @@ import { evaluateRisk } from '../security/risk.js';
 import { handleGatewayWebhook, signWebhookBody } from '../security/webhook.js';
 import { paymentsDb as db, db as coreDb } from '../db/client.js';
 import { verifyDiditWebhook } from '../integrations/didit.js';
+import { createOpenpayCharge, verifyOpenpaySignature } from '../integrations/openpay.js';
 import { applyDecision } from '../services/kyc.service.js';
-import { nowIso } from '../security/time.js';
+import { formatSoles, nowIso } from '../security/time.js';
 
 export const webhookRouter = Router();
 export const sandboxRouter = Router();
@@ -141,5 +142,135 @@ sandboxRouter.post(
     });
     const first = Array.isArray(result.body.results) ? (result.body.results[0] as Record<string, unknown>) : result.body;
     res.status(result.status).json({ sandbox: true, webhook: first });
+  }
+);
+
+// ─── Openpay: conformidad del enganche ────────────────────────────────────────
+
+/**
+ * Webhook de Openpay (charge.succeeded / charge.failed).
+ * Cuando Openpay confirma el cargo del enganche, registra la conformidad y
+ * emite la alerta al comercio.
+ */
+webhookRouter.post('/openpay', rateLimit({ name: 'webhook-openpay', windowMs: 60_000, max: 300 }), async (req, res) => {
+  const raw = req.rawBody?.toString('utf8') ?? '';
+  if (!raw) return fail(res, 415, 'JSON_REQUIRED', 'Se espera un cuerpo application/json.');
+
+  const signature = headerString(req, 'openpay-event-signature') ?? '';
+  if (!verifyOpenpaySignature(raw, signature)) {
+    await audit({ actorType: 'GATEWAY', actorId: 'openpay', action: 'OPENPAY_WEBHOOK_REJECTED', result: 'DENIED', ip: clientIp(req) });
+    return fail(res, 401, 'INVALID_SIGNATURE', 'Firma Openpay inválida.');
+  }
+
+  let body: Record<string, unknown>;
+  try { body = JSON.parse(raw); } catch { return fail(res, 400, 'INVALID_JSON', 'JSON inválido.'); }
+
+  const eventId = typeof body.id === 'string' ? body.id : `op:${Date.now()}:${Math.random()}`;
+  const eventType = typeof body.type === 'string' ? body.type : 'unknown';
+  const tx = (body.transaction ?? body) as Record<string, unknown>;
+  const chargeId = typeof tx.id === 'string' ? tx.id : null;
+  const orderId = typeof tx.order_id === 'string' ? tx.order_id : null;
+
+  // Idempotencia: at-least-once delivery de Openpay → se procesa una vez.
+  const inserted = await db.run(
+    `INSERT INTO openpay_webhook_events (event_id, type, charge_id, purchase_id, status)
+     VALUES (?, ?, ?, ?, 'received')
+     ON CONFLICT (event_id) DO NOTHING`,
+    eventId, eventType, chargeId, orderId
+  );
+  if (!inserted.changes) return res.json({ received: true, duplicate: true });
+
+  if (eventType === 'charge.succeeded' && orderId) {
+    const purchase = await coreDb.get<{ id: string; merchant_id: string; down_payment_cents: number }>(
+      "SELECT id, merchant_id, down_payment_cents FROM credit_purchases WHERE id = ? AND down_payment_status = 'PENDING'",
+      orderId
+    );
+    if (purchase) {
+      await coreDb.run(
+        "UPDATE credit_purchases SET down_payment_status = 'CONFIRMED', openpay_charge_id = ? WHERE id = ?",
+        chargeId, purchase.id
+      );
+      await coreDb.run(
+        "INSERT INTO score_events (id, merchant_id, type, points, ref_id) VALUES (?, ?, 'DOWN_PAYMENT_CONFIRMED', 10, ?)",
+        randomId('sev', 8), purchase.merchant_id, purchase.id
+      );
+      await coreDb.run(
+        'UPDATE credit_scores SET score = LEAST(850, score + 10) WHERE merchant_id = ?',
+        purchase.merchant_id
+      );
+      await alertMerchant(
+        purchase.merchant_id,
+        'PAYMENT_RECEIVED',
+        'Conformidad registrada',
+        `Openpay confirmó tu enganche de ${formatSoles(purchase.down_payment_cents)}. Tu crédito Kuota está activo.`,
+        purchase.id
+      );
+      await audit({ actorType: 'GATEWAY', actorId: 'openpay', action: 'DOWN_PAYMENT_CONFIRMED', target: purchase.id, result: 'OK', ip: clientIp(req), details: { charge_id: chargeId, event_id: eventId } });
+    }
+  }
+
+  res.json({ received: true, event_id: eventId, type: eventType });
+});
+
+/**
+ * Simulador Openpay: dispara un charge.succeeded para el enganche de una compra.
+ * Deshabilitado en producción.
+ */
+sandboxRouter.post(
+  '/openpay/pay',
+  rateLimit({ name: 'sandbox-openpay', windowMs: 60_000, max: 30 }),
+  requireFeature('PUBLIC_PAY'),
+  async (req, res) => {
+    if (!config.sandboxEnabled) return fail(res, 404, 'NOT_FOUND', 'No disponible.');
+    const { purchase_id } = req.body ?? {};
+    if (!purchase_id) return fail(res, 422, 'MISSING_PURCHASE_ID', 'Falta purchase_id.');
+
+    const purchase = await coreDb.get<{ id: string; merchant_id: string; down_payment_cents: number; down_payment_status: string }>(
+      'SELECT id, merchant_id, down_payment_cents, down_payment_status FROM credit_purchases WHERE id = ?',
+      purchase_id
+    );
+    if (!purchase) return fail(res, 404, 'PURCHASE_NOT_FOUND', 'Compra no encontrada.');
+    if (purchase.down_payment_status === 'CONFIRMED') return fail(res, 409, 'ALREADY_CONFIRMED', 'El enganche ya fue confirmado.');
+
+    const chargeId = `op_sbx_${randomToken(10)}`;
+    const eventId = `evtsbx_${randomToken(12)}`;
+
+    // Construir un payload Openpay realista y enviarlo al handler real.
+    const payload = JSON.stringify({
+      id: eventId,
+      type: 'charge.succeeded',
+      transaction: { id: chargeId, order_id: purchase.id, status: 'completed', amount: purchase.down_payment_cents / 100 }
+    });
+
+    // Invocar el handler directamente (sin firma en sandbox).
+    const inserted = await db.run(
+      `INSERT INTO openpay_webhook_events (event_id, type, charge_id, purchase_id, status)
+       VALUES (?, 'charge.succeeded', ?, ?, 'received')
+       ON CONFLICT (event_id) DO NOTHING`,
+      eventId, chargeId, purchase.id
+    );
+    if (inserted.changes) {
+      await coreDb.run(
+        "UPDATE credit_purchases SET down_payment_status = 'CONFIRMED', openpay_charge_id = ? WHERE id = ?",
+        chargeId, purchase.id
+      );
+      await coreDb.run(
+        "INSERT INTO score_events (id, merchant_id, type, points, ref_id) VALUES (?, ?, 'DOWN_PAYMENT_CONFIRMED', 10, ?)",
+        randomId('sev', 8), purchase.merchant_id, purchase.id
+      );
+      await coreDb.run(
+        'UPDATE credit_scores SET score = LEAST(850, score + 10) WHERE merchant_id = ?',
+        purchase.merchant_id
+      );
+      await alertMerchant(
+        purchase.merchant_id,
+        'PAYMENT_RECEIVED',
+        'Conformidad registrada',
+        `Openpay confirmó tu enganche de ${formatSoles(purchase.down_payment_cents)}. Tu crédito Kuota está activo.`,
+        purchase.id
+      );
+    }
+
+    res.json({ sandbox: true, event_id: eventId, charge_id: chargeId, purchase_id: purchase.id, payload: JSON.parse(payload) });
   }
 );

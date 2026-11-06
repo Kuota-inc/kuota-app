@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { db } from '../db/database.js';
+import { createOpenpayCharge } from '../integrations/openpay.js';
 import { computeScore, persistScore } from '../services/scoring.service.js';
 
 export const creditRouter = Router();
@@ -216,6 +217,26 @@ creditRouter.post('/purchases', async (req, res) => {
     VALUES (?, ?, 'NEW_PURCHASE', 0, ?)
   `).run('sev_' + uuidv4().substring(0, 10), merchant.id, purchaseId);
 
+  // Cargo Openpay para el enganche (sandbox: mock inmediato).
+  let openpayChargeId: string | null = null;
+  try {
+    const charge = await createOpenpayCharge({
+      amountCents: downPaymentCents,
+      description: `Kuota enganche ${receiptNumber}`,
+      orderId: purchaseId
+    });
+    openpayChargeId = charge.id;
+    if (charge.status === 'completed') {
+      await db.prepare("UPDATE credit_purchases SET openpay_charge_id = ?, down_payment_status = 'CONFIRMED' WHERE id = ?")
+        .run(charge.id, purchaseId);
+    } else {
+      await db.prepare("UPDATE credit_purchases SET openpay_charge_id = ? WHERE id = ?")
+        .run(charge.id, purchaseId);
+    }
+  } catch {
+    // No bloquear la compra si Openpay falla: el webhook confirmará luego.
+  }
+
   res.status(201).json({
     purchase_id: purchaseId,
     receipt_number: receiptNumber,
@@ -225,6 +246,7 @@ creditRouter.post('/purchases', async (req, res) => {
     financed_cents: financedCents,
     installments_count: installments,
     status: 'ACTIVE_ON_TIME',
+    openpay: { charge_id: openpayChargeId, down_payment_status: openpayChargeId ? 'pending_confirmation' : 'pending' },
     message: `¡Compra creada! Cuota inicial S/ ${(downPaymentCents / 100).toFixed(2)} procesada. Tu mercadería está en camino.`
   });
 });

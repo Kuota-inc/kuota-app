@@ -313,5 +313,12 @@ export const api = {
     apiRequest('/credit/scoring/signals', {
       method: 'POST',
       body: JSON.stringify({ type, ref_id })
+    }),
+
+  // Bloque 4: conformidad Openpay (sandbox)
+  sandboxOpenpayPay: (purchaseId: string) =>
+    apiRequest('/sandbox/openpay/pay', {
+      method: 'POST',
+      body: JSON.stringify({ purchase_id: purchaseId })
     })
 };
