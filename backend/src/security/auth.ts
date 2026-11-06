@@ -25,13 +25,24 @@ export async function getMerchant(id: string): Promise<MerchantRow | null> {
 }
 
 /**
- * Identidad del comercio ANTES de autenticarse. Hoy la app demo opera como
- * mer_carlos (o el id de X-Merchant-Id); en producción esto lo resuelve el IdP
- * (teléfono verificado por OTP). Lo que protege la cuenta es el PIN.
+ * Identidad del comercio ANTES de autenticarse. Prioridad:
+ * 1. X-Merchant-Id header (dispositivo que ya inició sesión antes)
+ * 2. body.phone → busca el perfil por teléfono (dispositivo nuevo o datos borrados)
+ * 3. fallback demo mer_carlos
+ * Lo que protege la cuenta es el PIN; el merchant_id solo identifica al titular.
  */
 export async function resolveClaimedMerchant(req: Request): Promise<MerchantRow | null> {
   const claimed = headerString(req, 'x-merchant-id') || (typeof req.body?.merchant_id === 'string' ? req.body.merchant_id : '');
-  return getMerchant(claimed || 'mer_carlos');
+  if (claimed) return getMerchant(claimed);
+
+  // Sin merchant_id en caché: buscar por teléfono (reinstalación o datos borrados).
+  const phone = typeof req.body?.phone === 'string' ? req.body.phone.trim() : '';
+  if (phone) {
+    const row = await db.prepare('SELECT id FROM merchant_profiles WHERE phone = ?').get<{ id: string }>(phone);
+    if (row?.id) return getMerchant(row.id);
+  }
+
+  return getMerchant('mer_carlos');
 }
 
 const DEVICE_ID = /^[A-Za-z0-9_-]{16,64}$/;

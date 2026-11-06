@@ -7,6 +7,7 @@ import { CheckCircle2, Sparkles, ArrowRight, Store } from 'lucide-react';
 interface MerchantWelcomeSummaryScreenProps {
   sessionId: string;
   onGoToDashboard: () => void;
+  onGoToLogin?: () => void;
 }
 
 const DEFAULT_WELCOME_DATA = {
@@ -31,7 +32,8 @@ const DEFAULT_WELCOME_DATA = {
 
 export const MerchantWelcomeSummaryScreen: React.FC<MerchantWelcomeSummaryScreenProps> = ({
   sessionId,
-  onGoToDashboard
+  onGoToDashboard,
+  onGoToLogin,
 }) => {
   // Datos reales del comercio que se acaba de registrar (sin valores de demostración).
   const [data, setData] = useState<any>(null);
@@ -48,7 +50,14 @@ export const MerchantWelcomeSummaryScreen: React.FC<MerchantWelcomeSummaryScreen
         setData(res.welcome_summary ?? DEFAULT_WELCOME_DATA);
         return api.getRecommendedProviders().then((provs) => alive && setProviders(provs));
       })
-      .catch((err) => alive && setError(err?.message || 'No pudimos terminar tu registro.'));
+      .catch((err) => {
+        if (!alive) return;
+        if (err?.code === 'PHONE_ALREADY_REGISTERED') {
+          setError('PHONE_ALREADY_REGISTERED');
+        } else {
+          setError(err?.message || 'No pudimos terminar tu registro.');
+        }
+      });
     return () => {
       alive = false;
     };
@@ -57,7 +66,19 @@ export const MerchantWelcomeSummaryScreen: React.FC<MerchantWelcomeSummaryScreen
   if (!data) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center gap-3 p-6 bg-[#f9f9ff] text-center" role="status">
-        {error ? (
+        {error === 'PHONE_ALREADY_REGISTERED' ? (
+          <>
+            <p className="text-sm font-bold text-[#0b2545]">Este celular ya tiene una cuenta Kuota.</p>
+            <p className="text-xs text-[#4a5f7e] mt-1">Ingresa con tu PIN para continuar.</p>
+            <button
+              type="button"
+              onClick={onGoToLogin}
+              className="px-5 h-11 rounded-full bg-[#1a3bb0] text-white text-sm font-bold cursor-pointer"
+            >
+              Iniciar sesión
+            </button>
+          </>
+        ) : error ? (
           <>
             <p className="text-sm font-bold text-[#0b2545]">{error}</p>
             <button

@@ -76,6 +76,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, onBack }) =
           method: 'POST',
           body: JSON.stringify({
             pin: pinStr,
+            phone: '+51' + phone.replace(/\D/g, ''),
             device_id: deviceId(),
             device_label: Capacitor.isNativePlatform() ? 'App Kuota (Android)' : 'Navegador (Web)',
           }),

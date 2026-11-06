@@ -272,6 +272,7 @@ function AppShell() {
               setPinInitialStep('create');
               setCurrentScreen('onboarding_security_pin');
             }}
+            onGoToLogin={() => setCurrentScreen('login')}
           />
         );
 
