@@ -2,8 +2,10 @@
 // En sandbox (sin OPENPAY_MERCHANT_ID): devuelve un cargo simulado inmediatamente.
 // En producción: llama a la API REST de Openpay Perú con fetch + HTTP Basic Auth.
 import crypto from 'node:crypto';
+import { config } from '../security/config.js';
 
-const OPENPAY_BASE = 'https://sandbox-api.openpay.pe/v1';
+const OPENPAY_SANDBOX_BASE = 'https://sandbox-api.openpay.pe/v1';
+const OPENPAY_PROD_BASE = 'https://api.openpay.pe/v1';
 
 export interface OpenpayCharge {
   id: string;
@@ -18,14 +20,13 @@ function mockChargeId(): string {
   return 'op_sbx_' + crypto.randomBytes(6).toString('hex');
 }
 
-/** Crea un cargo Openpay para el enganche. En sandbox devuelve un cargo ficticio. */
+/** Crea un cargo Openpay para el enganche. Sin credenciales devuelve un cargo ficticio. */
 export async function createOpenpayCharge(params: {
   amountCents: number;
   description: string;
   orderId: string;
 }): Promise<OpenpayCharge> {
-  const merchantId = process.env.OPENPAY_MERCHANT_ID;
-  const privateKey = process.env.OPENPAY_PRIVATE_KEY;
+  const { merchantId, privateKey, isSandbox } = config.openpay;
 
   if (!merchantId || !privateKey) {
     return {
@@ -38,6 +39,7 @@ export async function createOpenpayCharge(params: {
     };
   }
 
+  const base = isSandbox ? OPENPAY_SANDBOX_BASE : OPENPAY_PROD_BASE;
   const auth = Buffer.from(`${privateKey}:`).toString('base64');
   const body = {
     method: 'bank_account',
@@ -46,7 +48,7 @@ export async function createOpenpayCharge(params: {
     description: params.description,
     order_id: params.orderId
   };
-  const res = await fetch(`${OPENPAY_BASE}/${merchantId}/charges`, {
+  const res = await fetch(`${base}/${merchantId}/charges`, {
     method: 'POST',
     headers: { 'Authorization': `Basic ${auth}`, 'Content-Type': 'application/json' },
     body: JSON.stringify(body)
@@ -61,10 +63,10 @@ export async function createOpenpayCharge(params: {
 /**
  * Verifica la firma HMAC-SHA1 que Openpay envía en el header
  * `Openpay-Event-Signature` (Base64 de HMAC-SHA1 del cuerpo crudo con la
- * private key). En sandbox sin credenciales: devuelve true siempre.
+ * private key). Sin credenciales configuradas: devuelve true (sandbox local).
  */
 export function verifyOpenpaySignature(raw: string, signature: string): boolean {
-  const privateKey = process.env.OPENPAY_PRIVATE_KEY;
+  const { privateKey } = config.openpay;
   if (!privateKey) return true;
   const expected = crypto.createHmac('sha1', privateKey).update(raw).digest('base64');
   return expected === signature;

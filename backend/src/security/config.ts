@@ -101,6 +101,17 @@ export const config = {
     perTxCents: intEnv('KUOTA_PARTNER_MAX_TX_CENTS', 1_000_000),
     dailyCents: intEnv('KUOTA_PARTNER_MAX_DAILY_CENTS', 5_000_000),
     dailyCount: intEnv('KUOTA_PARTNER_MAX_DAILY_COUNT', 500)
+  },
+  /**
+   * Openpay (https://github.com/open-pay) — pasarela para confirmar enganches.
+   * Sin OPENPAY_MERCHANT_ID: modo mock (sandbox local); el webhook /sandbox/openpay/pay
+   * simula la confirmación. En producción se recomienda pasar las tres variables.
+   */
+  openpay: {
+    merchantId: process.env.OPENPAY_MERCHANT_ID ?? '',
+    privateKey: process.env.OPENPAY_PRIVATE_KEY ?? '',
+    /** false = producción Openpay (sandbox.openpay.pe → api.openpay.pe). */
+    isSandbox: process.env.OPENPAY_IS_SANDBOX !== 'false'
   }
 };
 
