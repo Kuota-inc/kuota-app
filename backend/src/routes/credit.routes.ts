@@ -25,6 +25,23 @@ async function getMerchantProfile(req: any) {
   return profile;
 }
 
+const AFFILIATED_PROVIDERS: Record<string, { name: string; address: string; phone: string }> = {
+  prov_donlucho: { name: 'Confecciones Don Lucho & Hnos. S.A.C.', address: 'Galería Santa Rosa, Tda. 204 – Jr. Gamarra 840, La Victoria', phone: '+51 984 521 893' },
+  prov_distlima: { name: 'Distribuidora Lima Mayorista S.R.L.', address: 'Pab. B, Stand 112 – Mercado Central de Lima, Cercado de Lima', phone: '+51 976 112 340' },
+  prov_alicorp: { name: 'Alicorp Distribución Directa S.A.', address: 'Av. Argentina 4793, Callao', phone: '+51 1 315 0800' },
+  prov_textilnorte: { name: 'Textiles del Norte E.I.R.L.', address: 'Av. Aviación 2345, San Borja', phone: '+51 981 445 220' }
+};
+
+function resolveProviderInfo(purchase: any) {
+  const known = AFFILIATED_PROVIDERS[purchase.provider_id];
+  return {
+    id: purchase.provider_id,
+    name: purchase.provider_name || known?.name || 'Proveedor Kuota Aliado',
+    address: purchase.address_line ? `${purchase.address_line}, ${purchase.district || ''}` : (known?.address || 'Lima, Perú'),
+    phone: purchase.whatsapp || known?.phone || '+51 999 000 000'
+  };
+}
+
 // PRD 10: Mi línea de crédito
 creditRouter.get('/line', async (req, res) => {
   const merchant = await getMerchantProfile(req);
@@ -218,7 +235,7 @@ creditRouter.get('/purchases/active', async (req, res) => {
   let purchase = await db.prepare(`
     SELECT p.*, prov.legal_name as provider_name, prov.whatsapp, loc.address_line, loc.district, loc.city
     FROM credit_purchases p
-    JOIN provider_profiles prov ON p.provider_id = prov.id
+    LEFT JOIN provider_profiles prov ON p.provider_id = prov.id
     LEFT JOIN provider_locations loc ON prov.id = loc.provider_id AND loc.is_primary = 1
     WHERE p.merchant_id = ? AND p.status IN ('ACTIVE_ON_TIME', 'ACTIVE_OVERDUE')
     ORDER BY p.issued_at DESC
@@ -230,7 +247,7 @@ creditRouter.get('/purchases/active', async (req, res) => {
     purchase = await db.prepare(`
       SELECT p.*, prov.legal_name as provider_name, prov.whatsapp, loc.address_line, loc.district, loc.city
       FROM credit_purchases p
-      JOIN provider_profiles prov ON p.provider_id = prov.id
+      LEFT JOIN provider_profiles prov ON p.provider_id = prov.id
       LEFT JOIN provider_locations loc ON prov.id = loc.provider_id AND loc.is_primary = 1
       WHERE p.merchant_id = ?
       ORDER BY p.issued_at DESC
@@ -256,12 +273,7 @@ creditRouter.get('/purchases/active', async (req, res) => {
     id: purchase.id,
     plan: purchase.plan_code === 'KUOTA_3X' ? 'Plan 3X' : (purchase.plan_code || 'Plan 3X'),
     status: purchase.status,
-    provider: {
-      id: purchase.provider_id,
-      name: purchase.provider_name || 'Confecciones Don Lucho & Hnos. S.A.C.',
-      address: `${purchase.address_line || 'Jr. Gamarra 840'}, ${purchase.district || 'La Victoria'}`,
-      phone: purchase.whatsapp || '+51 984 521 893'
-    },
+    provider: resolveProviderInfo(purchase),
     total_cents: purchase.total_cents,
     down_payment_cents: purchase.down_payment_cents,
     down_payment_pct: purchase.down_payment_pct,
