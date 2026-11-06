@@ -18,11 +18,12 @@ import {
   requireMerchant,
   resolveClaimedMerchant,
   revokeSessions,
+  setMerchantPinHash,
   stepUpRequired
 } from '../security/auth.js';
 import { alertMerchant, recentAlerts } from '../security/events.js';
 import { rateLimit } from '../security/guards.js';
-import { clientIp, fail } from '../security/http.js';
+import { clientIp, fail, headerString } from '../security/http.js';
 import { effectiveLimits, usageToday, validLimitValues, type LimitValues } from '../security/limits.js';
 import { addHours, formatLimaDateTime, formatSoles, nowIso } from '../security/time.js';
 
@@ -30,6 +31,16 @@ export const authRouter = Router();
 export const paymentSecurityRouter = Router();
 
 const authLimiter = rateLimit({ name: 'auth', windowMs: 60_000, max: 10 });
+
+// Valida que el merchant_id del header siga existiendo en la DB (sin fallback a Carlos).
+// La app lo llama al arrancar para detectar sesiones obsoletas después de un reset de DB.
+authRouter.get('/me', async (req, res) => {
+  const claimed = headerString(req, 'x-merchant-id');
+  if (!claimed) return fail(res, 401, 'NOT_AUTHENTICATED', 'No hay sesión activa.');
+  const merchant = await getMerchant(claimed);
+  if (!merchant) return fail(res, 404, 'SESSION_EXPIRED', 'La sesión expiró. Vuelve a iniciar sesión.');
+  res.json({ merchant_id: merchant.id, business_name: merchant.business_name });
+});
 
 // Estado del PIN del comercio (sin sesión: la app decide si pedirlo o crearlo).
 authRouter.get('/pin/status', async (req, res) => {
@@ -39,6 +50,70 @@ authRouter.get('/pin/status', async (req, res) => {
   res.json({
     configured: !!cred,
     locked_until: cred?.locked_until && new Date(cred.locked_until) > new Date() ? cred.locked_until : null
+  });
+});
+
+// Recuperar acceso: verifica teléfono + DNI → resetea PIN → emite sesión.
+// No requiere PIN actual; la identidad se prueba con el DNI del registro.
+authRouter.post('/pin/recover', authLimiter, async (req, res) => {
+  const rawPhone = typeof req.body?.phone === 'string' ? req.body.phone.trim() : '';
+  const dni      = typeof req.body?.dni   === 'string' ? req.body.dni.trim()   : '';
+  const newPin   = req.body?.new_pin;
+  const deviceId = req.body?.device_id;
+  const ip       = clientIp(req);
+
+  if (!rawPhone || !dni) return fail(res, 422, 'MISSING_FIELDS', 'Se requiere teléfono y DNI.');
+  const pinErr = pinProblem(newPin);
+  if (pinErr) return fail(res, 422, 'PIN_WEAK', pinErr);
+  if (!isValidDeviceId(deviceId)) return fail(res, 422, 'DEVICE_ID_INVALID', 'Identificador de dispositivo inválido.');
+
+  const phone = rawPhone.startsWith('+51') ? rawPhone : `+51${rawPhone.replace(/\D/g, '').slice(-9)}`;
+
+  // Buscar por teléfono completo (JOIN con users)
+  let profile = await db.prepare(`
+    SELECT m.id, m.dni FROM merchant_profiles m
+    JOIN users u ON u.id = m.user_id
+    WHERE u.phone = ?
+    LIMIT 1
+  `).get<{ id: string; dni: string | null }>(phone);
+
+  // Fallback: estado inconsistente (user_id nunca se enlazó), buscar por merchant_profiles.phone
+  if (!profile) {
+    const short = phone.startsWith('+51') ? phone.slice(3) : phone.replace(/\D/g, '').slice(-9);
+    if (short.length === 9) {
+      profile = await db.prepare(`
+        SELECT id, dni FROM merchant_profiles
+        WHERE phone = ?
+        ORDER BY (user_id IS NOT NULL) DESC
+        LIMIT 1
+      `).get<{ id: string; dni: string | null }>(short);
+    }
+  }
+
+  if (!profile) return fail(res, 404, 'MERCHANT_NOT_FOUND', 'No encontramos una cuenta con ese número.');
+
+  if (!profile.dni || profile.dni.replace(/\D/g, '') !== dni.replace(/\D/g, '')) {
+    await audit({ actorType: 'MERCHANT', actorId: profile.id, action: 'PIN_RESET', result: 'DENIED', ip, deviceId, details: { reason: 'DNI_MISMATCH' } });
+    return fail(res, 403, 'DNI_MISMATCH', 'El DNI no coincide con el registrado en tu cuenta.');
+  }
+
+  const merchant = await getMerchant(profile.id);
+  if (!merchant) return fail(res, 404, 'MERCHANT_NOT_FOUND', 'No encontramos una cuenta con ese número.');
+
+  await setMerchantPinHash(merchant.id, hashPin(newPin));
+  await revokeSessions(merchant.id);
+
+  const label = typeof req.body?.device_label === 'string' ? req.body.device_label.replace(/[\u0000-\u001f<>]/g, '').slice(0, 60) : null;
+  const device = await linkDevice(merchant.id, deviceId, label, ip);
+  if (device.revoked) return fail(res, 403, 'DEVICE_REVOKED', 'Este dispositivo fue desvinculado de tu cuenta.');
+  const session = await issueSession(merchant.id, deviceId);
+  await audit({ actorType: 'MERCHANT', actorId: merchant.id, action: 'PIN_RESET', result: 'OK', ip, deviceId, details: { method: 'DNI_RECOVERY' } });
+  res.status(201).json({
+    access_token: session.accessToken,
+    token_type: 'Bearer',
+    expires_at: session.expiresAt,
+    merchant_id: merchant.id,
+    device: { new_device: device.isNew, cooldown_until: device.cooldownUntil ?? null }
   });
 });
 

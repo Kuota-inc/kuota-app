@@ -2,7 +2,7 @@ import React, { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { App as NativeApp } from '@capacitor/app';
 import { KuotaNotifications } from './plugins/kuotaNotifications';
-import { api } from './api/client';
+import { api, apiRequest, getMerchantId, setMerchantId } from './api/client';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { useDeviceMode } from './hooks/useDeviceMode';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -90,10 +90,25 @@ function AppShell() {
   // Cerrar sesión: revoca la sesión de cobros (PIN) en el servidor y vuelve al registro.
   const handleLogout = () => {
     void logoutPayments().catch(() => {});
+    setMerchantId(null);
     writeFlag(ONBOARDED_KEY, false);
     setCurrentScreen('welcome');
     setActiveTab('inicio');
   };
+
+  // Al arrancar en dashboard (sesión previa), valida que el merchant_id siga existiendo.
+  // Si fue reseteado (DB borrada), redirige a bienvenida automáticamente.
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    const merchantId = getMerchantId();
+    if (!merchantId) { handleLogout(); return; }
+    apiRequest('/auth/me').catch((err: any) => {
+      if (err?.status === 404 || err?.status === 401 || err?.code === 'SESSION_EXPIRED' || err?.code === 'NOT_AUTHENTICATED') {
+        handleLogout();
+      }
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Natural step-by-step back navigation
   const handleBack = () => {

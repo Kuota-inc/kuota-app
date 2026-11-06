@@ -88,8 +88,8 @@ export const config = {
   webhookToleranceSec: 300,
   sessionTtlSec: intEnv('KUOTA_SESSION_TTL_SEC', 15 * 60),
   stepUpTtlSec: 120,
-  pinMaxAttempts: 5,
-  pinLockMinutes: 15,
+  pinMaxAttempts: isProd ? 5 : (process.env.NODE_ENV === 'test' ? 5 : 999),
+  pinLockMinutes: isProd ? 15 : (process.env.NODE_ENV === 'test' ? 15 : 0),
   /** Enfriamiento tras vincular un dispositivo nuevo o cambiar el PIN. */
   cooldownHours: 24,
   cooldownFactor: 0.25,

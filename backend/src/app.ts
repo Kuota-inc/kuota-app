@@ -11,6 +11,7 @@ import { authRouter, paymentSecurityRouter } from './routes/security.routes.js';
 import { sandboxRouter, webhookRouter } from './routes/webhook.routes.js';
 import { internalRouter } from './routes/internal.routes.js';
 import { payPageRouter } from './routes/payPage.routes.js';
+import { devRouter } from './routes/dev.routes.js';
 import { config, isAllowedOrigin } from './security/config.js';
 import { rateLimit } from './security/guards.js';
 
@@ -69,6 +70,8 @@ export async function createApp() {
   app.use('/api/v1/kyc', providerRouter);
   app.use('/api/v1', providerRouter);
   app.use('/api/v1/geo', providerRouter);
+
+  if (!config.isProd) app.use('/api/v1/dev', devRouter);
 
   app.get('/api/v1/health', (_req: Request, res: Response) => {
     res.json({ status: 'ok', app: 'Kuota Backend API', version: '1.1.0', currency: 'PEN', timestamp: new Date().toISOString() });

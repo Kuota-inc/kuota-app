@@ -550,23 +550,21 @@ onboardingRouter.post('/sessions/:id/complete', async (req, res) => {
     });
   }
 
-  await db.prepare(`
-    INSERT INTO users (id, phone, role, status, first_name, last_name, terms_accepted_at, privacy_accepted_at)
-    VALUES (?, ?, 'MERCHANT', 'ACTIVE', ?, 'Comerciante', utc_now_text(), utc_now_text())
-  `).run(userId, phone, req.body.first_name || String(merchant.full_name || 'Emprendedor').split(' ')[0]);
+  // Atómico: users + merchant_profiles deben actualizarse juntos para que el
+  // phone lookup de resolveClaimedMerchant encuentre el comercio en el login.
+  const rucProvisional = `10${String(Math.floor(Math.random() * 1e9)).padStart(9, '0')}`;
+  await db.tx(async () => {
+    await db.prepare(`
+      INSERT INTO users (id, phone, role, status, first_name, last_name, terms_accepted_at, privacy_accepted_at)
+      VALUES (?, ?, 'MERCHANT', 'ACTIVE', ?, 'Comerciante', utc_now_text(), utc_now_text())
+    `).run(userId, phone, req.body.first_name || String(merchant.full_name || 'Emprendedor').split(' ')[0]);
 
-  await db.prepare(`
-    UPDATE merchant_profiles
-    SET user_id = ?, business_name = coalesce(?, business_name, 'Mi Negocio Kuota'), ruc = coalesce(?, ruc, ?)
-    WHERE id = ?
-  `).run(
-    userId,
-    req.body.business_name,
-    req.body.ruc,
-    // RUC provisional de persona natural (10 + 9 dígitos) mientras no declare uno.
-    `10${String(Math.floor(Math.random() * 1e9)).padStart(9, '0')}`,
-    merchant.id
-  );
+    await db.prepare(`
+      UPDATE merchant_profiles
+      SET user_id = ?, business_name = coalesce(?, business_name, 'Mi Negocio Kuota'), ruc = coalesce(?, ruc, ?)
+      WHERE id = ?
+    `).run(userId, req.body.business_name, req.body.ruc, rucProvisional, merchant.id);
+  });
 
   // Link products to merchant_id
   await db.prepare('UPDATE products SET merchant_id = ? WHERE session_id = ?').run(merchant.id, sessionId);

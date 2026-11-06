@@ -49,8 +49,25 @@ export async function resolveClaimedMerchant(req: Request): Promise<MerchantRow 
       WHERE u.phone = ?
     `).get<{ id: string }>(phone);
     if (row?.id) return getMerchant(row.id);
+
+    // Recuperación: si el JOIN falla (user_id no fue seteado por error de servidor
+    // entre INSERT users y UPDATE merchant_profiles), buscar por merchant_profiles.phone
+    // (9 dígitos), priorizando los que sí tienen user_id.
+    const short = phone.startsWith('+51') ? phone.slice(3) : phone.replace(/\D/g, '').slice(-9);
+    if (short.length === 9) {
+      const row2 = await db.prepare(`
+        SELECT id FROM merchant_profiles
+        WHERE phone = ?
+        ORDER BY (user_id IS NOT NULL) DESC
+        LIMIT 1
+      `).get<{ id: string }>(short);
+      if (row2?.id) return getMerchant(row2.id);
+    }
   }
 
+  // En producción mer_carlos no existe (seed.ts es solo para dev).
+  // Si no se encontró el comercio por teléfono, devolver null → 404 en el caller.
+  if (config.isProd) return null;
   return getMerchant('mer_carlos');
 }
 
