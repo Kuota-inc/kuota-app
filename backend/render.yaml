@@ -1,0 +1,41 @@
+services:
+  - type: web
+    name: kuota-api
+    runtime: node
+    region: oregon          # us-west-2 (más cerca de PE que Frankfurt)
+    plan: free
+    rootDir: backend
+    buildCommand: npm ci && npm run build
+    preDeployCommand: node dist/db/migrate-cli.js
+    startCommand: node dist/server.js
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "3001"
+      - key: KUOTA_AUTO_MIGRATE
+        value: "0"           # migraciones en preDeployCommand, no en start
+      - key: KUOTA_TRUST_PROXY
+        value: "1"           # Render pone un proxy delante
+      - key: KUOTA_SANDBOX
+        value: "0"
+      - key: KUOTA_CORS_ORIGINS
+        value: capacitor://localhost,http://localhost
+      # Las siguientes se rellenan en el dashboard de Render (Secrets):
+      - key: DATABASE_URL
+        sync: false
+      - key: PAYMENTS_DATABASE_URL
+        sync: false
+      - key: KUOTA_LINK_SIGNING_KEY
+        sync: false
+      - key: KUOTA_WEBHOOK_SECRET
+        sync: false
+      - key: KUOTA_SESSION_SECRET
+        sync: false
+      - key: KUOTA_PIN_PEPPER
+        sync: false
+      - key: KUOTA_ADMIN_TOKEN
+        sync: false
+      - key: KUOTA_PAY_BASE_URL
+        sync: false          # p. ej. https://kuota-api.onrender.com/pay
