@@ -34,6 +34,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, onBack }) =
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [shake, setShake] = useState(false);
+  const [retrying, setRetrying] = useState(false);
 
   const handlePhoneNext = () => {
     const digits = phone.replace(/\D/g, '');
@@ -66,26 +67,38 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, onBack }) =
     }
   };
 
+  const doAuthRequest = (pinStr: string) =>
+    apiRequest<{ access_token: string; merchant_id: string; expires_at: string }>(
+      '/auth/sessions',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          pin: pinStr,
+          device_id: deviceId(),
+          device_label: Capacitor.isNativePlatform() ? 'App Kuota (Android)' : 'Navegador (Web)',
+        }),
+      }
+    );
+
   const submitLogin = async (pinStr: string) => {
     setLoading(true);
+    setRetrying(false);
     setError(null);
     try {
-      const devLabel = Capacitor.isNativePlatform()
-        ? `App Kuota (Android)`
-        : `Navegador (Web)`;
-
-      const res = await apiRequest<{ access_token: string; merchant_id: string; expires_at: string }>(
-        '/auth/sessions',
-        {
-          method: 'POST',
-          body: JSON.stringify({
-            pin: pinStr,
-            device_id: deviceId(),
-            device_label: devLabel,
-          }),
+      let res: { access_token: string; merchant_id: string; expires_at: string };
+      try {
+        res = await doAuthRequest(pinStr);
+      } catch (firstErr: any) {
+        if (firstErr?.code === 'NETWORK') {
+          // Render free tier puede tardar en arrancar — reintentamos una vez
+          setRetrying(true);
+          await new Promise((r) => setTimeout(r, 3000));
+          setRetrying(false);
+          res = await doAuthRequest(pinStr);
+        } else {
+          throw firstErr;
         }
-      );
-
+      }
       if (res.merchant_id) setMerchantId(res.merchant_id);
       onSuccess();
     } catch (err: any) {
@@ -94,6 +107,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, onBack }) =
         setError('Tu cuenta está bloqueada temporalmente. Espera unos minutos e inténtalo de nuevo.');
       } else if (err?.code === 'PIN_INCORRECT' || msg.includes('incorrecto') || msg.includes('incorrect')) {
         setError('PIN incorrecto. Inténtalo de nuevo.');
+      } else if (err?.code === 'NETWORK') {
+        setError('El servidor está iniciando. Espera unos segundos e inténtalo de nuevo.');
       } else {
         setError(msg || 'Error al iniciar sesión. Verifica tu conexión.');
       }
@@ -101,6 +116,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, onBack }) =
       triggerShake();
     } finally {
       setLoading(false);
+      setRetrying(false);
     }
   };
 
@@ -251,7 +267,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, onBack }) =
                       className="flex items-center justify-center gap-2 text-xs text-[#1a3bb0] font-bold"
                     >
                       <CheckCircle2 size={15} className="animate-pulse" />
-                      <span>Verificando...</span>
+                      <span>{retrying ? 'Conectando con el servidor...' : 'Verificando...'}</span>
                     </motion.div>
                   )}
                 </AnimatePresence>
