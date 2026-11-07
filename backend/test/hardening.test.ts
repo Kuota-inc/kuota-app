@@ -359,3 +359,29 @@ describe('Avisos por correo de los reclamos', () => {
     assert.equal(r.body.email_sent, false);
   });
 });
+
+describe('Correo por SMTP', () => {
+  test('con KUOTA_SMTP_URL los avisos de reclamos salen por SMTP con el remitente configurado', async () => {
+    resetRateLimits();
+    const { testOutbox } = await import('../src/services/mailer.js');
+    testOutbox.length = 0;
+    process.env.KUOTA_SMTP_URL = 'json';
+    process.env.KUOTA_MAIL_FROM = 'Kuota <avisos@kuota.pro>';
+    process.env.KUOTA_COMPLAINTS_EMAIL = 'kuota.contact@gmail.com';
+    try {
+      const made = await call('POST', '/complaints', {
+        kind: 'RECLAMO', full_name: 'Rosa Smtp', doc_type: 'DNI', doc_number: '47891240', phone: '987654333',
+        email: 'rosa@example.com', description: 'Probando el envío por SMTP del libro de reclamaciones.'
+      });
+      assert.equal(made.status, 201);
+      assert.equal(made.body.email_sent, true);
+      assert.equal(testOutbox.length, 2);
+      assert.ok(testOutbox.every((m) => m.from === 'Kuota <avisos@kuota.pro>'));
+      assert.deepEqual(testOutbox.flatMap((m) => m.to).sort(), ['kuota.contact@gmail.com', 'rosa@example.com']);
+    } finally {
+      delete process.env.KUOTA_SMTP_URL;
+      delete process.env.KUOTA_MAIL_FROM;
+      delete process.env.KUOTA_COMPLAINTS_EMAIL;
+    }
+  });
+});

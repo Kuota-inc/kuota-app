@@ -1,6 +1,10 @@
-// Envío de correos transaccionales por la API HTTPS de Resend (sin dependencias).
-// Activar con RESEND_API_KEY y, ya con dominio verificado, KUOTA_MAIL_FROM ("Kuota <avisos@tu-dominio>").
-// Sin RESEND_API_KEY no se envía nada: el aviso queda en el log del servidor.
+// Envío de correos transaccionales. Dos proveedores, en este orden:
+//   1. SMTP:   KUOTA_SMTP_URL, p. ej. smtps://avisos%40kuota.pro:CLAVE@smtp.hostinger.com:465
+//              (la clave y el @ del usuario van codificados en URL). KUOTA_MAIL_FROM: "Kuota <avisos@kuota.pro>".
+//   2. Resend: RESEND_API_KEY (API HTTPS). KUOTA_MAIL_FROM exige un dominio verificado en Resend.
+// Sin ninguno configurado no se envía nada: el aviso queda en el log del servidor.
+import nodemailer, { type Transporter } from 'nodemailer';
+
 export interface Mail {
   to: string | string[];
   subject: string;
@@ -8,7 +12,7 @@ export interface Mail {
   text?: string;
 }
 
-export const mailEnabled = () => !!process.env.RESEND_API_KEY;
+export const mailEnabled = () => !!(process.env.KUOTA_SMTP_URL || process.env.RESEND_API_KEY);
 
 export const esc = (s: unknown) =>
   String(s ?? '')
@@ -17,26 +21,55 @@ export const esc = (s: unknown) =>
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 
+/** Solo para pruebas: con KUOTA_SMTP_URL=json los correos se guardan aquí en vez de enviarse. */
+export const testOutbox: { to: string[]; from: string; subject: string; html: string }[] = [];
+
+let cached: { url: string; transport: Transporter } | null = null;
+function smtpTransport(url: string): Transporter {
+  if (cached?.url === url) return cached.transport;
+  const transport =
+    url === 'json'
+      ? nodemailer.createTransport({ jsonTransport: true })
+      : nodemailer.createTransport({ url, connectionTimeout: 8000, greetingTimeout: 8000, socketTimeout: 12000 });
+  cached = { url, transport };
+  return transport;
+}
+
+function fromAddress(): string {
+  if (process.env.KUOTA_MAIL_FROM) return process.env.KUOTA_MAIL_FROM;
+  const url = process.env.KUOTA_SMTP_URL;
+  if (url && url !== 'json') {
+    try {
+      const user = decodeURIComponent(new URL(url).username);
+      if (user.includes('@')) return `Kuota <${user}>`;
+    } catch {
+      /* URL inválida: se usa el remitente por defecto */
+    }
+  }
+  return 'Kuota <onboarding@resend.dev>';
+}
+
 /** Devuelve true si el proveedor aceptó el correo. Nunca lanza: un fallo de correo no debe romper la operación. */
 export async function sendMail(mail: Mail): Promise<boolean> {
-  const key = process.env.RESEND_API_KEY;
   const to = (Array.isArray(mail.to) ? mail.to : [mail.to]).filter(Boolean);
   if (!to.length) return false;
-  if (!key) {
-    console.log(`[mail] sin proveedor configurado (RESEND_API_KEY); no se envió: "${mail.subject}"`);
+  const smtp = process.env.KUOTA_SMTP_URL;
+  const key = process.env.RESEND_API_KEY;
+  if (!smtp && !key) {
+    console.log(`[mail] sin proveedor configurado (KUOTA_SMTP_URL o RESEND_API_KEY); no se envió: "${mail.subject}"`);
     return false;
   }
   try {
+    if (smtp) {
+      const from = fromAddress();
+      await smtpTransport(smtp).sendMail({ from, to, subject: mail.subject, html: mail.html, text: mail.text });
+      if (smtp === 'json') testOutbox.push({ to, from, subject: mail.subject, html: mail.html });
+      return true;
+    }
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        from: process.env.KUOTA_MAIL_FROM || 'Kuota <onboarding@resend.dev>',
-        to,
-        subject: mail.subject,
-        html: mail.html,
-        text: mail.text
-      }),
+      body: JSON.stringify({ from: fromAddress(), to, subject: mail.subject, html: mail.html, text: mail.text }),
       signal: AbortSignal.timeout(8000)
     });
     if (!res.ok) {
@@ -45,7 +78,7 @@ export async function sendMail(mail: Mail): Promise<boolean> {
     }
     return true;
   } catch (e) {
-    console.error('[mail] error de red', e instanceof Error ? e.message : e);
+    console.error('[mail] error de envío', e instanceof Error ? e.message : e);
     return false;
   }
 }
