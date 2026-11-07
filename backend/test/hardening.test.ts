@@ -177,3 +177,39 @@ describe('Recuperación de PIN con DNI', () => {
     assert.equal((await call('POST', '/auth/sessions', { pin: '739164', phone: '+51930000009', device_id: DEVICE })).status, 201, 'PIN intacto');
   });
 });
+
+describe('Ventas, score y proveedores', () => {
+  test('la búsqueda trata % _ y NUL como texto y las ventas manuales nunca son verificadas', async () => {
+    const m = await register('930000010', '73000010', '739164');
+    const h = { 'X-Merchant-Id': m.merchantId };
+    const sale = await call('POST', '/merchants/me/sales', { amount_cents: 1500, concept: 'Pan 100%', source: 'PAYMENT_LINK' }, h);
+    assert.equal(sale.status, 201);
+    assert.equal(sale.body.verified, 0, 'source falsificado no verifica');
+    assert.equal((await call('POST', '/merchants/me/sales', { amount_cents: -5 }, h)).status, 422);
+    assert.equal((await call('GET', '/merchants/me/sales?q=%00', undefined, h)).status, 200);
+    const wild = await call('GET', '/merchants/me/sales?q=%25', undefined, h);
+    assert.equal(wild.status, 200);
+    assert.equal(wild.body.length, 1, '% busca el símbolo, no todo');
+    const none = await call('GET', '/merchants/me/sales?q=_', undefined, h);
+    assert.equal(none.body.length, 0, '_ no es comodín');
+  });
+
+  test('las señales de score tienen lista cerrada y no se repiten', async () => {
+    const m = await register('930000011', '73000011', '739164');
+    const h = { 'X-Merchant-Id': m.merchantId };
+    assert.equal((await call('POST', '/credit/scoring/signals', { type: 'PAYMENT_CAPTURED' }, h)).status, 422);
+    const a = await call('POST', '/credit/scoring/signals', { type: 'LOCATION_SHARED', ref_id: 'x1' }, h);
+    assert.equal(a.status, 201);
+    const b = await call('POST', '/credit/scoring/signals', { type: 'LOCATION_SHARED', ref_id: 'x1' }, h);
+    assert.equal(b.body.duplicate, true);
+  });
+
+  test('los datos del KYC salen enmascarados y las rutas de proveedor exigen su token', async () => {
+    const m = await register('930000012', '73000012', '739164');
+    const s = await call('GET', `/onboarding/sessions/${m.sessionId}`);
+    assert.ok(!JSON.stringify(s.body).includes('73000012'));
+    const bad = { 'X-Provider-Id': 'prov_donlucho', 'X-Provider-Token': 'no-es-el-token' };
+    assert.equal((await call('PUT', '/providers/settlement-account', { bank: 'BCP', cci: '00219400123456789012' }, bad)).status, 401);
+    assert.equal((await call('POST', '/providers/activate', undefined, bad)).status, 401);
+  });
+});

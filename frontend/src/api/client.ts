@@ -12,6 +12,15 @@ export const API_BASE = ((import.meta.env.VITE_API_BASE as string | undefined) |
 // pantallas cargando indefinidamente.
 const TIMEOUT_MS = 10000;
 
+/** Mensaje en español cuando el servidor no devuelve uno (HTML, vacío o proxy). */
+function httpMessage(status: number): string {
+  if (status === 404) return 'Esa función no está disponible por ahora. Actualiza la app e inténtalo de nuevo.';
+  if (status === 401 || status === 403) return 'Tu sesión no es válida. Vuelve a iniciar sesión.';
+  if (status === 429) return 'Demasiados intentos. Espera un momento e inténtalo otra vez.';
+  if (status >= 500) return 'Kuota tuvo un problema. Inténtalo de nuevo en unos minutos.';
+  return 'No pudimos completar la acción. Inténtalo de nuevo.';
+}
+
 /** Error de la API con el código del backend ({ error: { code, message } }). */
 export class ApiError extends Error {
   readonly status: number;
@@ -62,8 +71,30 @@ export function getProviderId(): string | null {
   }
 }
 
+const PROVIDER_TOKEN_KEY = 'kuota.provider_token';
+let memoryProviderToken: string | null = null;
+
+export function getProviderToken(): string | null {
+  try {
+    return localStorage.getItem(PROVIDER_TOKEN_KEY) ?? memoryProviderToken;
+  } catch {
+    return memoryProviderToken;
+  }
+}
+
+export function setProviderToken(token: string | null) {
+  memoryProviderToken = token;
+  try {
+    if (token) localStorage.setItem(PROVIDER_TOKEN_KEY, token);
+    else localStorage.removeItem(PROVIDER_TOKEN_KEY);
+  } catch {
+    /* almacenamiento no disponible: queda en memoria */
+  }
+}
+
 export function setProviderId(id: string | null) {
   memoryProviderId = id;
+  if (!id) setProviderToken(null);
   try {
     if (id) localStorage.setItem(PROVIDER_KEY, id);
     else localStorage.removeItem(PROVIDER_KEY);
@@ -80,6 +111,7 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestInit
     'Content-Type': 'application/json',
     ...(merchantId ? { 'X-Merchant-Id': merchantId } : {}),
     ...(providerId ? { 'X-Provider-Id': providerId } : {}),
+    ...(getProviderToken() ? { 'X-Provider-Token': getProviderToken() as string } : {}),
     ...(options.headers || {})
   };
   const controller = new AbortController();
@@ -89,7 +121,7 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestInit
     const res = await fetch(url, { ...options, headers, signal: options.signal ?? controller.signal });
     const data = res.status === 204 ? null : await res.json().catch(() => null);
     if (!res.ok) {
-      throw new ApiError(res.status, data?.error?.code ?? `HTTP_${res.status}`, data?.error?.message || `Error ${res.status}: ${res.statusText}`, data);
+      throw new ApiError(res.status, data?.error?.code ?? `HTTP_${res.status}`, data?.error?.message || httpMessage(res.status), data);
     }
     return data as T;
   } catch (err: any) {
@@ -244,7 +276,10 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(data)
     }).then((res: any) => {
-      if (res?.provider_id) setProviderId(res.provider_id);
+      if (res?.provider_id) {
+        setProviderId(res.provider_id);
+        if (res.provider_token) setProviderToken(res.provider_token);
+      }
       return res;
     }),
   getSunatStats: () => apiRequest('/kyc/sunat-stats'),

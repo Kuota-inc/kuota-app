@@ -6,6 +6,10 @@ import { hashPin, pinProblem } from '../security/crypto.js';
 import { credentialFor, setMerchantPinHash } from '../security/auth.js';
 import { getKycByPublicId, refreshFromProvider, startVerification } from '../services/kyc.service.js';
 import { DiditError, diditEnabled } from '../integrations/didit.js';
+import { config } from '../security/config.js';
+
+// El id de solicitud (MER-12345-PE) es adivinable: estas rutas solo devuelven datos enmascarados.
+const maskTail = (v: unknown, keep: number) => (typeof v === 'string' && v.length > keep ? '•'.repeat(v.length - keep) + v.slice(-keep) : v ?? null);
 
 export const onboardingRouter = Router();
 
@@ -214,6 +218,8 @@ onboardingRouter.get('/merchant-kyc/:requestId', async (req, res) => {
   const kyc = await db.prepare('SELECT * FROM kyc_requests WHERE public_id = ?').get(publicId) as any;
 
   if (!kyc) {
+    // En producción no existe el comercio demo: un id desconocido es un 404, nunca una aprobación.
+    if (config.isProd) return res.status(404).json({ error: { code: 'KYC_NOT_FOUND', message: 'Solicitud de verificación no encontrada.' } });
     return res.json({
       request_id: publicId,
       account_type: 'PERSONAL',
@@ -253,7 +259,7 @@ onboardingRouter.get('/merchant-kyc/:requestId', async (req, res) => {
       reason: fresh.decision_reason,
       progress_pct: fresh.progress_pct,
       verification_url: fresh.status === 'IN_PROGRESS' ? fresh.verification_url : null,
-      merchant: { dni: merchant?.dni ?? null, full_name: merchant?.full_name ?? null, phone: merchant?.phone ?? null, business_name: merchant?.business_name ?? null },
+      merchant: { dni: maskTail(merchant?.dni, 3), full_name: merchant?.full_name ?? null, phone: maskTail(merchant?.phone, 3), business_name: merchant?.business_name ?? null },
       stages: [
         { type: 'DOCUMENT', status: done('RUNNING'), title: 'Documento de identidad', label: 'DNI leído y validado por Didit' },
         { type: 'LIVENESS', status: done('RUNNING'), title: 'Prueba de vida y rostro', label: 'Selfie comparada con la foto del DNI' },
@@ -319,9 +325,9 @@ onboardingRouter.get('/merchant-kyc/:requestId', async (req, res) => {
     status: kyc.status,
     progress_pct: kyc.status === 'APPROVED' ? 100 : kyc.progress_pct,
     merchant: {
-      dni: merchant?.dni || '47891234',
-      full_name: merchant?.full_name || 'CARLOS ALBERTO MENDOZA QUISPE',
-      phone: merchant?.phone || '987654321',
+      dni: maskTail(merchant?.dni, 3),
+      full_name: merchant?.full_name ?? null,
+      phone: maskTail(merchant?.phone, 3),
       ruc: merchant?.ruc || (isBusiness ? '20601234567' : null),
       business_name: business?.razon_social || merchant?.business_name || 'Mi Negocio Kuota'
     },
@@ -562,7 +568,8 @@ onboardingRouter.post('/sessions/:id/complete', async (req, res) => {
 
   const userId = 'usr_' + uuidv4().substring(0, 10);
   // El celular es el que el comercio registró en el paso de identidad.
-  const declared = String(req.body.phone || merchant.phone || '').replace(/\D/g, '').slice(-9);
+  // Nunca el del body: si no, cualquiera registra (y bloquea) el número de otra persona.
+  const declared = String(merchant.phone || (config.isProd ? '' : req.body.phone) || '').replace(/\D/g, '').slice(-9);
   const phone = declared.length === 9 ? `+51${declared}` : '+519' + Math.floor(10000000 + Math.random() * 90000000);
   if (await db.prepare('SELECT 1 FROM users WHERE phone = ?').get(phone)) {
     return res.status(409).json({
@@ -573,6 +580,7 @@ onboardingRouter.post('/sessions/:id/complete', async (req, res) => {
   // Atómico: users + merchant_profiles deben actualizarse juntos para que el
   // phone lookup de resolveClaimedMerchant encuentre el comercio en el login.
   const rucProvisional = `10${String(Math.floor(Math.random() * 1e9)).padStart(9, '0')}`;
+  try {
   await db.tx(async () => {
     await db.prepare(`
       INSERT INTO users (id, phone, role, status, first_name, last_name, terms_accepted_at, privacy_accepted_at)
@@ -585,6 +593,15 @@ onboardingRouter.post('/sessions/:id/complete', async (req, res) => {
       WHERE id = ?
     `).run(userId, req.body.business_name, req.body.ruc, rucProvisional, merchant.id);
   });
+  } catch (e: any) {
+    // Dos registros simultáneos con el mismo celular: el segundo choca con el índice único.
+    if (e?.code === '23505') {
+      return res.status(409).json({
+        error: { code: 'PHONE_ALREADY_REGISTERED', message: 'Este celular ya tiene una cuenta Kuota. Ingresa con tu PIN o usa otro número.' }
+      });
+    }
+    throw e;
+  }
 
   // Link products to merchant_id
   await db.prepare('UPDATE products SET merchant_id = ? WHERE session_id = ?').run(merchant.id, sessionId);

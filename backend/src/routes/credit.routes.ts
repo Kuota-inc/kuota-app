@@ -271,20 +271,7 @@ creditRouter.get('/purchases/active', async (req, res) => {
     LIMIT 1
   `).get(merchant.id) as any;
 
-  // Fallback to most recent purchase if all are settled
-  if (!purchase) {
-    purchase = await db.prepare(`
-      SELECT p.*, prov.legal_name as provider_name, prov.whatsapp, loc.address_line, loc.district, loc.city
-      FROM credit_purchases p
-      LEFT JOIN provider_profiles prov ON p.provider_id = prov.id
-      LEFT JOIN provider_locations loc ON prov.id = loc.provider_id AND loc.is_primary = 1
-      WHERE p.merchant_id = ?
-      ORDER BY p.issued_at DESC
-      LIMIT 1
-    `).get(merchant.id) as any;
-  }
-
-  // Sin compras: la app muestra el estado vacío (nunca una compra de demostración).
+  // Sin compra activa (nunca se muestra una ya liquidada como "En curso").
   if (!purchase) return res.json(null);
 
   const installments = await db.prepare(`
@@ -435,7 +422,16 @@ creditRouter.post('/scoring/signals', async (req, res) => {
     SALE_REGISTERED: 2,
     LOCATION_SHARED: 3,
   };
-  const points = SIGNAL_POINTS[type] ?? 0;
+  if (typeof type !== 'string' || !(type in SIGNAL_POINTS)) {
+    return res.status(422).json({ error: { code: 'SIGNAL_INVALID', message: 'Tipo de señal no válido.' } });
+  }
+  const points = SIGNAL_POINTS[type];
+  // Una señal con puntos se cuenta una sola vez por referencia: repetirla no infla el score.
+  if (points > 0) {
+    const refKey = typeof ref_id === 'string' ? ref_id.slice(0, 100) : null;
+    const dup = await db.prepare('SELECT 1 FROM score_events WHERE merchant_id = ? AND type = ? AND ref_id IS NOT DISTINCT FROM ?').get(merchant.id, type, refKey);
+    if (dup) return res.status(200).json({ type, points: 0, duplicate: true });
+  }
   const eventId = 'sev_' + uuidv4().substring(0, 10);
 
   await db.prepare(`
