@@ -52,7 +52,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <script>
 (function(){
 var code=location.pathname.split('/').filter(Boolean).pop();
-var apiBase='${apiBase}';
+var apiBase='';
 var method='YAPE';
 
 function fmt(cents){return'S/ '+(cents/100).toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2})}
@@ -76,7 +76,7 @@ function showReady(link){
   var fee=Math.ceil((link.amount_cents*100)/10000);
   var html=
     '<div class="logo"><div class="logo-icon">K</div><div class="logo-text">Kuota</div></div>'+
-    '<div class="merchant">'+escHtml(link.merchant_name||'Comercio verificado')+'</div>'+
+    '<div class="merchant">'+escHtml((link.merchant&&link.merchant.name)||'Comercio Kuota')+(link.merchant&&link.merchant.verification==='VERIFIED'?' ✔':'')+'</div>'+
     (link.concept?'<div class="concept">'+escHtml(link.concept)+'</div>':'')+
     '<div class="amount-box">'+
       '<div class="amount-label">Total a pagar</div>'+
@@ -85,13 +85,16 @@ function showReady(link){
     '</div>'+
     '<div class="methods">'+
       '<div class="methods-label">Elige cómo pagar</div>'+
-      '<button class="method-btn active" id="btn-yape" onclick="setMethod(\'YAPE\')">📱 Yape</button>'+
-      '<button class="method-btn" id="btn-plin" onclick="setMethod(\'PLIN\')">📱 Plin</button>'+
-      '<button class="method-btn" id="btn-card" onclick="setMethod(\'CARD\')">💳 Tarjeta</button>'+
+      '<button class="method-btn active" id="btn-yape" data-m="YAPE">📱 Yape</button>'+
+      '<button class="method-btn" id="btn-plin" data-m="PLIN">📱 Plin</button>'+
+      '<button class="method-btn" id="btn-card" data-m="CARD">💳 Tarjeta</button>'+
     '</div>'+
-    '<button class="pay-btn" id="pay-btn" onclick="doPay()">Pagar '+fmt(link.amount_cents)+'</button>'+
+    '<button class="pay-btn" id="pay-btn">Pagar '+fmt(link.amount_cents)+'</button>'+
     '<div class="expiry">Válido hasta: '+fmtExp(link.expires_at)+'</div>';
   document.getElementById('card').innerHTML=html;
+  Array.prototype.forEach.call(document.querySelectorAll('.method-btn'),function(b){b.addEventListener('click',function(){window.setMethod(b.getAttribute('data-m'))})});
+  Array.prototype.forEach.call(document.querySelectorAll('.method-btn'),function(b){b.addEventListener('click',function(){window.setMethod(b.getAttribute('data-m'))})});
+  document.getElementById('pay-btn').addEventListener('click',function(){window.doPay()});
   window._link=link;
 }
 function escHtml(s){
@@ -108,23 +111,21 @@ window.doPay=function(){
   if(!window._link)return;
   var btn=document.getElementById('pay-btn');
   if(btn){btn.disabled=true;btn.textContent='Procesando…';}
-  fetch(apiBase+'/api/v1/payment-links/pay/'+code,{
+  fetch(apiBase+'/api/v1/sandbox/360pay/pay',{
     method:'POST',
     headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({method:method,client_ip:null})
+    body:JSON.stringify({code:code,method:method})
   })
   .then(function(r){return r.json()})
   .then(function(d){
-    if(d.redirect_url){location.href=d.redirect_url;return;}
-    if(d.error){
+    var st=d.webhook&&d.webhook.status;
+    if(d.error||st==='REJECTED'||st==='IGNORED'){
       if(btn){btn.disabled=false;btn.textContent='Pagar '+fmt(window._link.amount_cents);}
-      alert(d.error.message||'Error al iniciar el pago.');return;
+      var c=d.error&&d.error.code;
+      if(c==='LINK_ALREADY_PAID'){showPaid(window._link);return;}
+      alert(c==='NOT_FOUND'?'El pago en línea aún no está disponible para este comercio.':((d.error&&d.error.message)||'No se pudo completar el pago. Inténtalo de nuevo.'));return;
     }
-    document.getElementById('card').innerHTML=
-      '<div class="logo"><div class="logo-icon">K</div><div class="logo-text">Kuota</div></div>'+
-      '<div class="status"><div class="status-icon">✅</div>'+
-      '<div class="status-title">¡Pago en proceso!</div>'+
-      '<p class="status-msg">Sigue las instrucciones de tu app de pagos.</p></div>';
+    showPaid(window._link);
   })
   .catch(function(){
     if(btn){btn.disabled=false;btn.textContent='Pagar '+fmt(window._link.amount_cents);}

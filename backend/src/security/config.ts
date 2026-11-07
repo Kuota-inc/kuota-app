@@ -77,7 +77,9 @@ const DEV_ORIGINS = ['http://localhost:5173', 'http://127.0.0.1:5173', 'http://l
 export const config = {
   isProd,
   /** Simulador de 360pay (pago del cliente): solo fuera de producción. */
-  sandboxEnabled: !isProd && process.env.KUOTA_SANDBOX !== '0',
+  // En producción solo con KUOTA_SANDBOX=1 explícito (fase de pruebas sin pasarela real):
+  // mientras esté activo, cualquiera con el código de un link puede marcarlo como pagado.
+  sandboxEnabled: isProd ? process.env.KUOTA_SANDBOX === '1' : process.env.KUOTA_SANDBOX !== '0',
   /** Base pública de la página de pago a la que apunta el link y el QR. */
   payBaseUrl: (process.env.KUOTA_PAY_BASE_URL || 'http://localhost:5173/pay').replace(/\/+$/, ''),
   corsOrigins: (process.env.KUOTA_CORS_ORIGINS || DEV_ORIGINS.join(','))
