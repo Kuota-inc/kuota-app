@@ -135,7 +135,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onSelectRole, onLo
         </button>
 
         {/* Legal disclaimer */}
-        <p className="text-[10px] text-center text-[#4a5f7e] px-1">
+        <p className="text-[11.5px] leading-relaxed text-center text-[#4a5f7e] px-2 pb-1">
           Al continuar, aceptas nuestros{' '}
           <a href="https://kuota.pe/legal/terminos" target="_blank" rel="noopener noreferrer" className="underline font-semibold text-[#1a3bb0] hover:text-[#00248b]">Términos</a> y la{' '}
           <a href="https://kuota.pe/legal/privacidad" target="_blank" rel="noopener noreferrer" className="underline font-semibold text-[#1a3bb0] hover:text-[#00248b]">Privacidad</a>.
