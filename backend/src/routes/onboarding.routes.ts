@@ -3,14 +3,14 @@ import { v4 as uuidv4 } from 'uuid';
 import { db } from '../db/database.js';
 import { sunatService } from '../services/sunat.service.js';
 import { hashPin, pinProblem } from '../security/crypto.js';
-import { setMerchantPinHash } from '../security/auth.js';
+import { credentialFor, setMerchantPinHash } from '../security/auth.js';
 import { getKycByPublicId, refreshFromProvider, startVerification } from '../services/kyc.service.js';
 import { DiditError, diditEnabled } from '../integrations/didit.js';
 
 export const onboardingRouter = Router();
 
 // Helper para auto-asegurar la existencia de la sesión (idempotente y resiliente ante sesiones optimistas)
-async function ensureSession(sessionId: string, role: 'MERCHANT' | 'PROVIDER' = 'MERCHANT') {
+async function ensureSession(sessionId: string, role: 'MERCHANT' | 'PROVIDER' = 'MERCHANT', allowCompleted = false) {
   let session = await db.prepare('SELECT * FROM onboarding_sessions WHERE id = ?').get(sessionId) as any;
   if (!session) {
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
@@ -20,6 +20,10 @@ async function ensureSession(sessionId: string, role: 'MERCHANT' | 'PROVIDER' = 
       VALUES (?, ?, 'dev_auto', 'IN_PROGRESS', ?, '2026.1', '2026.1', utc_now_text(), ?)
     `).run(sessionId, role, nextStep, expiresAt);
     session = await db.prepare('SELECT * FROM onboarding_sessions WHERE id = ?').get(sessionId) as any;
+  }
+  // Una sesión cerrada ya creó la cuenta: reescribir sus datos (DNI, negocio, productos) sería tomarla.
+  if (session.status === 'COMPLETED' && !allowCompleted) {
+    throw Object.assign(new Error('Este registro ya fue completado. Inicia sesión.'), { status: 409, code: 'SESSION_COMPLETED' });
   }
   return session;
 }
@@ -395,12 +399,28 @@ onboardingRouter.get('/sessions/:id', async (req, res) => {
     return res.status(404).json({ error: { code: 'SESSION_NOT_FOUND', message: 'Sesión no encontrada.' } });
   }
 
-  const merchant = await db.prepare('SELECT * FROM merchant_profiles WHERE session_id = ?').get(session.id);
+  const merchant = await db.prepare('SELECT * FROM merchant_profiles WHERE session_id = ?').get(session.id) as any;
   const products = await db.prepare('SELECT * FROM products WHERE session_id = ? AND deleted_at IS NULL').all(session.id);
 
+  // Solo el id de sesión protege este GET: nunca devolver DNI, teléfono, PIN ni ids internos.
   res.json({
-    session,
-    merchant_profile: merchant || null,
+    session: {
+      id: session.id,
+      role: session.role,
+      current_step: session.current_step,
+      status: session.status,
+      expires_at: session.expires_at
+    },
+    merchant_profile: merchant
+      ? {
+          id: merchant.id,
+          business_name: merchant.business_name,
+          ruc: merchant.ruc,
+          category: merchant.category,
+          seniority_range: merchant.seniority_range,
+          tier_hint: merchant.tier_hint
+        }
+      : null,
     products
   });
 });
@@ -491,7 +511,7 @@ onboardingRouter.put('/sessions/:id/products', async (req, res) => {
 // PRD 04: Onboarding exitoso - Cierre y creación de línea
 onboardingRouter.post('/sessions/:id/complete', async (req, res) => {
   const sessionId = req.params.id;
-  const session = await ensureSession(sessionId, 'MERCHANT');
+  const session = await ensureSession(sessionId, 'MERCHANT', true);
 
   let merchant = await db.prepare('SELECT * FROM merchant_profiles WHERE session_id = ?').get(sessionId) as any;
   if (!merchant) {
@@ -632,6 +652,12 @@ onboardingRouter.post('/sessions/:id/security-pin', async (req, res) => {
   const session = await db.prepare('SELECT id, user_id FROM onboarding_sessions WHERE id = ?').get(sessionId) as any;
   if (!session) {
     return res.status(404).json({ error: { code: 'SESSION_NOT_FOUND', message: 'Sesión de registro no encontrada.' } });
+  }
+  // Con el id de sesión (que no es secreto) no se puede sobrescribir el PIN de una cuenta ya
+  // protegida: para eso están /auth/pin/change y /auth/pin/recover.
+  const owner = await db.prepare('SELECT id FROM merchant_profiles WHERE session_id = ?').get(sessionId) as { id: string } | undefined;
+  if (owner && (await credentialFor(owner.id))) {
+    return res.status(409).json({ error: { code: 'PIN_ALREADY_SET', message: 'Esta cuenta ya tiene un PIN. Usa "¿Olvidé mi PIN?" si no lo recuerdas.' } });
   }
   // El PIN nunca se guarda en texto plano: scrypt con pimienta (ver security/crypto.ts).
   const pinHash = hashPin(pin);

@@ -1,31 +1,11 @@
 import { Router } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { db } from '../db/database.js';
+import { getMerchantProfile } from '../security/merchantContext.js';
 import { getNotificationState, markSeen, parsePreferences, savePreferences, unreadCount } from './notifications.js';
 
 export const merchantRouter = Router();
 
-// Helper to get demo or current merchant profile
-async function getMerchantProfile(req: any) {
-  const merchantId = req.headers['x-merchant-id'] as string;
-  if (merchantId) {
-    const m = await db.prepare('SELECT * FROM merchant_profiles WHERE id = ?').get(merchantId);
-    if (m) return m as any;
-  }
-  let profile = await db.prepare("SELECT * FROM merchant_profiles WHERE id = 'mer_carlos'").get() as any;
-  if (!profile) {
-    profile = await db.prepare("SELECT * FROM merchant_profiles LIMIT 1").get() as any;
-  }
-  if (!profile) {
-    const newId = 'mer_carlos';
-    await db.prepare(`
-      INSERT INTO merchant_profiles (id, dni, full_name, phone, business_name, category, seniority_range, kyc_status)
-      VALUES (?, '47891234', 'CARLOS ALBERTO MENDOZA QUISPE', '987654321', 'Bodega San Martín', 'FOOD', 'CONSOLIDATED', 'APPROVED')
-    `).run(newId);
-    profile = await db.prepare("SELECT * FROM merchant_profiles WHERE id = 'mer_carlos'").get() as any;
-  }
-  return profile;
-}
 
 // PRD 05: Inicio (Home agregado p95 < 400ms)
 merchantRouter.get('/home', async (req, res) => {

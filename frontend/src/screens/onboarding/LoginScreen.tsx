@@ -146,9 +146,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, onBack }) =
     } catch (err: any) {
       const msg: string = err?.message ?? '';
       if (err?.code === 'DNI_MISMATCH') {
-        setError('El DNI no coincide con el registrado en tu cuenta.');
-      } else if (err?.code === 'MERCHANT_NOT_FOUND') {
-        setError('No encontramos una cuenta con ese número de teléfono.');
+        setError('Los datos no coinciden. Verifica tu número de celular y tu DNI.');
+      } else if (err?.code === 'RECOVERY_LOCKED') {
+        setError('Demasiados intentos. Inténtalo de nuevo en 15 minutos.');
       } else {
         setError(msg || 'Error al recuperar el PIN. Verifica tu conexión.');
       }
