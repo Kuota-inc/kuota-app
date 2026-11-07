@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Wifi, Battery, ArrowLeft } from 'lucide-react';
 
 interface PhoneSimulatorProps {
@@ -19,6 +19,21 @@ interface PhoneSimulatorProps {
 const SAFE_TOP = 'var(--safe-area-inset-top, env(safe-area-inset-top, 0px))';
 const SAFE_BOTTOM = 'var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px))';
 
+// El teléfono se dibuja siempre a 450×800 (9:16) y se escala al alto de la ventana:
+// así la interfaz conserva su layout de teléfono real y no se deforma al cambiar de tamaño.
+const FRAME_W = 450;
+const FRAME_H = 800;
+function useFitScale() {
+  const calc = () => Math.max(0.5, Math.min(1.5, (window.innerHeight - 96) / FRAME_H));
+  const [scale, setScale] = useState(calc);
+  useEffect(() => {
+    const on = () => setScale(calc());
+    window.addEventListener('resize', on);
+    return () => window.removeEventListener('resize', on);
+  }, []);
+  return scale;
+}
+
 export const PhoneSimulator: React.FC<PhoneSimulatorProps> = ({
   children,
   activeScreenTitle,
@@ -32,13 +47,15 @@ export const PhoneSimulator: React.FC<PhoneSimulatorProps> = ({
 }) => {
   // Durante todo el registro (incluido el PIN) no se muestra la barra del panel.
   const isOnboarding = currentScreenKey.startsWith('onboarding');
+  const scale = useFitScale();
 
-  return (
+  const frame = (
     <div
+      style={bare ? undefined : { width: FRAME_W, height: FRAME_H, transform: `scale(${scale})`, transformOrigin: 'top left' }}
       className={
         bare
           ? 'fixed inset-0 w-full h-[100dvh] bg-[#f9f9ff] flex flex-col overflow-hidden select-none'
-          : 'relative w-[390px] h-[812px] max-h-[92vh] bg-slate-950 rounded-[44px] p-2.5 shadow-2xl border-[7px] border-slate-900 flex flex-col overflow-hidden select-none'
+          : 'relative shrink-0 bg-slate-950 rounded-[44px] p-2.5 shadow-2xl border-[7px] border-slate-900 flex flex-col overflow-hidden select-none'
       }
     >
       {/* Android Center Camera Punch-hole */}
@@ -192,4 +209,6 @@ export const PhoneSimulator: React.FC<PhoneSimulatorProps> = ({
       </div>
     </div>
   );
+
+  return bare ? frame : <div style={{ width: FRAME_W * scale, height: FRAME_H * scale }}>{frame}</div>;
 };

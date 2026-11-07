@@ -1,0 +1,380 @@
+{
+ "createSession": {
+  "status": 201,
+  "body": {
+   "session_id": "ses_e435baa0-d47",
+   "role": "MERCHANT",
+   "next_step": "merchant_identity",
+   "expires_at": "2026-11-14T03:47:39.789Z"
+  }
+ },
+ "reniec": {
+  "status": 404,
+  "body": {
+   "error": {
+    "code": "DNI_NOT_FOUND",
+    "message": "No tenemos un nombre sugerido para ese DNI."
+   }
+  }
+ },
+ "reniec2": {
+  "status": 404,
+  "body": {
+   "error": {
+    "code": "DNI_NOT_FOUND",
+    "message": "No tenemos un nombre sugerido para ese DNI."
+   }
+  }
+ },
+ "identity": {
+  "status": 201,
+  "body": {
+   "success": true,
+   "account_type": "PERSONAL",
+   "request_id": "MER-84325-PE",
+   "dni": "43872190",
+   "full_name": "CARLOS MENDOZA",
+   "phone": "987654321",
+   "business": null,
+   "next_step": "merchant_kyc_validating"
+  }
+ },
+ "kyc": {
+  "status": 200,
+  "body": {
+   "request_id": "MER-84325-PE",
+   "account_type": "PERSONAL",
+   "status": "IN_PROGRESS",
+   "progress_pct": 33,
+   "merchant": {
+    "dni": "43872190",
+    "full_name": "CARLOS MENDOZA",
+    "phone": "987654321",
+    "ruc": null,
+    "business_name": "Mi Negocio Kuota"
+   },
+   "business": null,
+   "stages": [
+    {
+     "type": "RENIEC",
+     "status": "DONE",
+     "title": "Identidad del Titular (RENIEC)",
+     "label": "Identidad validada con Reniec — Ciudadano Hábil"
+    },
+    {
+     "type": "ANTIFRAUD",
+     "status": "DONE",
+     "title": "Validación Celular y Antifraude",
+     "label": "Verificación biométrica y titularidad de línea móvil"
+    },
+    {
+     "type": "SCORING",
+     "status": "DONE",
+     "title": "Microcrédito Ágil Kuota",
+     "label": "Evaluación crediticia ágil — Aprobado Nivel 1"
+    }
+   ],
+   "result": {
+    "status": "IN_PROGRESS",
+    "approved_limit_cents": 140000,
+    "approved_level": 1,
+    "currency": "PEN",
+    "initial_rate_pct": 0
+   }
+  }
+ },
+ "verif": {
+  "status": 200,
+  "body": {
+   "provider": "DEMO",
+   "url": null,
+   "status": "IN_PROGRESS"
+  }
+ },
+ "kyc2": {
+  "status": 200,
+  "body": {
+   "request_id": "MER-84325-PE",
+   "account_type": "PERSONAL",
+   "status": "IN_PROGRESS",
+   "progress_pct": 33,
+   "merchant": {
+    "dni": "43872190",
+    "full_name": "CARLOS MENDOZA",
+    "phone": "987654321",
+    "ruc": null,
+    "business_name": "Mi Negocio Kuota"
+   },
+   "business": null,
+   "stages": [
+    {
+     "type": "RENIEC",
+     "status": "DONE",
+     "title": "Identidad del Titular (RENIEC)",
+     "label": "Identidad validada con Reniec — Ciudadano Hábil"
+    },
+    {
+     "type": "ANTIFRAUD",
+     "status": "DONE",
+     "title": "Validación Celular y Antifraude",
+     "label": "Verificación biométrica y titularidad de línea móvil"
+    },
+    {
+     "type": "SCORING",
+     "status": "DONE",
+     "title": "Microcrédito Ágil Kuota",
+     "label": "Evaluación crediticia ágil — Aprobado Nivel 1"
+    }
+   ],
+   "result": {
+    "status": "IN_PROGRESS",
+    "approved_limit_cents": 140000,
+    "approved_level": 1,
+    "currency": "PEN",
+    "initial_rate_pct": 0
+   }
+  }
+ },
+ "sim": {
+  "status": 200,
+  "body": {
+   "purchase_cents": 30000,
+   "down_payment_cents": 15000,
+   "down_payment_pct": 50,
+   "financed_cents": 15000,
+   "installments_count": 3,
+   "installment_cents": 5499,
+   "total_repayment_cents": 16497,
+   "tcea": 18.5,
+   "schedule": [
+    {
+     "number": 1,
+     "due_date": "2026-11-21",
+     "amount_cents": 5499
+    },
+    {
+     "number": 2,
+     "due_date": "2026-12-05",
+     "amount_cents": 5499
+    },
+    {
+     "number": 3,
+     "due_date": "2026-12-19",
+     "amount_cents": 5499
+    }
+   ]
+  }
+ },
+ "manualSale": {
+  "status": 201,
+  "body": {
+   "id": "sale_90645793-6",
+   "amount_cents": 5000,
+   "verified": 0,
+   "points_earned": 2
+  }
+ },
+ "notifPut": {
+  "status": 200,
+  "body": {
+   "push_enabled": true,
+   "unread_count": 0,
+   "workshop": {
+    "id": "wk_sunat_formalizacion",
+    "title": "Mentorías y Formalización: Cómo declarar tus ingresos ante SUNAT sin enredos",
+    "speaker": "Especialista Contable B2B",
+    "channel": "Vía Zoom",
+    "seats_note": "Cupos limitados",
+    "starts_at": "2026-11-08T00:00:00.000Z",
+    "free_for_clients": true,
+    "reminder_set": true
+   }
+  }
+ },
+ "geo": {
+  "status": 200,
+  "body": {
+   "lat": -12.04,
+   "lng": -77.03,
+   "address": "Jirón Cajamarca",
+   "full_address": "Jirón Cajamarca, Rímac",
+   "full_display": "Jirón Cajamarca, Rímac, Lima, Lima Metropolitana, Lima, 15094, Perú",
+   "zone_label": "Rímac, Perú",
+   "district": "Rímac, Rímac",
+   "city": "Rímac",
+   "department": "Lima",
+   "country": "Perú"
+  }
+ },
+ "sessionP": {
+  "status": 201,
+  "body": {
+   "session_id": "ses_faed88d2-b4d",
+   "role": "PROVIDER",
+   "next_step": "provider_fiscal",
+   "expires_at": "2026-11-14T03:47:40.174Z"
+  }
+ },
+ "biz": {
+  "status": 200,
+  "body": {
+   "success": true,
+   "already_registered": true,
+   "business_id": "biz_1e75db58-c",
+   "request_id": "PRV-89420-PE",
+   "message": "Comercio identificado y re-vinculado para validación."
+  }
+ },
+ "provKyc": {
+  "status": 201,
+  "body": {
+   "request_id": "PRV-90148-PE",
+   "internal_id": "req_e11a3c36-3",
+   "status": "IN_PROGRESS",
+   "progress_pct": 78
+  }
+ },
+ "authSession": {
+  "status": 201,
+  "body": {
+   "access_token": "ks1.eyJzaWQiOiJzZXNfYjcwNGUxNDllYmE1ZGZjNDhhNDc2NTcyIiwibWlkIjoibWVyX2NhcmxvcyIsImRpZCI6ImRlbW9fZGV2aWNlXzAxMjM0NTY3ODkiLCJleHAiOjE3OTQwMjQxNjB9.kgM0JLqP7xMD2XT2-Z8G9_lzskGf5e1mgvm9L_OH2kc",
+   "token_type": "Bearer",
+   "expires_at": "2026-11-07T04:02:40.264Z",
+   "merchant_id": "mer_carlos",
+   "device": {
+    "new_device": true,
+    "cooldown_until": null
+   }
+  }
+ },
+ "limits": {
+  "status": 200,
+  "body": {
+   "tier": "BASIC",
+   "tier_label": "Básico",
+   "tier_max": {
+    "per_tx_cents": 100000,
+    "daily_cents": 300000,
+    "daily_count": 50
+   },
+   "own": {
+    "per_tx_cents": 100000,
+    "daily_cents": 300000,
+    "daily_count": 50
+   },
+   "per_tx_cents": 100000,
+   "daily_cents": 300000,
+   "daily_count": 50,
+   "step_up_over_cents": 50000,
+   "cooldown_until": null,
+   "pending": null,
+   "usage_today": {
+    "count": 0,
+    "amount_cents": 0
+   }
+  }
+ },
+ "devices": {
+  "status": 200,
+  "body": {
+   "data": [
+    {
+     "id_suffix": "456789",
+     "ref": "current",
+     "label": "Demo",
+     "current": true,
+     "first_seen_at": "2026-11-07T03:47:40.260Z",
+     "last_seen_at": "2026-11-07T03:47:40.260Z",
+     "cooldown_until": null
+    }
+   ]
+  }
+ },
+ "alerts": {
+  "status": 200,
+  "body": {
+   "data": []
+  }
+ },
+ "createLink": {
+  "status": 201,
+  "body": {
+   "id": "lnk_b2975adc8ac214bf",
+   "amount_cents": 5000,
+   "fee_cents": 50,
+   "net_cents": 4950,
+   "currency": "PEN",
+   "concept": "Pedido",
+   "status": "DRAFT",
+   "expires_at": "2026-11-09T03:47:40.366Z",
+   "created_at": "2026-11-07 03:47:40",
+   "paid_at": null,
+   "url": null,
+   "payment_code": null,
+   "risk": {
+    "decision": "APPROVE"
+   }
+  }
+ },
+ "issueLink": {
+  "status": 200,
+  "body": {
+   "id": "lnk_b2975adc8ac214bf",
+   "amount_cents": 5000,
+   "fee_cents": 50,
+   "net_cents": 4950,
+   "currency": "PEN",
+   "concept": "Pedido",
+   "status": "ACTIVE",
+   "expires_at": "2026-11-09T03:47:40.366Z",
+   "created_at": "2026-11-07 03:47:40",
+   "paid_at": null,
+   "url": "http://localhost:5173/pay/ijfnTgM06KMxE9OEr4ddoA.6j2J6A-axhhV",
+   "payment_code": null,
+   "code": "ijfnTgM06KMxE9OEr4ddoA.6j2J6A-axhhV"
+  }
+ },
+ "publicLink": {
+  "status": 200,
+  "body": {
+   "code": "ijfnTgM06KMxE9OEr4ddoA.6j2J6A-axhhV",
+   "merchant": {
+    "name": "Confecciones Carlos & Hnos.",
+    "verification": "BASIC",
+    "ruc_masked": "1045•••011",
+    "city": "Lima"
+   },
+   "concept": "Pedido",
+   "amount_cents": 5000,
+   "currency": "PEN",
+   "expires_at": "2026-11-09T03:47:40.366Z",
+   "payment_code": null
+  }
+ },
+ "pay": {
+  "status": 200,
+  "body": {
+   "sandbox": true,
+   "webhook": {
+    "received": true,
+    "event_id": "evt_-PsbPOetSm8CYhYi:000",
+    "status": "PROCESSED",
+    "reason": null,
+    "payment_id": "pay_4b8a540d2954c803edef",
+    "link_id": "lnk_b2975adc8ac214bf",
+    "net_credited_cents": 4950,
+    "fee_charged_cents": 50,
+    "points_awarded": 5
+   }
+  }
+ },
+ "createPurchase": {
+  "status": 422,
+  "body": {
+   "error": {
+    "code": "RULE_3_2",
+    "message": "Regla 3.2: Ya tienes una compra activa. Debes saldarla para comprar de nuevo."
+   }
+  }
+ }
+}

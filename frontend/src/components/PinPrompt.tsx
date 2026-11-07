@@ -68,22 +68,28 @@ const PinSheet: React.FC<{ request: PinRequestState; onCancel: () => void }> = (
   const [pin, setPin] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [ok, setOk] = useState(false);
+  const [shakeKey, setShakeKey] = useState(0);
 
   const submit = async (value: string) => {
     setBusy(true);
     setError(null);
     try {
       await opts.verify(value);
+      setOk(true);
+      setBusy(false);
+      await new Promise((r) => setTimeout(r, 700)); // deja ver la confirmación
       request.resolve();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No pudimos verificar el PIN.');
+      setShakeKey((k) => k + 1);
       setPin('');
       setBusy(false);
     }
   };
 
   const press = (key: string) => {
-    if (busy) return;
+    if (busy || ok) return;
     if (key === 'del') {
       setPin((p) => p.slice(0, -1));
       return;
@@ -152,19 +158,32 @@ const PinSheet: React.FC<{ request: PinRequestState; onCancel: () => void }> = (
             </div>
           )}
 
-          <div className="flex justify-center gap-3 py-1" aria-live="polite" aria-label={`${pin.length} de 6 dígitos ingresados`}>
+          <motion.div
+            key={shakeKey}
+            className="flex justify-center gap-3 py-1"
+            animate={shakeKey ? { x: [-10, 10, -8, 8, -4, 4, 0] } : {}}
+            transition={{ duration: 0.4 }}
+            aria-live="polite"
+            aria-label={`${pin.length} de 6 dígitos ingresados`}
+          >
             {Array.from({ length: 6 }, (_, i) => (
-              <span
+              <motion.span
                 key={i}
+                animate={ok ? { scale: [1, 1.5, 1] } : {}}
+                transition={{ duration: 0.4, delay: ok ? i * 0.05 : 0 }}
                 className={`w-3.5 h-3.5 rounded-full border-2 transition ${
-                  i < pin.length ? 'bg-[#1a3bb0] border-[#1a3bb0]' : error ? 'border-red-400' : 'border-[#c5c5d6]'
+                  ok ? 'bg-emerald-500 border-emerald-500' : i < pin.length ? 'bg-[#1a3bb0] border-[#1a3bb0]' : error ? 'border-red-400' : 'border-[#c5c5d6]'
                 }`}
               />
             ))}
-          </div>
+          </motion.div>
 
           <div className="min-h-[18px] text-center" role="alert">
-            {busy ? (
+            {ok ? (
+              <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-600">
+                <ShieldCheck size={14} aria-hidden="true" /> PIN correcto
+              </span>
+            ) : busy ? (
               <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#1a3bb0]">
                 <Loader2 size={14} className="motion-safe:animate-spin" aria-hidden="true" /> Verificando…
               </span>
@@ -181,7 +200,7 @@ const PinSheet: React.FC<{ request: PinRequestState; onCancel: () => void }> = (
                 <button
                   key={i}
                   type="button"
-                  disabled={busy}
+                  disabled={busy || ok}
                   onClick={() => press(key)}
                   aria-label={key === 'del' ? 'Borrar último dígito' : key}
                   className="h-12 rounded-2xl bg-[#f9f9ff] border border-[#e1e8f8] text-lg font-black text-[#0b2545] flex items-center justify-center active:scale-95 transition disabled:opacity-50 cursor-pointer"

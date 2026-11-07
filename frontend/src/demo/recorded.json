@@ -1,0 +1,649 @@
+{
+ "/public/stats": {
+  "status": 200,
+  "body": {
+   "active_businesses": 18500,
+   "verified_providers": 2400,
+   "average_approval_minutes": 5,
+   "timestamp": "2026-11-07T03:47:13.401Z"
+  }
+ },
+ "/catalogs/business-categories": {
+  "status": 200,
+  "body": [
+   {
+    "code": "FASHION",
+    "label": "Ropa y Moda",
+    "icon": "apparel",
+    "description": "Prendas de vestir, telas y confecciones"
+   },
+   {
+    "code": "FOOD",
+    "label": "Comida / Bodega",
+    "icon": "storefront",
+    "description": "Abarrotes, alimentos y restaurantes"
+   },
+   {
+    "code": "BEAUTY",
+    "label": "Belleza y Cuidado",
+    "icon": "spa",
+    "description": "Cosméticos, peluquería y cuidado personal"
+   },
+   {
+    "code": "CRAFTS",
+    "label": "Artesanías y Regalos",
+    "icon": "palette",
+    "description": "Artesanías, regalos y papelería"
+   },
+   {
+    "code": "FOOTWEAR",
+    "label": "Calzado",
+    "icon": "roller_skating",
+    "description": "Zapatos, zapatillas y marroquinería"
+   },
+   {
+    "code": "OTHER",
+    "label": "Otros productos",
+    "icon": "category",
+    "description": "Venta de diversos artículos y servicios"
+   }
+  ]
+ },
+ "/catalogs/seniority-ranges": {
+  "status": 200,
+  "body": [
+   {
+    "code": "STARTING",
+    "label": "0–6 meses",
+    "subtitle": "Emprendimiento en fase inicial"
+   },
+   {
+    "code": "GROWING",
+    "label": "6–12 meses",
+    "subtitle": "Negocio con tracción y clientela fija"
+   },
+   {
+    "code": "CONSOLIDATED",
+    "label": "Más de 1 año",
+    "subtitle": "Accede a cuotas extendidas sin comisiones iniciales"
+   }
+  ]
+ },
+ "/catalogs/provider-categories": {
+  "status": 200,
+  "body": [
+   {
+    "code": "TEXTILES",
+    "label": "Textiles y Confecciones",
+    "subtitle": "Telas, avíos, hilos y prendas mayoristas"
+   },
+   {
+    "code": "FOOTWEAR",
+    "label": "Calzado e Insumos",
+    "subtitle": "Cueros, suelas y calzado terminado"
+   },
+   {
+    "code": "FOOD_WHOLESALE",
+    "label": "Alimentos al por mayor",
+    "subtitle": "Abarrotes, granos, sacos y bebidas"
+   },
+   {
+    "code": "HARDWARE",
+    "label": "Ferretería y Herramientas",
+    "subtitle": "Materiales, pinturas y equipos"
+   },
+   {
+    "code": "TECH_PARTS",
+    "label": "Tecnología / Repuestos",
+    "subtitle": "Componentes, accesorios y electrónica"
+   },
+   {
+    "code": "OTHER",
+    "label": "Otro rubro",
+    "subtitle": "Otros insumos y productos industriales"
+   }
+  ]
+ },
+ "/catalogs/provider-seniority-ranges": {
+  "status": 200,
+  "body": [
+   {
+    "code": "LT_6M",
+    "label": "Menos de 6 meses",
+    "subtitle": "Lanzamiento y primeras ventas mayoristas"
+   },
+   {
+    "code": "6M_1Y",
+    "label": "6 meses a 1 año",
+    "subtitle": "Tracción comercial temprana"
+   },
+   {
+    "code": "1Y_3Y",
+    "label": "1 a 3 años",
+    "subtitle": "Operación consolidada con cartera fija"
+   },
+   {
+    "code": "GT_3Y",
+    "label": "Más de 3 años",
+    "subtitle": "Madurez, alto volumen y padrón SUNAT continuo"
+   }
+  ]
+ },
+ "/merchants/me/home": {
+  "status": 200,
+  "body": {
+   "greeting_name": "Carlos",
+   "greeting_prefix": "Buenas noches",
+   "credit": {
+    "total_limit_cents": 140000,
+    "used_cents": 11800,
+    "available_cents": 128200,
+    "purchasing_power_cents": 256400,
+    "level": 1,
+    "level_name": "Brote",
+    "down_payment_pct": 50,
+    "revolving": true,
+    "status": "ACTIVE"
+   },
+   "next_installment": {
+    "installment_id": "inst_02",
+    "merchant_name": "Confecciones Don Lucho & Hnos. S.A.C.",
+    "number": 2,
+    "total": 3,
+    "due_date": "2026-11-07",
+    "amount_cents": 4326
+   },
+   "level_progress": {
+    "consecutive_on_time": 1,
+    "target": 3,
+    "next_level": 2,
+    "next_down_payment_pct": 40
+   },
+   "promotions": [
+    {
+     "id": "promo_02",
+     "category": "FOOD",
+     "tag": "Alimentos",
+     "headline": "0% de interés",
+     "discount_pct": 0,
+     "partner_name": "Red de Bodegas",
+     "description": "Compra abarrotes al por mayor y financia con Kuota QR sin comisiones extra.",
+     "condition": "Solo pago puntual",
+     "ends_in_days": 5,
+     "active": 1
+    },
+    {
+     "id": "promo_01",
+     "category": "FASHION",
+     "tag": "Textil",
+     "headline": "30% dcto en inicial",
+     "discount_pct": 30,
+     "partner_name": "Comercios Gamarra",
+     "description": "Aplica en rollos de lino y algodón pima, hasta 3 cuotas.",
+     "condition": "Válido para compras mayores a S/ 200",
+     "ends_in_days": 7,
+     "active": 1
+    },
+    {
+     "id": "promo_03",
+     "category": "FOOTWEAR",
+     "tag": "Calzado",
+     "headline": "Paga en 60 días",
+     "discount_pct": 0,
+     "partner_name": "Fabricantes Trujillanos",
+     "description": "Cuotas quincenales diferidas para abastecimiento de temporada escolar.",
+     "condition": "Nivel 2 en adelante",
+     "ends_in_days": 10,
+     "active": 1
+    }
+   ],
+   "unread_notifications": 2
+  }
+ },
+ "/merchants/me/kuotear": {
+  "status": 200,
+  "body": {
+   "credit": {
+    "available_cents": 128200,
+    "level": 1,
+    "level_name": "Brote"
+   },
+   "next_installment": {
+    "due_date": "2026-11-07",
+    "amount_cents": 4326
+   },
+   "score": {
+    "value": 720,
+    "label": "Bueno"
+   },
+   "actions": {
+    "buy_on_credit": {
+     "enabled": false,
+     "reason": "Ya tienes una compra a crédito activa (Regla 3.2)."
+    },
+    "collect": {
+     "enabled": true,
+     "fee_pct": 1
+    },
+    "simulate": {
+     "enabled": true
+    }
+   }
+  }
+ },
+ "/merchants/me/welcome-summary": {
+  "status": 200,
+  "body": {
+   "business": {
+    "name": "Confecciones Carlos & Hnos.",
+    "ruc": "10458923011",
+    "city": "Lima",
+    "category": "FASHION",
+    "district": "La Victoria",
+    "status": "ACTIVE"
+   },
+   "credit_line": {
+    "total_limit_cents": 140000,
+    "level": 1,
+    "level_name": "Brote",
+    "down_payment_pct": 50
+   },
+   "next_level": {
+    "level": 2,
+    "limit_cents": 350000,
+    "hint": "en 60 días con pagos puntuales"
+   }
+  }
+ },
+ "/merchants/me/products": {
+  "status": 200,
+  "body": [
+   {
+    "id": "prod_01",
+    "merchant_id": "mer_carlos",
+    "session_id": null,
+    "name": "Blusa de lino italiana",
+    "price_cents": 4500,
+    "currency": "PEN",
+    "is_frequent": 1,
+    "sort_order": 1,
+    "deleted_at": null,
+    "created_at": "2026-11-07 03:47:05",
+    "updated_at": "2026-11-07 03:47:05"
+   },
+   {
+    "id": "prod_02",
+    "merchant_id": "mer_carlos",
+    "session_id": null,
+    "name": "Polo Pima Oversize 24/1",
+    "price_cents": 3500,
+    "currency": "PEN",
+    "is_frequent": 1,
+    "sort_order": 2,
+    "deleted_at": null,
+    "created_at": "2026-11-07 03:47:05",
+    "updated_at": "2026-11-07 03:47:05"
+   },
+   {
+    "id": "prod_03",
+    "merchant_id": "mer_carlos",
+    "session_id": null,
+    "name": "Pantalón drill confort",
+    "price_cents": 6800,
+    "currency": "PEN",
+    "is_frequent": 0,
+    "sort_order": 3,
+    "deleted_at": null,
+    "created_at": "2026-11-07 03:47:05",
+    "updated_at": "2026-11-07 03:47:05"
+   }
+  ]
+ },
+ "/merchants/me/sales/summary": {
+  "status": 200,
+  "body": {
+   "total_revenue_cents": 0,
+   "verified": {
+    "count": 0,
+    "total_cents": 0,
+    "label": "Comprobadas (Yape / Plin / Link)"
+   },
+   "declared": {
+    "count": 0,
+    "total_cents": 0,
+    "label": "Declaradas manual"
+   }
+  }
+ },
+ "/merchants/me/sales?": {
+  "status": 200,
+  "body": []
+ },
+ "/credit/line": {
+  "status": 200,
+  "body": {
+   "line": {
+    "id": "line_carlos",
+    "status": "ACTIVE",
+    "total_limit_cents": 140000,
+    "used_cents": 11800,
+    "available_cents": 128200
+   },
+   "level": {
+    "level": 1,
+    "name": "Brote",
+    "down_payment_pct": 50
+   },
+   "next_level": {
+    "level": 2,
+    "name": "Raíz",
+    "down_payment_pct": 40,
+    "max_line_cents": 350000,
+    "progress": {
+     "current": 1,
+     "target": 3
+    }
+   },
+   "pending_installments_count": 2
+  }
+ },
+ "/credit/levels": {
+  "status": 200,
+  "body": [
+   {
+    "level": 1,
+    "name": "Brote",
+    "down_payment_pct": 50,
+    "max_line_cents": 140000,
+    "promote_after_on_time": 3,
+    "demote_after_late": 1
+   },
+   {
+    "level": 2,
+    "name": "Raíz",
+    "down_payment_pct": 40,
+    "max_line_cents": 350000,
+    "promote_after_on_time": 3,
+    "demote_after_late": 1
+   },
+   {
+    "level": 3,
+    "name": "Tallo",
+    "down_payment_pct": 30,
+    "max_line_cents": 700000,
+    "promote_after_on_time": 3,
+    "demote_after_late": 1
+   },
+   {
+    "level": 4,
+    "name": "Rama",
+    "down_payment_pct": 20,
+    "max_line_cents": 1200000,
+    "promote_after_on_time": 3,
+    "demote_after_late": 1
+   },
+   {
+    "level": 5,
+    "name": "Fruto",
+    "down_payment_pct": 10,
+    "max_line_cents": 2000000,
+    "promote_after_on_time": 3,
+    "demote_after_late": 1
+   },
+   {
+    "level": 6,
+    "name": "Cosecha",
+    "down_payment_pct": 0,
+    "max_line_cents": 3500000,
+    "promote_after_on_time": 3,
+    "demote_after_late": 1
+   }
+  ]
+ },
+ "/credit/purchases/active": {
+  "status": 200,
+  "body": {
+   "id": "pur_active_01",
+   "plan": "Plan 3X",
+   "status": "ACTIVE_ON_TIME",
+   "provider": {
+    "id": "prov_donlucho",
+    "name": "Confecciones Don Lucho & Hnos. S.A.C.",
+    "address": "Galería Santa Rosa, Tda. 204 - Jr. Gamarra 840, La Victoria",
+    "phone": "+51 984 521 893"
+   },
+   "total_cents": 23600,
+   "down_payment_cents": 11800,
+   "down_payment_pct": 50,
+   "financed_cents": 11800,
+   "installments_count": 3,
+   "amortized_pct": 67,
+   "installments": [
+    {
+     "id": "inst_01",
+     "purchase_id": "pur_active_01",
+     "number": 1,
+     "amount_cents": 4326,
+     "principal_cents": 3933,
+     "interest_cents": 393,
+     "due_date": "2026-10-31",
+     "status": "PAID",
+     "paid_at": "2026-10-31 10:15:00",
+     "late_days": 0
+    },
+    {
+     "id": "inst_02",
+     "purchase_id": "pur_active_01",
+     "number": 2,
+     "amount_cents": 4326,
+     "principal_cents": 3933,
+     "interest_cents": 393,
+     "due_date": "2026-11-07",
+     "status": "PENDING",
+     "paid_at": null,
+     "late_days": 0
+    },
+    {
+     "id": "inst_03",
+     "purchase_id": "pur_active_01",
+     "number": 3,
+     "amount_cents": 4326,
+     "principal_cents": 3934,
+     "interest_cents": 392,
+     "due_date": "2026-11-21",
+     "status": "PENDING",
+     "paid_at": null,
+     "late_days": 0
+    }
+   ],
+   "next_installment": {
+    "id": "inst_02",
+    "number": 2,
+    "total": 3,
+    "due_date": "2026-11-07",
+    "amount_cents": 4326
+   },
+   "receipt_number": "KQ-REC-8921-PE",
+   "issued_at": "2026-10-24"
+  }
+ },
+ "/providers/savings-estimate": {
+  "status": 200,
+  "body": {
+   "annual_revenue_cents": 2400000,
+   "market_rate_pct": 3.45,
+   "kuota_rate_pct": 1,
+   "market_cost_cents": 82800,
+   "kuota_cost_cents": 24000,
+   "savings_cents": 58800,
+   "savings_pct": 71,
+   "benefits": [
+    {
+     "code": "FIXED_FEE",
+     "title": "Comisión fija de 1.00%",
+     "subtitle": "Sin escalas ocultas ni cambios sorpresa"
+    },
+    {
+     "code": "INSTANT_PAYOUT",
+     "title": "Abono inmediato garantizado",
+     "subtitle": "A tu cuenta bancaria sin retenciones de fin de semana"
+    },
+    {
+     "code": "NO_HIDDEN_COSTS",
+     "title": "Cero costos fijos ni letras chicas",
+     "subtitle": "Sin mensualidades ni costos por terminal"
+    },
+    {
+     "code": "COMPLIANCE",
+     "title": "Cumplimiento y regulación bancaria",
+     "subtitle": "Transferencias interbancarias 100% seguras"
+    }
+   ]
+  }
+ },
+ "/providers/recommended": {
+  "status": 200,
+  "body": [
+   {
+    "id": "prov_donlucho",
+    "name": "Confecciones Don Lucho & Hnos.",
+    "category": "Textil e Insumos",
+    "badge": "Mayorista Verificado",
+    "max_credit_cents": 120000,
+    "zone": "Gamarra, Lima",
+    "rating": 4.9
+   },
+   {
+    "id": "prov_distlima",
+    "name": "Distribuidora Lima Mayorista",
+    "category": "Abarrotes y Alimentos",
+    "badge": "Top Proveedor",
+    "max_credit_cents": 80000,
+    "zone": "Mercado Central, Lima",
+    "rating": 4.8
+   },
+   {
+    "id": "prov_alicorp",
+    "name": "Alicorp Distribución Directa",
+    "category": "Insumos Alimentarios",
+    "badge": "Oficial",
+    "max_credit_cents": 140000,
+    "zone": "Callao, Lima",
+    "rating": 5
+   }
+  ]
+ },
+ "/providers/affiliated": {
+  "status": 200,
+  "body": [
+   {
+    "id": "prov_donlucho",
+    "name": "Confecciones Don Lucho & Hnos. S.A.C.",
+    "category": "TEXTILES",
+    "description": "Proveedor registrado en Kuota.",
+    "badge": "Verificado",
+    "address": "Galería Santa Rosa, Tda. 204 - Jr. Gamarra 840",
+    "district": "La Victoria",
+    "zone": "Lima",
+    "phone": "+51984521893",
+    "min_order_cents": 10000,
+    "max_order_cents": 4500000,
+    "rating": null,
+    "reviews": 0
+   }
+  ]
+ },
+ "/credit/score/me": {
+  "status": 200,
+  "body": {
+   "base": 300,
+   "payment_behavior": 0,
+   "sales_regularity": 0,
+   "payer_diversity": 0,
+   "geo_stability": 50,
+   "kyc_bonus": 0,
+   "sunat_activo": 80,
+   "formalizacion": 30,
+   "captura_pagos": 0,
+   "total": 460,
+   "level": 1,
+   "label": "Básico",
+   "scoring_level": 1
+  }
+ },
+ "/merchants/me/notifications/preferences": {
+  "status": 200,
+  "body": {
+   "push_enabled": true,
+   "unread_count": 2,
+   "workshop": {
+    "id": "wk_sunat_formalizacion",
+    "title": "Mentorías y Formalización: Cómo declarar tus ingresos ante SUNAT sin enredos",
+    "speaker": "Especialista Contable B2B",
+    "channel": "Vía Zoom",
+    "seats_note": "Cupos limitados",
+    "starts_at": "2026-11-08T00:00:00.000Z",
+    "free_for_clients": true,
+    "reminder_set": false
+   }
+  }
+ },
+ "/auth/me": {
+  "status": 401,
+  "body": {
+   "error": {
+    "code": "NOT_AUTHENTICATED",
+    "message": "No hay sesión activa."
+   }
+  }
+ },
+ "/kyc/sunat-stats": {
+  "status": 200,
+  "body": {
+   "total_consultas": 0,
+   "consultas_exitosas": 0,
+   "consultas_fallidas": 0,
+   "tasa_exito": "100%",
+   "tiempo_promedio_ms": "0.0",
+   "cache_size": 0,
+   "padron_registros": 9,
+   "status": "healthy"
+  }
+ },
+ "/kyc/business-lookup/20100070970": {
+  "status": 200,
+  "body": {
+   "success": true,
+   "identified": true,
+   "already_registered": false,
+   "warning": null,
+   "data": {
+    "ruc": "20100070970",
+    "razon_social": "SUPERMERCADOS PERUANOS SOCIEDAD ANONIMA 'O ' S.P.S.A.",
+    "nombre_comercial": "SUPERMERCADOS PERUANOS SOCIEDAD ANONIMA 'O ' S.P.S.A.",
+    "tipo_contribuyente": "SOCIEDAD ANONIMA",
+    "actividad_principal": "Actividad económica registrada en SUNAT",
+    "actividades_secundarias": "Comercio y distribución",
+    "estado_contribuyente": "ACTIVO",
+    "condicion_domicilio": "HABIDO",
+    "direccion_fiscal": "CAL. MORELLI NRO 181 INT. P-2 , SAN BORJA, LIMA",
+    "ubigeo": "150130",
+    "departamento": "LIMA",
+    "provincia": "LIMA",
+    "distrito": "SAN BORJA",
+    "fuente_datos": "SUNAT Consulta en Vivo",
+    "fecha_consulta": "2026-11-07T03:47:14.280Z"
+   },
+   "response_time_ms": 557
+  }
+ },
+ "/onboarding/reniec/12345678": {
+  "status": 404,
+  "body": {
+   "error": {
+    "code": "DNI_NOT_FOUND",
+    "message": "No tenemos un nombre sugerido para ese DNI."
+   }
+  }
+ }
+}
