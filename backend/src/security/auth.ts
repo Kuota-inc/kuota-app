@@ -299,6 +299,45 @@ export async function revokeSessions(merchantId: string, opts: { exceptSessionId
     .run(now, merchantId, opts.exceptSessionId ?? null)).changes;
 }
 
+// ------------------------------------------- token de identidad del dispositivo
+// El id del comercio (X-Merchant-Id) NO es un secreto. Quien inicia sesión recibe además un
+// token aleatorio de 256 bits ligado a su dispositivo (se guarda solo su hash, vence a los 30 días)
+// que el cliente envía en X-Merchant-Token junto con X-Device-Id.
+const IDENTITY_TTL_HOURS = 24 * 30;
+
+export async function issueIdentityToken(merchantId: string, deviceId: string): Promise<string> {
+  const token = randomToken(32);
+  await db
+    .prepare('UPDATE merchant_devices SET identity_token_hash = ?, identity_token_expires_at = ? WHERE merchant_id = ? AND device_id = ? AND revoked_at IS NULL')
+    .run(sha256Hex(token), addHours(new Date(), IDENTITY_TTL_HOURS).toISOString(), merchantId, deviceId);
+  return token;
+}
+
+/** Invalida los tokens de identidad del comercio (todos, o todos menos el de un dispositivo). */
+export async function revokeIdentityTokens(merchantId: string, exceptDeviceId?: string) {
+  await db
+    .prepare('UPDATE merchant_devices SET identity_token_hash = NULL, identity_token_expires_at = NULL WHERE merchant_id = ? AND device_id IS DISTINCT FROM ?')
+    .run(merchantId, exceptDeviceId ?? null);
+}
+
+export function merchantTokenRequired(): boolean {
+  const flag = process.env.KUOTA_REQUIRE_MERCHANT_TOKEN;
+  return config.isProd ? flag !== '0' : flag === '1';
+}
+
+/** Comprueba X-Merchant-Token + X-Device-Id contra el comercio indicado. */
+export async function verifyIdentityToken(req: Request, merchantId: string): Promise<boolean> {
+  const token = headerString(req, 'x-merchant-token');
+  const deviceId = headerString(req, 'x-device-id');
+  if (!token || !deviceId || !isValidDeviceId(deviceId)) return false;
+  const row = (await db
+    .prepare('SELECT identity_token_hash, identity_token_expires_at, revoked_at FROM merchant_devices WHERE merchant_id = ? AND device_id = ?')
+    .get(merchantId, deviceId)) as { identity_token_hash: string | null; identity_token_expires_at: string | null; revoked_at: string | null } | undefined;
+  if (!row?.identity_token_hash || row.revoked_at) return false;
+  if (!row.identity_token_expires_at || new Date(row.identity_token_expires_at) < new Date()) return false;
+  return safeEqual(row.identity_token_hash, sha256Hex(token));
+}
+
 /** Exige sesión válida, no revocada y del mismo dispositivo que la abrió. */
 export async function requireMerchant(req: Request, res: Response, next: NextFunction) {
   const header = headerString(req, 'authorization');

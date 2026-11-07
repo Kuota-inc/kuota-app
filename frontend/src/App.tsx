@@ -111,6 +111,14 @@ function AppShell() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // El token de identidad dejó de valer (venció o se revocó): volver al inicio de sesión.
+  useEffect(() => {
+    const onLogout = () => handleLogout();
+    window.addEventListener('kuota:logout', onLogout);
+    return () => window.removeEventListener('kuota:logout', onLogout);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Natural step-by-step back navigation
   const handleBack = () => {
     switch (currentScreen) {

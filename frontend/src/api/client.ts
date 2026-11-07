@@ -1,3 +1,5 @@
+import { deviceId } from './payments';
+
 // URL del backend: VITE_API_BASE (p. ej. la IP de la PC en la red Wi-Fi para el APK,
 // ver .env.android). Sin ella, el backend de desarrollo en el mismo host que sirvió la
 // página: así la página de pago abierta en otro celular (http://<ip-pc>:5173/pay/…)
@@ -48,8 +50,31 @@ export function getMerchantId(): string | null {
   }
 }
 
+// Token secreto de identidad de este dispositivo (el id del comercio no es un secreto).
+const MERCHANT_TOKEN_KEY = 'kuota.merchant_token';
+let memoryMerchantToken: string | null = null;
+
+export function getMerchantToken(): string | null {
+  try {
+    return localStorage.getItem(MERCHANT_TOKEN_KEY) ?? memoryMerchantToken;
+  } catch {
+    return memoryMerchantToken;
+  }
+}
+
+export function setMerchantToken(token: string | null) {
+  memoryMerchantToken = token;
+  try {
+    if (token) localStorage.setItem(MERCHANT_TOKEN_KEY, token);
+    else localStorage.removeItem(MERCHANT_TOKEN_KEY);
+  } catch {
+    /* almacenamiento no disponible: queda en memoria */
+  }
+}
+
 export function setMerchantId(id: string | null) {
   memoryMerchantId = id;
+  if (!id) setMerchantToken(null);
   try {
     if (id) localStorage.setItem(MERCHANT_KEY, id);
     else localStorage.removeItem(MERCHANT_KEY);
@@ -110,6 +135,7 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestInit
   const headers = {
     'Content-Type': 'application/json',
     ...(merchantId ? { 'X-Merchant-Id': merchantId } : {}),
+    ...(getMerchantToken() ? { 'X-Merchant-Token': getMerchantToken() as string, 'X-Device-Id': deviceId() } : {}),
     ...(providerId ? { 'X-Provider-Id': providerId } : {}),
     ...(getProviderToken() ? { 'X-Provider-Token': getProviderToken() as string } : {}),
     ...(options.headers || {})
@@ -127,6 +153,10 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestInit
   } catch (err: any) {
     // Solo fallas inesperadas (red o servidor); los 4xx son flujos que maneja la interfaz
     // (PIN, límites, confirmaciones). Sin el cuerpo: puede traer datos del comercio.
+    // El token de identidad venció o fue revocado: volver al inicio de sesión.
+    if (err instanceof ApiError && err.code === 'MERCHANT_AUTH_REQUIRED') {
+      window.dispatchEvent(new Event('kuota:logout'));
+    }
     if (!(err instanceof ApiError) || err.status >= 500) {
       console.error(`API Call failed: ${endpoint}`, err?.code ?? err?.name ?? 'error');
     }
@@ -206,12 +236,17 @@ export const api = {
       body: JSON.stringify(data || {})
     }).then((res: any) => {
       if (res?.merchant_id) setMerchantId(res.merchant_id);
+      if (res?.identity_token) setMerchantToken(res.identity_token);
       return res;
     }),
   setSecurityPin: (sessionId: string, pin: string) =>
     apiRequest(`/onboarding/sessions/${sessionId}/security-pin`, {
       method: 'POST',
-      body: JSON.stringify({ pin })
+      body: JSON.stringify({ pin }),
+      headers: { 'X-Device-Id': deviceId() }
+    }).then((res: any) => {
+      if (res?.identity_token) setMerchantToken(res.identity_token);
+      return res;
     }),
 
   // Merchant Dashboard

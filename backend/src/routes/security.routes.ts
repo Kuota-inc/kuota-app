@@ -17,8 +17,12 @@ import {
   linkDevice,
   requireMerchant,
   resolveClaimedMerchant,
+  issueIdentityToken,
+  merchantTokenRequired,
+  revokeIdentityTokens,
   revokeSessions,
   setMerchantPinHash,
+  verifyIdentityToken,
   stepUpRequired
 } from '../security/auth.js';
 import { alertMerchant, recentAlerts } from '../security/events.js';
@@ -39,6 +43,9 @@ authRouter.get('/me', async (req, res) => {
   if (!claimed) return fail(res, 401, 'NOT_AUTHENTICATED', 'No hay sesión activa.');
   const merchant = await getMerchant(claimed);
   if (!merchant) return fail(res, 404, 'SESSION_EXPIRED', 'La sesión expiró. Vuelve a iniciar sesión.');
+  if (merchantTokenRequired() && !(await verifyIdentityToken(req, merchant.id))) {
+    return fail(res, 401, 'MERCHANT_AUTH_REQUIRED', 'Tu sesión no es válida. Vuelve a iniciar sesión.');
+  }
   res.json({ merchant_id: merchant.id, business_name: merchant.business_name });
 });
 
@@ -134,11 +141,13 @@ authRouter.post('/pin/recover', authLimiter, async (req, res) => {
   await setMerchantPinHash(merchant.id, hashPin(newPin));
   await db.prepare('UPDATE merchant_credentials SET cooldown_until = ? WHERE merchant_id = ?').run(cooldownUntil, merchant.id);
   const closed = await revokeSessions(merchant.id);
+  await revokeIdentityTokens(merchant.id);
   recoverFailures.delete(merchant.id);
 
   const label = typeof req.body?.device_label === 'string' ? req.body.device_label.replace(/[\u0000-\u001f<>]/g, '').slice(0, 60) : null;
   const device = await linkDevice(merchant.id, deviceId, label, ip);
   const session = await issueSession(merchant.id, deviceId);
+  const identityToken = await issueIdentityToken(merchant.id, deviceId);
   await audit({ actorType: 'MERCHANT', actorId: merchant.id, action: 'PIN_RESET', result: 'OK', ip, deviceId, details: { method: 'DNI_RECOVERY', sessions_closed: closed, cooldown_until: cooldownUntil } });
   await alertMerchant(
     merchant.id,
@@ -151,6 +160,7 @@ authRouter.post('/pin/recover', authLimiter, async (req, res) => {
     token_type: 'Bearer',
     expires_at: session.expiresAt,
     merchant_id: merchant.id,
+    identity_token: identityToken,
     device: { new_device: device.isNew, cooldown_until: device.cooldownUntil ?? null }
   });
 });
@@ -175,12 +185,14 @@ authRouter.post('/sessions', authLimiter, async (req, res) => {
   const device = await linkDevice(merchant.id, deviceId, label, ip);
   if (device.revoked) return fail(res, 403, 'DEVICE_REVOKED', 'Este dispositivo fue desvinculado de tu cuenta.');
   const session = await issueSession(merchant.id, deviceId);
+  const identityToken = await issueIdentityToken(merchant.id, deviceId);
   await audit({ actorType: 'MERCHANT', actorId: merchant.id, action: 'SESSION_OPEN', target: session.sessionId, result: 'OK', ip, deviceId, details: { new_device: device.isNew } });
   res.status(201).json({
     access_token: session.accessToken,
     token_type: 'Bearer',
     expires_at: session.expiresAt,
     merchant_id: merchant.id,
+    identity_token: identityToken,
     device: { new_device: device.isNew, cooldown_until: device.cooldownUntil ?? null }
   });
 });
@@ -219,6 +231,7 @@ authRouter.post('/pin/change', authLimiter, requireMerchant, async (req, res) =>
     auth.merchantId
   );
   const closed = await revokeSessions(auth.merchantId, { exceptSessionId: auth.sessionId });
+  await revokeIdentityTokens(auth.merchantId, auth.deviceId);
   await audit({ actorType: 'MERCHANT', actorId: auth.merchantId, action: 'PIN_CHANGED', result: 'OK', ip, deviceId: auth.deviceId, details: { sessions_closed: closed, cooldown_until: cooldownUntil } });
   await alertMerchant(
     auth.merchantId,

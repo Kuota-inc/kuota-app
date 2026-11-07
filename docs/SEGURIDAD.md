@@ -90,7 +90,7 @@ Contenedor (`backend/Dockerfile`): build multi-etapa, imagen `node:24-alpine`, `
 1. Resuelve el comercio (`resolveClaimedMerchant`): cabecera `X-Merchant-Id` si existe; si es obsoleta o falta, por teléfono (`users.phone` → `merchant_profiles`), con respaldo por `merchant_profiles.phone`. En producción jamás se cae a una cuenta demo.
 2. Rechaza dispositivos revocados (403 `DEVICE_REVOKED`).
 3. Verifica el PIN (§4.2).
-4. Vincula el dispositivo (§6) y emite sesión (§5).
+4. Vincula el dispositivo (§6), emite la sesión de 15 min (§5) y el **token de identidad del dispositivo** (§13.2).
 
 ### 4.4 Recuperación de PIN — `POST /auth/pin/recover`
 Para quien olvidó el PIN. Prueba de identidad: **teléfono + DNI del registro**.
@@ -229,7 +229,7 @@ Listas negra/gris/blanca por comercio, dispositivo e IP; la blanca exime de rete
 - `KUOTA_TRUST_PROXY=1` en Railway: se confía en el primer salto del proxy para `req.ip`.
 
 ### 13.2 Identidad en rutas del panel (`security/merchantContext.ts`)
-Las rutas `/merchants/me/*` y `/credit/*` identifican al comercio con `X-Merchant-Id`; **en producción un id ausente o inexistente devuelve 404 `MERCHANT_NOT_FOUND`** (nunca otra cuenta). Pagar cuota, liquidar compra y crear compra verifican que el recurso pertenezca a ese comercio, son atómicos e idempotentes, y la creación de compra se serializa por comercio (sin carreras sobre el límite de crédito).
+El id del comercio (`X-Merchant-Id`) **no es un secreto**; lo que prueba la identidad es el **token de identidad del dispositivo** (`X-Merchant-Token` + `X-Device-Id`): 256 bits aleatorios, guardado solo como SHA-256 en `merchant_devices`, **ligado al dispositivo**, con vencimiento de 30 días. Lo reciben el login, la recuperación de PIN, el cierre del registro y la primera definición del PIN; se **rota en cada login**, se **revoca** al cambiar/recuperar el PIN (y al desvincular el dispositivo) y es exigido por `/merchants/me/*`, `/credit/*` y `/auth/me`. **En producción: sin token válido → 401 `MERCHANT_AUTH_REQUIRED`; id ausente o inexistente → 404 `MERCHANT_NOT_FOUND`** (nunca otra cuenta). La app, al recibir 401, cierra sesión y vuelve al login. Interruptor de emergencia: `KUOTA_REQUIRE_MERCHANT_TOKEN=0` (solo para revertir). Pagar cuota, liquidar compra y crear compra verifican que el recurso pertenezca a ese comercio, son atómicos e idempotentes, y la creación de compra se serializa por comercio (sin carreras sobre el límite de crédito).
 
 ### 13.3 Proveedores
 `POST /businesses/confirm` entrega un **token secreto** (se guarda solo su SHA-256, columna `access_token_hash`, migración 0009). `PUT /providers/activity|settlement-account` y `POST /providers/activate` exigen `X-Provider-Id` + `X-Provider-Token`. Registrar un RUC ya existente responde 409 y no modifica nada.
@@ -252,7 +252,7 @@ Las rutas `/merchants/me/*` y `/credit/*` identifican al comercio con `X-Merchan
 | # | Riesgo | Severidad | Estado | Mitigación recomendada |
 |---|---|---|---|---|
 | R1 | **`KUOTA_SANDBOX=1` activo en producción**: cualquiera con el código de un link puede marcarlo pagado (`/sandbox/360pay/pay`) y confirmar enganches (`/sandbox/openpay/pay`). Los pagos son ficticios | **Crítica si hay dinero real** | Aceptado solo para pruebas | Configurar 360pay y Openpay reales y **quitar la variable** |
-| R2 | **Identidad por cabecera `X-Merchant-Id`** en `/merchants/me` y `/credit` (el id es un identificador, no un secreto; aparece en respuestas) | **Alta** | Mitigado parcialmente (404 sin id) | Derivar el comercio del `access_token` firmado en todas las rutas; no aceptar el id del cliente |
+| R2 | Identidad de comercio por `X-Merchant-Id` (no secreto) | Alta | **Mitigado**: token de identidad por dispositivo exigido en producción (§13.2). Queda como mejora unificar las dos credenciales (sesión de 15 min + token) en una sola sesión renovable | Sesión única con refresh rotatorio y detección de reutilización |
 | R3 | Recuperación de PIN basada en teléfono + DNI (ambos semipúblicos) | Media-alta | Mitigado (límite por cuenta, alerta, enfriamiento) | Añadir OTP por SMS/WhatsApp o prueba de vida (Didit) y enfriar más |
 | R4 | KYC de comercio/proveedor aprobado en modo demo si Didit no está configurado | Alta | **Parcial**: `/providers/activate` ya no auto-aprueba (el estado solo cambia por decisión de verificación) | Configurar Didit |
 | R5 | Roles de base no aplicados (un solo usuario `DATABASE_URL`) | Media | Abierto | Crear usuarios `kuota_core_rw` / `kuota_payments_rw` y definir `PAYMENTS_DATABASE_URL` |
@@ -270,7 +270,7 @@ Las rutas `/merchants/me/*` y `/credit/*` identifican al comercio con `X-Merchan
 
 ## 15. Controles de verificación (pruebas automatizadas)
 
-`backend/test/*.test.ts` (node:test, 63 pruebas): migraciones y roles, PIN hash/bloqueo/sesión ligada al dispositivo, token alterado, links (monto, BOLA, inmutabilidad, vencimiento), step-up de un solo uso, límites y enfriamiento, webhook firmado (ventana, firma, monto, repetición), antifraude, bitácora (cadena rota al alterar), KYC con Didit simulado, 360pay simulado y regresiones de la ronda de QA (`hardening.test.ts`): dueño en pagos de cuotas, no pisar PIN, sesión de onboarding sin fuga, recuperación de PIN, validación de compras, carreras, búsqueda y señales.
+`backend/test/*.test.ts` (node:test, 64 pruebas): migraciones y roles, PIN hash/bloqueo/sesión ligada al dispositivo, token alterado, links (monto, BOLA, inmutabilidad, vencimiento), step-up de un solo uso, límites y enfriamiento, webhook firmado (ventana, firma, monto, repetición), antifraude, bitácora (cadena rota al alterar), KYC con Didit simulado, 360pay simulado y regresiones de la ronda de QA (`hardening.test.ts`): dueño en pagos de cuotas, no pisar PIN, sesión de onboarding sin fuga, recuperación de PIN, validación de compras, carreras, búsqueda y señales.
 
 Auditoría de QA: 8 agentes especializados atacaron la API contra una réplica local de producción (68 hallazgos, de los cuales se corrigieron los críticos y altos de backend; ver §14 para lo pendiente).
 

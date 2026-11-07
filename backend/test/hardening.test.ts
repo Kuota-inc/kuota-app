@@ -220,3 +220,35 @@ describe('Ventas, score y proveedores', () => {
     assert.equal((await call('POST', '/providers/activate', undefined, bad)).status, 401);
   });
 });
+
+describe('Identidad por token de dispositivo (X-Merchant-Token)', () => {
+  test('con el token exigido, el id del comercio por sí solo no abre nada', async () => {
+    resetRateLimits();
+    const a = await register('930000014', '73000014', '739164');
+    const b = await register('930000015', '73000015', '739164');
+    const loginA = await call('POST', '/auth/sessions', { pin: '739164', phone: '+51930000014', device_id: DEVICE });
+    const loginB = await call('POST', '/auth/sessions', { pin: '739164', phone: '+51930000015', device_id: DEVICE });
+    assert.ok(loginA.body.identity_token && loginB.body.identity_token);
+    process.env.KUOTA_REQUIRE_MERCHANT_TOKEN = '1';
+    try {
+      const idOnly = { 'X-Merchant-Id': a.merchantId };
+      assert.equal((await call('GET', '/merchants/me/home', undefined, idOnly)).status, 401, 'solo el id: rechazado');
+      assert.equal((await call('GET', '/credit/line', undefined, idOnly)).status, 401);
+      const mine = { ...idOnly, 'X-Merchant-Token': loginA.body.identity_token, 'X-Device-Id': DEVICE };
+      assert.equal((await call('GET', '/merchants/me/home', undefined, mine)).status, 200, 'con su token: acceso');
+      assert.equal((await call('GET', '/auth/me', undefined, mine)).status, 200);
+      const theirs = { ...idOnly, 'X-Merchant-Token': loginB.body.identity_token, 'X-Device-Id': DEVICE };
+      assert.equal((await call('GET', '/merchants/me/home', undefined, theirs)).status, 401, 'token de otro comercio: rechazado');
+      const otherDevice = { ...mine, 'X-Device-Id': 'hardening_test_device_99' };
+      assert.equal((await call('GET', '/merchants/me/home', undefined, otherDevice)).status, 401, 'token de otro dispositivo: rechazado');
+      // Recuperar el PIN invalida los tokens anteriores y entrega uno nuevo.
+      const rec = await call('POST', '/auth/pin/recover', { phone: '+51930000014', dni: '73000014', new_pin: '861953', device_id: DEVICE });
+      assert.equal(rec.status, 201);
+      assert.equal((await call('GET', '/merchants/me/home', undefined, mine)).status, 401, 'token viejo revocado');
+      const fresh = { ...idOnly, 'X-Merchant-Token': rec.body.identity_token, 'X-Device-Id': DEVICE };
+      assert.equal((await call('GET', '/merchants/me/home', undefined, fresh)).status, 200);
+    } finally {
+      delete process.env.KUOTA_REQUIRE_MERCHANT_TOKEN;
+    }
+  });
+});
