@@ -1,31 +1,11 @@
 import { Router } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { db } from '../db/database.js';
+import { getMerchantProfile } from '../security/merchantContext.js';
 import { getNotificationState, markSeen, parsePreferences, savePreferences, unreadCount } from './notifications.js';
 
 export const merchantRouter = Router();
 
-// Helper to get demo or current merchant profile
-async function getMerchantProfile(req: any) {
-  const merchantId = req.headers['x-merchant-id'] as string;
-  if (merchantId) {
-    const m = await db.prepare('SELECT * FROM merchant_profiles WHERE id = ?').get(merchantId);
-    if (m) return m as any;
-  }
-  let profile = await db.prepare("SELECT * FROM merchant_profiles WHERE id = 'mer_carlos'").get() as any;
-  if (!profile) {
-    profile = await db.prepare("SELECT * FROM merchant_profiles LIMIT 1").get() as any;
-  }
-  if (!profile) {
-    const newId = 'mer_carlos';
-    await db.prepare(`
-      INSERT INTO merchant_profiles (id, dni, full_name, phone, business_name, category, seniority_range, kyc_status)
-      VALUES (?, '47891234', 'CARLOS ALBERTO MENDOZA QUISPE', '987654321', 'Bodega San Martín', 'FOOD', 'CONSOLIDATED', 'APPROVED')
-    `).run(newId);
-    profile = await db.prepare("SELECT * FROM merchant_profiles WHERE id = 'mer_carlos'").get() as any;
-  }
-  return profile;
-}
 
 // PRD 05: Inicio (Home agregado p95 < 400ms)
 merchantRouter.get('/home', async (req, res) => {
@@ -275,9 +255,11 @@ merchantRouter.get('/sales', async (req, res) => {
     query += ' AND verified = 0';
   }
 
-  if (q) {
-    query += ' AND (concept ILIKE ? OR operation_ref ILIKE ?)';
-    params.push(`%${q}%`, `%${q}%`);
+  if (typeof q === 'string' && q.trim()) {
+    // Sin NUL (Postgres lo rechaza) y con %, _ y ! literales: el texto buscado no actúa como comodín.
+    const needle = q.split(String.fromCharCode(0)).join("").slice(0, 80).replace(/[!%_]/g, (c) => "!" + c);
+    query += " AND (concept ILIKE ? ESCAPE '!' OR operation_ref ILIKE ? ESCAPE '!')";
+    params.push(`%${needle}%`, `%${needle}%`);
   }
 
   query += ' ORDER BY occurred_at DESC LIMIT 50';
@@ -288,19 +270,21 @@ merchantRouter.get('/sales', async (req, res) => {
 
 merchantRouter.post('/sales', async (req, res) => {
   const merchant = await getMerchantProfile(req);
-  const { amount_cents, concept, source = 'MANUAL' } = req.body;
+  const { amount_cents, concept } = req.body ?? {};
+  // Una venta escrita a mano siempre es declarada: solo el webhook de pago marca ventas verificadas.
+  const source = 'MANUAL';
 
-  if (!amount_cents || amount_cents <= 0) {
+  if (!Number.isFinite(amount_cents) || amount_cents <= 0 || amount_cents > 100_000_000) {
     return res.status(422).json({ error: { code: 'SALE_AMOUNT_INVALID', message: 'Ingresa un monto válido.' } });
   }
 
   const id = 'sale_' + uuidv4().substring(0, 10);
-  const verified = source === 'PAYMENT_LINK' ? 1 : 0;
+  const verified = 0;
 
   await db.prepare(`
     INSERT INTO sales (id, merchant_id, source, amount_cents, concept, verified, occurred_at)
     VALUES (?, ?, ?, ?, ?, ?, utc_now_text())
-  `).run(id, merchant.id, source, Math.round(amount_cents), concept || 'Venta manual', verified);
+  `).run(id, merchant.id, source, Math.round(amount_cents), (typeof concept === 'string' && concept.trim() ? concept.trim().slice(0, 200) : 'Venta manual'), verified);
 
   // Increase score points (+2 for declared, +5 for verified)
   const points = verified ? 5 : 2;
@@ -331,10 +315,11 @@ merchantRouter.post('/sales/ocr', async (req, res) => {
   const id = 'sale_' + uuidv4().substring(0, 10);
   await db.prepare(`
     INSERT INTO sales (id, merchant_id, source, amount_cents, concept, operation_ref, verified, occurred_at)
-    VALUES (?, ?, ?, ?, ?, ?, 1, utc_now_text())
-  `).run(id, merchant.id, source, amountCents, concept, opRef);
+    VALUES (?, ?, ?, ?, ?, ?, 0, utc_now_text())
+  `).run(id, merchant.id, source, amountCents, String(concept).slice(0, 200), opRef);
 
-  await db.prepare('UPDATE credit_scores SET score = LEAST(850, score + 8) WHERE merchant_id = ?').run(merchant.id);
+  // No hay lectura real del comprobante: queda como venta declarada (+2), nunca verificada.
+  await db.prepare('UPDATE credit_scores SET score = LEAST(850, score + 2) WHERE merchant_id = ?').run(merchant.id);
   const updatedScore = await db.prepare('SELECT score FROM credit_scores WHERE merchant_id = ?').get(merchant.id) as any;
 
   res.json({
@@ -343,11 +328,11 @@ merchantRouter.post('/sales/ocr', async (req, res) => {
     amount_cents: amountCents,
     concept,
     source,
-    verified: true,
-    confidence: 0.985,
-    points_earned: 8,
+    verified: false,
+    confidence: 0,
+    points_earned: 2,
     new_score: updatedScore?.score || 728,
-    message: 'Comprobante verificado exitosamente mediante OCR.'
+    message: 'Venta registrada. Queda como declarada hasta que se pueda verificar el comprobante.'
   });
 });
 

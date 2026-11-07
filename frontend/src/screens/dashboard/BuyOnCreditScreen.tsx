@@ -287,6 +287,20 @@ export const BuyOnCreditScreen: React.FC<BuyOnCreditScreenProps> = ({ onBack }) 
                 <span className="text-[9px] text-[#4a5f7e]">en 3 cuotas quincenales</span>
               </div>
             </div>
+            <div className="grid grid-cols-3 gap-2 text-xs">
+              <div className="p-2 bg-amber-50 rounded-xl border border-amber-100">
+                <span className="text-[10px] text-amber-700">Interés total</span>
+                <div className="font-extrabold text-amber-900">S/ {((simulation.interest_cents ?? 0) / 100).toFixed(2)}</div>
+              </div>
+              <div className="p-2 bg-amber-50 rounded-xl border border-amber-100">
+                <span className="text-[10px] text-amber-700">Total en cuotas</span>
+                <div className="font-extrabold text-amber-900">S/ {((simulation.total_repayment_cents ?? 0) / 100).toFixed(2)}</div>
+              </div>
+              <div className="p-2 bg-amber-50 rounded-xl border border-amber-100">
+                <span className="text-[10px] text-amber-700">TEA / TCEA</span>
+                <div className="font-extrabold text-amber-900">{simulation.tea_pct != null ? `${Number(simulation.tea_pct).toFixed(1)} %` : '—'}</div>
+              </div>
+            </div>
             <div className="space-y-1 pt-1 border-t border-slate-100">
               {simulation.schedule.map((item: any) => (
                 <div key={item.number} className="flex justify-between items-center text-xs py-0.5">
@@ -385,6 +399,20 @@ export const BuyOnCreditScreen: React.FC<BuyOnCreditScreenProps> = ({ onBack }) 
           </div>
 
           <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-1">
+            <div className="flex justify-between pb-1 mb-1 border-b border-slate-200">
+              <span className="text-[#4a5f7e]">Interés total del financiamiento</span>
+              <span className="font-bold text-[#0b2545]">S/ {((simulation.interest_cents ?? 0) / 100).toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between pb-1 mb-1 border-b border-slate-200">
+              <span className="text-[#4a5f7e]">Total a pagar en cuotas</span>
+              <span className="font-bold text-[#0b2545]">S/ {((simulation.total_repayment_cents ?? 0) / 100).toFixed(2)}</span>
+            </div>
+            {simulation.tea_pct != null && (
+              <div className="flex justify-between pb-1 mb-1 border-b border-slate-200">
+                <span className="text-[#4a5f7e]">TEA / TCEA (tasa efectiva anual)</span>
+                <span className="font-bold text-[#0b2545]">{Number(simulation.tea_pct).toFixed(1)} %</span>
+              </div>
+            )}
             {simulation.schedule.map((item: any) => (
               <div key={item.number} className="flex justify-between">
                 <span className="text-[#4a5f7e]">Cuota {item.number} · {item.due_date}</span>

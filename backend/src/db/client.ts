@@ -57,6 +57,8 @@ async function pgDriver(url: string): Promise<Driver> {
     max: Number(process.env.KUOTA_PG_POOL_MAX) || 10,
     options: `-c search_path=${SEARCH_PATH.replace(' ', '')} -c TimeZone=UTC`
   });
+  // Un corte de una conexión inactiva (reinicio de Postgres) emite 'error' en el pool: sin manejador tumba el proceso.
+  pool.on('error', (e: Error) => console.error('[pg-pool]', e.message));
   const fromClient = (c: { query: (...a: any[]) => Promise<any> }): Executor => ({
     query: (sql, params) => c.query(sql, params),
     exec: async (sql) => {

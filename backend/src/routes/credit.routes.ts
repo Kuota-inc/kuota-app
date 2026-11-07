@@ -1,31 +1,43 @@
 import { Router } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { db } from '../db/database.js';
+import { getMerchantProfile } from '../security/merchantContext.js';
 import { createOpenpayCharge } from '../integrations/openpay.js';
 import { computeScore, persistScore } from '../services/scoring.service.js';
 
 export const creditRouter = Router();
 
-async function getMerchantProfile(req: any) {
-  const merchantId = req.headers['x-merchant-id'] as string;
-  if (merchantId) {
-    const m = await db.prepare('SELECT * FROM merchant_profiles WHERE id = ?').get(merchantId);
-    if (m) return m as any;
+/**
+ * Interés plano sobre el saldo financiado. 5,5 % en 3 cuotas quincenales equivale a una TEA ≈ 102 %,
+ * por debajo del tope de referencia del BCRP (114,13 % anual, may–oct 2026). Si se cambia, revisar la TEA
+ * que informa la simulación y la opinión legal sobre usura (docs/CUMPLIMIENTO-REGULATORIO.md §4).
+ */
+export const INTEREST_RATE = 0.055;
+
+/**
+ * Tasa efectiva anual (TEA) implícita de un cronograma: resuelve la tasa por periodo que iguala el
+ * capital financiado con el valor presente de las cuotas (pagos cada 14 días) y la anualiza (365 días).
+ * Sin comisiones ni seguros, TCEA = TEA. Devuelve porcentaje con un decimal; null si no hay financiamiento.
+ */
+export function effectiveAnnualRatePct(financedCents: number, installmentAmounts: number[], periodDays = 14): number | null {
+  if (financedCents <= 0 || installmentAmounts.length === 0) return null;
+  const pv = (r: number) => installmentAmounts.reduce((sum, a, i) => sum + a / Math.pow(1 + r, i + 1), 0);
+  if (pv(0) <= financedCents) return 0;
+  let lo = 0;
+  let hi = 1;
+  while (pv(hi) > financedCents && hi < 1e6) hi *= 2;
+  for (let i = 0; i < 200; i++) {
+    const mid = (lo + hi) / 2;
+    if (pv(mid) > financedCents) lo = mid;
+    else hi = mid;
   }
-  let profile = await db.prepare("SELECT * FROM merchant_profiles WHERE id = 'mer_carlos'").get() as any;
-  if (!profile) {
-    profile = await db.prepare("SELECT * FROM merchant_profiles LIMIT 1").get() as any;
-  }
-  if (!profile) {
-    const newId = 'mer_carlos';
-    await db.prepare(`
-      INSERT INTO merchant_profiles (id, dni, full_name, phone, business_name, category, seniority_range, kyc_status)
-      VALUES (?, '47891234', 'CARLOS ALBERTO MENDOZA QUISPE', '987654321', 'Bodega San Martín', 'FOOD', 'CONSOLIDATED', 'APPROVED')
-    `).run(newId);
-    profile = await db.prepare("SELECT * FROM merchant_profiles WHERE id = 'mer_carlos'").get() as any;
-  }
-  return profile;
+  const annual = Math.pow(1 + (lo + hi) / 2, 365 / periodDays) - 1;
+  return Math.round(annual * 1000) / 10;
 }
+
+const MAX_PURCHASE_CENTS = 100_000_000;
+const MAX_INSTALLMENTS = 12;
+
 
 const AFFILIATED_PROVIDERS: Record<string, { name: string; address: string; phone: string }> = {
   prov_donlucho: { name: 'Confecciones Don Lucho & Hnos. S.A.C.', address: 'Galería Santa Rosa, Tda. 204 – Jr. Gamarra 840, La Victoria', phone: '+51 984 521 893' },
@@ -96,10 +108,16 @@ creditRouter.get('/levels', async (req, res) => {
 
 // PRD 07: Simulador de cuotas
 creditRouter.post('/simulations', async (req, res) => {
-  const { purchase_cents, installments = 3, level = 1 } = req.body;
+  const { purchase_cents, installments = 3, level = 1 } = req.body ?? {};
 
-  if (!purchase_cents || purchase_cents <= 0) {
+  if (!Number.isInteger(purchase_cents) || purchase_cents <= 0 || purchase_cents > MAX_PURCHASE_CENTS) {
     return res.status(422).json({ error: { code: 'AMOUNT_INVALID', message: 'Ingresa un monto de compra válido.' } });
+  }
+  if (!Number.isInteger(installments) || installments < 1 || installments > MAX_INSTALLMENTS) {
+    return res.status(422).json({ error: { code: 'INSTALLMENTS_INVALID', message: 'El número de cuotas no es válido.' } });
+  }
+  if (!Number.isInteger(level) || level < 1 || level > 6) {
+    return res.status(422).json({ error: { code: 'LEVEL_INVALID', message: 'Nivel no válido.' } });
   }
 
   const levelInfo = await db.prepare('SELECT * FROM credit_levels WHERE level = ?').get(level) as any;
@@ -108,13 +126,12 @@ creditRouter.post('/simulations', async (req, res) => {
   const downPaymentCents = Math.round((purchase_cents * downPaymentPct) / 100);
   const financedCents = purchase_cents - downPaymentCents;
 
-  // Interés total ~9.98% sobre saldo financiado (como en PRD 09: 118 * 1.0998 ≈ 129.78 / 3 = 43.26)
-  const interestRate = 0.0998;
+  const interestRate = INTEREST_RATE;
   const totalInterestCents = Math.round(financedCents * interestRate);
   const totalToPayCents = financedCents + totalInterestCents;
   const installmentCents = Math.round(totalToPayCents / installments);
 
-  const schedule = [];
+  const schedule: { number: number; due_date: string; amount_cents: number }[] = [];
   const today = new Date();
   for (let i = 1; i <= installments; i++) {
     const dueDate = new Date(today);
@@ -134,7 +151,10 @@ creditRouter.post('/simulations', async (req, res) => {
     installments_count: installments,
     installment_cents: installmentCents,
     total_repayment_cents: totalToPayCents,
-    tcea: 18.5,
+    interest_cents: totalInterestCents,
+    // TEA/TCEA reales calculadas del cronograma (sin comisiones ni seguros: ambas coinciden).
+    tea_pct: effectiveAnnualRatePct(financedCents, schedule.map((s) => s.amount_cents)),
+    tcea_pct: effectiveAnnualRatePct(financedCents, schedule.map((s) => s.amount_cents)),
     schedule
   });
 });
@@ -142,80 +162,103 @@ creditRouter.post('/simulations', async (req, res) => {
 // P2P aKuotas: crear nueva compra al crédito
 creditRouter.post('/purchases', async (req, res) => {
   const merchant = await getMerchantProfile(req);
-  const { provider_id, total_cents, installments = 3 } = req.body;
+  const { provider_id, total_cents, installments = 3 } = req.body ?? {};
 
-  if (!provider_id || !total_cents || total_cents <= 0) {
-    return res.status(422).json({ error: { code: 'AMOUNT_INVALID', message: 'Proveedor y monto requeridos.' } });
+  if (typeof provider_id !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/.test(provider_id)) {
+    return res.status(422).json({ error: { code: 'PROVIDER_INVALID', message: 'Proveedor no válido.' } });
+  }
+  if (!Number.isInteger(total_cents) || total_cents <= 0 || total_cents > MAX_PURCHASE_CENTS) {
+    return res.status(422).json({ error: { code: 'AMOUNT_INVALID', message: 'Ingresa un monto de compra válido.' } });
+  }
+  if (!Number.isInteger(installments) || installments < 1 || installments > MAX_INSTALLMENTS) {
+    return res.status(422).json({ error: { code: 'INSTALLMENTS_INVALID', message: 'El número de cuotas no es válido.' } });
+  }
+  // El proveedor debe existir y no estar rechazado (o ser uno de los afiliados fijos de la lista de recomendados).
+  if (!(provider_id in AFFILIATED_PROVIDERS)) {
+    const prov = (await db.prepare('SELECT kyc_status FROM provider_profiles WHERE id = ?').get(provider_id)) as { kyc_status: string | null } | undefined;
+    if (!prov || prov.kyc_status === 'REJECTED') {
+      return res.status(422).json({ error: { code: 'PROVIDER_INVALID', message: 'Proveedor no disponible.' } });
+    }
   }
 
-  // Regla 3.2: solo 1 compra activa a la vez
-  const activePurchase = await db.prepare(`
-    SELECT id FROM credit_purchases WHERE merchant_id = ? AND status IN ('ACTIVE_ON_TIME', 'ACTIVE_OVERDUE')
-  `).get(merchant.id) as any;
+  const created = await db.tx(async () => {
+    await db.lock('purchase:' + merchant.id);
+    // Regla 3.2: solo 1 compra activa a la vez
+    const activePurchase = await db.prepare(`
+      SELECT id FROM credit_purchases WHERE merchant_id = ? AND status IN ('ACTIVE_ON_TIME', 'ACTIVE_OVERDUE')
+    `).get(merchant.id) as any;
 
-  if (activePurchase) {
-    return res.status(422).json({ error: { code: 'RULE_3_2', message: 'Regla 3.2: Ya tienes una compra activa. Debes saldarla para comprar de nuevo.' } });
-  }
+    if (activePurchase) {
+      res.status(422).json({ error: { code: 'RULE_3_2', message: 'Regla 3.2: Ya tienes una compra activa. Debes saldarla para comprar de nuevo.' } });
+      return null;
+    }
 
-  // Verificar línea de crédito
-  let line = await db.prepare('SELECT * FROM credit_lines WHERE merchant_id = ?').get(merchant.id) as any;
-  if (!line) {
-    // Crear línea si no existe
-    const lineId = 'lin_' + uuidv4().substring(0, 10);
+    // Verificar línea de crédito
+    let line = await db.prepare('SELECT * FROM credit_lines WHERE merchant_id = ?').get(merchant.id) as any;
+    if (!line) {
+      // Crear línea si no existe
+      const lineId = 'lin_' + uuidv4().substring(0, 10);
+      await db.prepare(`
+        INSERT INTO credit_lines (id, merchant_id, level, total_limit_cents, used_cents, status)
+        VALUES (?, ?, 1, 140000, 0, 'ACTIVE')
+      `).run(lineId, merchant.id);
+      line = await db.prepare('SELECT * FROM credit_lines WHERE merchant_id = ?').get(merchant.id) as any;
+    }
+
+    const available = line.total_limit_cents - line.used_cents;
+    if (available < total_cents) {
+      res.status(422).json({ error: { code: 'INSUFFICIENT_CREDIT', message: `Crédito insuficiente. Disponible: S/ ${(available / 100).toFixed(2)}` } });
+      return null;
+    }
+
+    const levelInfo = await db.prepare('SELECT * FROM credit_levels WHERE level = ?').get(line.level || 1) as any;
+    const downPaymentPct = levelInfo?.down_payment_pct ?? 50;
+    const downPaymentCents = Math.round((total_cents * downPaymentPct) / 100);
+    const financedCents = total_cents - downPaymentCents;
+
+    const interestRate = INTEREST_RATE;
+    const totalInterestCents = Math.round(financedCents * interestRate);
+    const totalToPayCents = financedCents + totalInterestCents;
+    const installmentCents = Math.round(totalToPayCents / installments);
+    const principalPerInstallment = Math.round(financedCents / installments);
+    const interestPerInstallment = Math.round(totalInterestCents / installments);
+
+    const purchaseId = 'pur_' + uuidv4().substring(0, 10);
+    const receiptNumber = 'KT-' + Date.now().toString().slice(-6);
+
     await db.prepare(`
-      INSERT INTO credit_lines (id, merchant_id, level, total_limit_cents, used_cents, status)
-      VALUES (?, ?, 1, 140000, 0, 'ACTIVE')
-    `).run(lineId, merchant.id);
-    line = await db.prepare('SELECT * FROM credit_lines WHERE merchant_id = ?').get(merchant.id) as any;
-  }
+      INSERT INTO credit_purchases (id, merchant_id, line_id, provider_id, plan_code, total_cents,
+        down_payment_pct, down_payment_cents, financed_cents, installments_count, receipt_number, status)
+      VALUES (?, ?, ?, ?, 'KUOTA_3X', ?, ?, ?, ?, ?, ?, 'ACTIVE_ON_TIME')
+    `).run(purchaseId, merchant.id, line.id, provider_id, total_cents, downPaymentPct, downPaymentCents, financedCents, installments, receiptNumber);
 
-  const available = line.total_limit_cents - line.used_cents;
-  if (available < total_cents) {
-    return res.status(422).json({ error: { code: 'INSUFFICIENT_CREDIT', message: `Crédito insuficiente. Disponible: S/ ${(available / 100).toFixed(2)}` } });
-  }
+    const today = new Date();
+    for (let i = 1; i <= installments; i++) {
+      const dueDate = new Date(today);
+      dueDate.setDate(today.getDate() + i * 14);
+      const amount = i === installments ? totalToPayCents - installmentCents * (installments - 1) : installmentCents;
+      const instId = 'ins_' + uuidv4().substring(0, 10);
+      await db.prepare(`
+        INSERT INTO installments (id, purchase_id, number, amount_cents, principal_cents, interest_cents, due_date, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDING')
+      `).run(instId, purchaseId, i, amount, principalPerInstallment, interestPerInstallment, dueDate.toISOString().split('T')[0]);
+    }
 
-  const levelInfo = await db.prepare('SELECT * FROM credit_levels WHERE level = ?').get(line.level || 1) as any;
-  const downPaymentPct = levelInfo?.down_payment_pct ?? 50;
-  const downPaymentCents = Math.round((total_cents * downPaymentPct) / 100);
-  const financedCents = total_cents - downPaymentCents;
-
-  const interestRate = 0.0998;
-  const totalInterestCents = Math.round(financedCents * interestRate);
-  const totalToPayCents = financedCents + totalInterestCents;
-  const installmentCents = Math.round(totalToPayCents / installments);
-  const principalPerInstallment = Math.round(financedCents / installments);
-  const interestPerInstallment = Math.round(totalInterestCents / installments);
-
-  const purchaseId = 'pur_' + uuidv4().substring(0, 10);
-  const receiptNumber = 'KT-' + Date.now().toString().slice(-6);
-
-  await db.prepare(`
-    INSERT INTO credit_purchases (id, merchant_id, line_id, provider_id, plan_code, total_cents,
-      down_payment_pct, down_payment_cents, financed_cents, installments_count, receipt_number, status)
-    VALUES (?, ?, ?, ?, 'KUOTA_3X', ?, ?, ?, ?, ?, ?, 'ACTIVE_ON_TIME')
-  `).run(purchaseId, merchant.id, line.id, provider_id, total_cents, downPaymentPct, downPaymentCents, financedCents, installments, receiptNumber);
-
-  const today = new Date();
-  for (let i = 1; i <= installments; i++) {
-    const dueDate = new Date(today);
-    dueDate.setDate(today.getDate() + i * 14);
-    const amount = i === installments ? totalToPayCents - installmentCents * (installments - 1) : installmentCents;
-    const instId = 'ins_' + uuidv4().substring(0, 10);
+    // Usar el crédito financiado en la línea
     await db.prepare(`
-      INSERT INTO installments (id, purchase_id, number, amount_cents, principal_cents, interest_cents, due_date, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDING')
-    `).run(instId, purchaseId, i, amount, principalPerInstallment, interestPerInstallment, dueDate.toISOString().split('T')[0]);
-  }
+      UPDATE credit_lines SET used_cents = used_cents + ?, updated_at = utc_now_text() WHERE id = ?
+    `).run(financedCents, line.id);
 
-  // Usar el crédito financiado en la línea
-  await db.prepare(`
-    UPDATE credit_lines SET used_cents = used_cents + ?, updated_at = utc_now_text() WHERE id = ?
-  `).run(financedCents, line.id);
+    await db.prepare(`
+      INSERT INTO score_events (id, merchant_id, type, points, ref_id)
+      VALUES (?, ?, 'NEW_PURCHASE', 0, ?)
+    `).run('sev_' + uuidv4().substring(0, 10), merchant.id, purchaseId);
 
-  await db.prepare(`
-    INSERT INTO score_events (id, merchant_id, type, points, ref_id)
-    VALUES (?, ?, 'NEW_PURCHASE', 0, ?)
-  `).run('sev_' + uuidv4().substring(0, 10), merchant.id, purchaseId);
+
+    return { purchaseId, receiptNumber, downPaymentPct, downPaymentCents, financedCents };
+  });
+  if (!created) return;
+  const { purchaseId, receiptNumber, downPaymentPct, downPaymentCents, financedCents } = created;
 
   // Cargo Openpay para el enganche (sandbox: mock inmediato).
   let openpayChargeId: string | null = null;
@@ -265,20 +308,7 @@ creditRouter.get('/purchases/active', async (req, res) => {
     LIMIT 1
   `).get(merchant.id) as any;
 
-  // Fallback to most recent purchase if all are settled
-  if (!purchase) {
-    purchase = await db.prepare(`
-      SELECT p.*, prov.legal_name as provider_name, prov.whatsapp, loc.address_line, loc.district, loc.city
-      FROM credit_purchases p
-      LEFT JOIN provider_profiles prov ON p.provider_id = prov.id
-      LEFT JOIN provider_locations loc ON prov.id = loc.provider_id AND loc.is_primary = 1
-      WHERE p.merchant_id = ?
-      ORDER BY p.issued_at DESC
-      LIMIT 1
-    `).get(merchant.id) as any;
-  }
-
-  // Sin compras: la app muestra el estado vacío (nunca una compra de demostración).
+  // Sin compra activa (nunca se muestra una ya liquidada como "En curso").
   if (!purchase) return res.json(null);
 
   const installments = await db.prepare(`
@@ -316,119 +346,90 @@ creditRouter.get('/purchases/active', async (req, res) => {
   });
 });
 
-// PRD 09: Pagar cuota
+// PRD 09: Pagar cuota (solo del comercio de la petición; atómico e idempotente)
 creditRouter.post('/installments/:id/pay', async (req, res) => {
+  const merchant = await getMerchantProfile(req);
   const installmentId = req.params.id;
-  let inst = await db.prepare('SELECT * FROM installments WHERE id = ?').get(installmentId) as any;
-
-  if (!inst) {
-    // Fallback: tomar la primera cuota pendiente del sistema para evitar errores 404 en demos
-    inst = await db.prepare("SELECT * FROM installments WHERE status = 'PENDING' LIMIT 1").get() as any;
-  }
-
-  if (!inst) {
-    return res.json({
-      success: true,
-      simulated: true,
-      message: '¡Cuota pagada con éxito! Tu línea de crédito se ha recargado.',
-      new_balance: {
-        total_cents: 140000,
-        available_cents: 140000,
-        used_cents: 0
-      }
-    });
-  }
-
+  const inst = await db.prepare(`
+    SELECT i.* FROM installments i JOIN credit_purchases p ON p.id = i.purchase_id
+    WHERE i.id = ? AND p.merchant_id = ?
+  `).get(installmentId, merchant.id) as any;
+  if (!inst) return res.status(404).json({ error: { code: 'INSTALLMENT_NOT_FOUND', message: 'Cuota no encontrada.' } });
   if (inst.status === 'PAID') {
-    return res.status(200).json({
-      success: true,
-      already_paid: true,
-      message: 'Esta cuota ya se encuentra pagada.'
-    });
+    return res.status(200).json({ success: true, already_paid: true, message: 'Esta cuota ya se encuentra pagada.' });
   }
 
-  const purchase = await db.prepare('SELECT * FROM credit_purchases WHERE id = ?').get(inst.purchase_id) as any;
-  const line = await db.prepare('SELECT * FROM credit_lines WHERE id = ?').get(purchase.line_id) as any;
+  const result = await db.tx(async () => {
+    const claimed = await db.prepare(`
+      UPDATE installments SET status = 'PAID', paid_at = utc_now_text() WHERE id = ? AND status = 'PENDING'
+    `).run(installmentId);
+    if (claimed.changes === 0) return null;
 
-  // Mark installment as paid
-  await db.prepare(`
-    UPDATE installments SET status = 'PAID', paid_at = utc_now_text() WHERE id = ?
-  `).run(installmentId);
-
-  // Auto-reload credit line: decrease used_cents by the principal portion
-  const newUsed = Math.max(0, line.used_cents - inst.principal_cents);
-  const newConsecutive = (line.consecutive_on_time || 0) + 1;
-
-  await db.prepare(`
-    UPDATE credit_lines
-    SET used_cents = ?, consecutive_on_time = ?, updated_at = utc_now_text()
-    WHERE id = ?
-  `).run(newUsed, newConsecutive, line.id);
-
-  // Check if all installments for this purchase are now paid
-  const pending = await db.prepare(`
-    SELECT count(*) as count FROM installments WHERE purchase_id = ? AND status = 'PENDING'
-  `).get(purchase.id) as any;
-
-  let purchaseFinished = false;
-  if (pending.count === 0) {
+    const purchase = await db.prepare('SELECT * FROM credit_purchases WHERE id = ?').get(inst.purchase_id) as any;
+    const line = await db.prepare('SELECT * FROM credit_lines WHERE id = ?').get(purchase.line_id) as any;
+    const newUsed = Math.max(0, line.used_cents - inst.principal_cents);
+    const newConsecutive = (line.consecutive_on_time || 0) + 1;
     await db.prepare(`
-      UPDATE credit_purchases SET status = 'PAID', settled_at = utc_now_text() WHERE id = ?
-    `).run(purchase.id);
-    purchaseFinished = true;
-  }
+      UPDATE credit_lines SET used_cents = ?, consecutive_on_time = ?, updated_at = utc_now_text() WHERE id = ?
+    `).run(newUsed, newConsecutive, line.id);
 
-  // Score event
-  await db.prepare(`
-    INSERT INTO score_events (id, merchant_id, type, points, ref_id)
-    VALUES (?, ?, 'ON_TIME_PAYMENT', 15, ?)
-  `).run('sev_' + uuidv4().substring(0, 10), purchase.merchant_id, installmentId);
+    const pending = await db.prepare(`
+      SELECT count(*) as count FROM installments WHERE purchase_id = ? AND status = 'PENDING'
+    `).get(purchase.id) as any;
+    const purchaseFinished = Number(pending.count) === 0;
+    if (purchaseFinished) {
+      await db.prepare(`UPDATE credit_purchases SET status = 'PAID', settled_at = utc_now_text() WHERE id = ?`).run(purchase.id);
+    }
 
-  await db.prepare('UPDATE credit_scores SET score = LEAST(850, score + 15) WHERE merchant_id = ?').run(purchase.merchant_id);
+    await db.prepare(`
+      INSERT INTO score_events (id, merchant_id, type, points, ref_id) VALUES (?, ?, 'ON_TIME_PAYMENT', 15, ?)
+    `).run('sev_' + uuidv4().substring(0, 10), merchant.id, installmentId);
+    await db.prepare('UPDATE credit_scores SET score = LEAST(850, score + 15) WHERE merchant_id = ?').run(merchant.id);
+    return { line, newUsed, newConsecutive, purchaseFinished };
+  });
 
+  if (!result) return res.status(200).json({ success: true, already_paid: true, message: 'Esta cuota ya se encuentra pagada.' });
   res.json({
     success: true,
     installment_id: installmentId,
     amount_paid_cents: inst.amount_cents,
-    credit_line_available_cents: Math.max(0, line.total_limit_cents - newUsed),
-    consecutive_on_time: newConsecutive,
-    purchase_settled: purchaseFinished,
-    rule_3_2_freed: purchaseFinished
+    credit_line_available_cents: Math.max(0, result.line.total_limit_cents - result.newUsed),
+    consecutive_on_time: result.newConsecutive,
+    purchase_settled: result.purchaseFinished,
+    rule_3_2_freed: result.purchaseFinished
   });
 });
 
-// PRD 09: Liquidación anticipada
+// PRD 09: Liquidación anticipada (solo compras activas del comercio de la petición)
 creditRouter.post('/purchases/:id/settle', async (req, res) => {
+  const merchant = await getMerchantProfile(req);
   const purchaseId = req.params.id;
-  let purchase = await db.prepare('SELECT * FROM credit_purchases WHERE id = ?').get(purchaseId) as any;
-
-  if (!purchase) {
-    purchase = await db.prepare("SELECT * FROM credit_purchases WHERE status IN ('ACTIVE_ON_TIME', 'ACTIVE_OVERDUE') LIMIT 1").get() as any;
+  const purchase = await db.prepare('SELECT * FROM credit_purchases WHERE id = ? AND merchant_id = ?').get(purchaseId, merchant.id) as any;
+  if (!purchase) return res.status(404).json({ error: { code: 'PURCHASE_NOT_FOUND', message: 'Compra no encontrada.' } });
+  if (purchase.status === 'PAID') {
+    return res.status(200).json({ success: true, already_paid: true, purchase_id: purchaseId, status: 'PAID', message: 'Esta compra ya está liquidada.' });
   }
 
-  if (!purchase) {
-    return res.json({
-      success: true,
-      simulated: true,
-      status: 'PAID',
-      message: 'Compra liquidada con éxito. Regla 3.2 liberada para nuevas compras.'
-    });
-  }
-
-  // Mark all pending installments as PAID
-  await db.prepare(`
-    UPDATE installments SET status = 'PAID', paid_at = utc_now_text() WHERE purchase_id = ? AND status = 'PENDING'
-  `).run(purchaseId);
-
-  // Mark purchase as PAID
-  await db.prepare(`
-    UPDATE credit_purchases SET status = 'PAID', settled_at = utc_now_text() WHERE id = ?
-  `).run(purchaseId);
-
-  // Free all used credit on line
-  await db.prepare(`
-    UPDATE credit_lines SET used_cents = 0, consecutive_on_time = consecutive_on_time + 1 WHERE id = ?
-  `).run(purchase.line_id);
+  const settled = await db.tx(async () => {
+    const claimed = await db.prepare(`
+      UPDATE credit_purchases SET status = 'PAID', settled_at = utc_now_text()
+      WHERE id = ? AND status IN ('ACTIVE_ON_TIME', 'ACTIVE_OVERDUE')
+    `).run(purchaseId);
+    if (claimed.changes === 0) return false;
+    // Se libera exactamente lo financiado menos el capital ya pagado (sin dejar centavos de redondeo).
+    const paid = await db.prepare(`
+      SELECT coalesce(sum(principal_cents), 0) AS principal FROM installments WHERE purchase_id = ? AND status = 'PAID'
+    `).get(purchaseId) as any;
+    const pend = { principal: Math.max(0, Number(purchase.financed_cents) - Number(paid.principal)) };
+    await db.prepare(`
+      UPDATE installments SET status = 'PAID', paid_at = utc_now_text() WHERE purchase_id = ? AND status = 'PENDING'
+    `).run(purchaseId);
+    await db.prepare(`
+      UPDATE credit_lines SET used_cents = GREATEST(0, used_cents - ?), consecutive_on_time = consecutive_on_time + 1, updated_at = utc_now_text() WHERE id = ?
+    `).run(Number(pend.principal), purchase.line_id);
+    return true;
+  });
+  if (!settled) return res.status(200).json({ success: true, already_paid: true, purchase_id: purchaseId, status: 'PAID', message: 'Esta compra ya está liquidada.' });
 
   res.json({
     success: true,
@@ -458,7 +459,16 @@ creditRouter.post('/scoring/signals', async (req, res) => {
     SALE_REGISTERED: 2,
     LOCATION_SHARED: 3,
   };
-  const points = SIGNAL_POINTS[type] ?? 0;
+  if (typeof type !== 'string' || !(type in SIGNAL_POINTS)) {
+    return res.status(422).json({ error: { code: 'SIGNAL_INVALID', message: 'Tipo de señal no válido.' } });
+  }
+  const points = SIGNAL_POINTS[type];
+  // Una señal con puntos se cuenta una sola vez por referencia: repetirla no infla el score.
+  if (points > 0) {
+    const refKey = typeof ref_id === 'string' ? ref_id.slice(0, 100) : null;
+    const dup = await db.prepare('SELECT 1 FROM score_events WHERE merchant_id = ? AND type = ? AND ref_id IS NOT DISTINCT FROM ?').get(merchant.id, type, refKey);
+    if (dup) return res.status(200).json({ type, points: 0, duplicate: true });
+  }
   const eventId = 'sev_' + uuidv4().substring(0, 10);
 
   await db.prepare(`

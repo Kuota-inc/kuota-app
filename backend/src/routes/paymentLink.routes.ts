@@ -201,7 +201,7 @@ paymentLinkRouter.get('/', async (req, res) => {
   const rows = await db
     .prepare('SELECT * FROM payment_links WHERE merchant_id = ? ORDER BY created_at DESC LIMIT 20')
     .all(req.auth!.merchantId) as Parameters<typeof ownerView>[0][];
-  res.json({ data: rows.map(ownerView) });
+  res.json({ data: await Promise.all(rows.map((r) => ownerView(r))) });
 });
 
 paymentLinkRouter.get('/:id', async (req, res) => {

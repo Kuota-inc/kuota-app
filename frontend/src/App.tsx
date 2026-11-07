@@ -2,7 +2,7 @@ import React, { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { App as NativeApp } from '@capacitor/app';
 import { KuotaNotifications } from './plugins/kuotaNotifications';
-import { api, apiRequest, getMerchantId, setMerchantId } from './api/client';
+import { api, apiRequest, getMerchantId, setMerchantId, setProviderId } from './api/client';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { useDeviceMode } from './hooks/useDeviceMode';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -91,6 +91,7 @@ function AppShell() {
   const handleLogout = () => {
     void logoutPayments().catch(() => {});
     setMerchantId(null);
+    setProviderId(null);
     writeFlag(ONBOARDED_KEY, false);
     setCurrentScreen('welcome');
     setActiveTab('inicio');
@@ -107,6 +108,14 @@ function AppShell() {
         handleLogout();
       }
     });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // El token de identidad dejó de valer (venció o se revocó): volver al inicio de sesión.
+  useEffect(() => {
+    const onLogout = () => handleLogout();
+    window.addEventListener('kuota:logout', onLogout);
+    return () => window.removeEventListener('kuota:logout', onLogout);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

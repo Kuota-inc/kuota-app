@@ -67,7 +67,9 @@ export async function createOpenpayCharge(params: {
  */
 export function verifyOpenpaySignature(raw: string, signature: string): boolean {
   const { privateKey } = config.openpay;
-  if (!privateKey) return true;
-  const expected = crypto.createHmac('sha1', privateKey).update(raw).digest('base64');
-  return expected === signature;
+  // Sin clave no hay forma de verificar: en producción se rechaza todo (solo el modo mock local acepta).
+  if (!privateKey) return !config.isProd;
+  const expected = Buffer.from(crypto.createHmac('sha1', privateKey).update(raw).digest('base64'));
+  const given = Buffer.from(signature);
+  return expected.length === given.length && crypto.timingSafeEqual(expected, given);
 }

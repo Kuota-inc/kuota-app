@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { apiRequest, setMerchantId } from '../../api/client';
+import { apiRequest, setMerchantId, setMerchantToken } from '../../api/client';
 import { deviceId } from '../../api/payments';
 import { Capacitor } from '@capacitor/core';
 import {
@@ -93,7 +93,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, onBack }) =
     setError(null);
     setMerchantId(null);
     try {
-      const res = await apiRequest<{ access_token: string; merchant_id: string; expires_at: string }>(
+      const res = await apiRequest<{ access_token: string; merchant_id: string; identity_token?: string; expires_at: string }>(
         '/auth/sessions',
         {
           method: 'POST',
@@ -106,6 +106,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, onBack }) =
         }
       );
       if (res.merchant_id) setMerchantId(res.merchant_id);
+      if (res.identity_token) setMerchantToken(res.identity_token);
       onSuccess();
     } catch (err: any) {
       const msg: string = err?.message ?? '';
@@ -128,7 +129,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, onBack }) =
     setError(null);
     setMerchantId(null);
     try {
-      const res = await apiRequest<{ access_token: string; merchant_id: string; expires_at: string }>(
+      const res = await apiRequest<{ access_token: string; merchant_id: string; identity_token?: string; expires_at: string }>(
         '/auth/pin/recover',
         {
           method: 'POST',
@@ -142,13 +143,14 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, onBack }) =
         }
       );
       if (res.merchant_id) setMerchantId(res.merchant_id);
+      if (res.identity_token) setMerchantToken(res.identity_token);
       onSuccess();
     } catch (err: any) {
       const msg: string = err?.message ?? '';
       if (err?.code === 'DNI_MISMATCH') {
-        setError('El DNI no coincide con el registrado en tu cuenta.');
-      } else if (err?.code === 'MERCHANT_NOT_FOUND') {
-        setError('No encontramos una cuenta con ese número de teléfono.');
+        setError('Los datos no coinciden. Verifica tu número de celular y tu DNI.');
+      } else if (err?.code === 'RECOVERY_LOCKED') {
+        setError('Demasiados intentos. Inténtalo de nuevo en 15 minutos.');
       } else {
         setError(msg || 'Error al recuperar el PIN. Verifica tu conexión.');
       }

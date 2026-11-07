@@ -3,14 +3,19 @@ import { v4 as uuidv4 } from 'uuid';
 import { db } from '../db/database.js';
 import { sunatService } from '../services/sunat.service.js';
 import { hashPin, pinProblem } from '../security/crypto.js';
-import { setMerchantPinHash } from '../security/auth.js';
+import { credentialFor, isValidDeviceId, issueIdentityToken, linkDevice, setMerchantPinHash } from '../security/auth.js';
+import { clientIp, headerString } from '../security/http.js';
 import { getKycByPublicId, refreshFromProvider, startVerification } from '../services/kyc.service.js';
 import { DiditError, diditEnabled } from '../integrations/didit.js';
+import { config } from '../security/config.js';
+
+// El id de solicitud (MER-12345-PE) es adivinable: estas rutas solo devuelven datos enmascarados.
+const maskTail = (v: unknown, keep: number) => (typeof v === 'string' && v.length > keep ? '•'.repeat(v.length - keep) + v.slice(-keep) : v ?? null);
 
 export const onboardingRouter = Router();
 
 // Helper para auto-asegurar la existencia de la sesión (idempotente y resiliente ante sesiones optimistas)
-async function ensureSession(sessionId: string, role: 'MERCHANT' | 'PROVIDER' = 'MERCHANT') {
+async function ensureSession(sessionId: string, role: 'MERCHANT' | 'PROVIDER' = 'MERCHANT', allowCompleted = false) {
   let session = await db.prepare('SELECT * FROM onboarding_sessions WHERE id = ?').get(sessionId) as any;
   if (!session) {
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
@@ -20,6 +25,10 @@ async function ensureSession(sessionId: string, role: 'MERCHANT' | 'PROVIDER' = 
       VALUES (?, ?, 'dev_auto', 'IN_PROGRESS', ?, '2026.1', '2026.1', utc_now_text(), ?)
     `).run(sessionId, role, nextStep, expiresAt);
     session = await db.prepare('SELECT * FROM onboarding_sessions WHERE id = ?').get(sessionId) as any;
+  }
+  // Una sesión cerrada ya creó la cuenta: reescribir sus datos (DNI, negocio, productos) sería tomarla.
+  if (session.status === 'COMPLETED' && !allowCompleted) {
+    throw Object.assign(new Error('Este registro ya fue completado. Inicia sesión.'), { status: 409, code: 'SESSION_COMPLETED' });
   }
   return session;
 }
@@ -210,6 +219,8 @@ onboardingRouter.get('/merchant-kyc/:requestId', async (req, res) => {
   const kyc = await db.prepare('SELECT * FROM kyc_requests WHERE public_id = ?').get(publicId) as any;
 
   if (!kyc) {
+    // En producción no existe el comercio demo: un id desconocido es un 404, nunca una aprobación.
+    if (config.isProd) return res.status(404).json({ error: { code: 'KYC_NOT_FOUND', message: 'Solicitud de verificación no encontrada.' } });
     return res.json({
       request_id: publicId,
       account_type: 'PERSONAL',
@@ -249,7 +260,7 @@ onboardingRouter.get('/merchant-kyc/:requestId', async (req, res) => {
       reason: fresh.decision_reason,
       progress_pct: fresh.progress_pct,
       verification_url: fresh.status === 'IN_PROGRESS' ? fresh.verification_url : null,
-      merchant: { dni: merchant?.dni ?? null, full_name: merchant?.full_name ?? null, phone: merchant?.phone ?? null, business_name: merchant?.business_name ?? null },
+      merchant: { dni: maskTail(merchant?.dni, 3), full_name: merchant?.full_name ?? null, phone: maskTail(merchant?.phone, 3), business_name: merchant?.business_name ?? null },
       stages: [
         { type: 'DOCUMENT', status: done('RUNNING'), title: 'Documento de identidad', label: 'DNI leído y validado por Didit' },
         { type: 'LIVENESS', status: done('RUNNING'), title: 'Prueba de vida y rostro', label: 'Selfie comparada con la foto del DNI' },
@@ -315,9 +326,9 @@ onboardingRouter.get('/merchant-kyc/:requestId', async (req, res) => {
     status: kyc.status,
     progress_pct: kyc.status === 'APPROVED' ? 100 : kyc.progress_pct,
     merchant: {
-      dni: merchant?.dni || '47891234',
-      full_name: merchant?.full_name || 'CARLOS ALBERTO MENDOZA QUISPE',
-      phone: merchant?.phone || '987654321',
+      dni: maskTail(merchant?.dni, 3),
+      full_name: merchant?.full_name ?? null,
+      phone: maskTail(merchant?.phone, 3),
       ruc: merchant?.ruc || (isBusiness ? '20601234567' : null),
       business_name: business?.razon_social || merchant?.business_name || 'Mi Negocio Kuota'
     },
@@ -395,12 +406,28 @@ onboardingRouter.get('/sessions/:id', async (req, res) => {
     return res.status(404).json({ error: { code: 'SESSION_NOT_FOUND', message: 'Sesión no encontrada.' } });
   }
 
-  const merchant = await db.prepare('SELECT * FROM merchant_profiles WHERE session_id = ?').get(session.id);
+  const merchant = await db.prepare('SELECT * FROM merchant_profiles WHERE session_id = ?').get(session.id) as any;
   const products = await db.prepare('SELECT * FROM products WHERE session_id = ? AND deleted_at IS NULL').all(session.id);
 
+  // Solo el id de sesión protege este GET: nunca devolver DNI, teléfono, PIN ni ids internos.
   res.json({
-    session,
-    merchant_profile: merchant || null,
+    session: {
+      id: session.id,
+      role: session.role,
+      current_step: session.current_step,
+      status: session.status,
+      expires_at: session.expires_at
+    },
+    merchant_profile: merchant
+      ? {
+          id: merchant.id,
+          business_name: merchant.business_name,
+          ruc: merchant.ruc,
+          category: merchant.category,
+          seniority_range: merchant.seniority_range,
+          tier_hint: merchant.tier_hint
+        }
+      : null,
     products
   });
 });
@@ -491,7 +518,7 @@ onboardingRouter.put('/sessions/:id/products', async (req, res) => {
 // PRD 04: Onboarding exitoso - Cierre y creación de línea
 onboardingRouter.post('/sessions/:id/complete', async (req, res) => {
   const sessionId = req.params.id;
-  const session = await ensureSession(sessionId, 'MERCHANT');
+  const session = await ensureSession(sessionId, 'MERCHANT', true);
 
   let merchant = await db.prepare('SELECT * FROM merchant_profiles WHERE session_id = ?').get(sessionId) as any;
   if (!merchant) {
@@ -542,7 +569,8 @@ onboardingRouter.post('/sessions/:id/complete', async (req, res) => {
 
   const userId = 'usr_' + uuidv4().substring(0, 10);
   // El celular es el que el comercio registró en el paso de identidad.
-  const declared = String(req.body.phone || merchant.phone || '').replace(/\D/g, '').slice(-9);
+  // Nunca el del body: si no, cualquiera registra (y bloquea) el número de otra persona.
+  const declared = String(merchant.phone || (config.isProd ? '' : req.body.phone) || '').replace(/\D/g, '').slice(-9);
   const phone = declared.length === 9 ? `+51${declared}` : '+519' + Math.floor(10000000 + Math.random() * 90000000);
   if (await db.prepare('SELECT 1 FROM users WHERE phone = ?').get(phone)) {
     return res.status(409).json({
@@ -553,6 +581,7 @@ onboardingRouter.post('/sessions/:id/complete', async (req, res) => {
   // Atómico: users + merchant_profiles deben actualizarse juntos para que el
   // phone lookup de resolveClaimedMerchant encuentre el comercio en el login.
   const rucProvisional = `10${String(Math.floor(Math.random() * 1e9)).padStart(9, '0')}`;
+  try {
   await db.tx(async () => {
     await db.prepare(`
       INSERT INTO users (id, phone, role, status, first_name, last_name, terms_accepted_at, privacy_accepted_at)
@@ -565,6 +594,15 @@ onboardingRouter.post('/sessions/:id/complete', async (req, res) => {
       WHERE id = ?
     `).run(userId, req.body.business_name, req.body.ruc, rucProvisional, merchant.id);
   });
+  } catch (e: any) {
+    // Dos registros simultáneos con el mismo celular: el segundo choca con el índice único.
+    if (e?.code === '23505') {
+      return res.status(409).json({
+        error: { code: 'PHONE_ALREADY_REGISTERED', message: 'Este celular ya tiene una cuenta Kuota. Ingresa con tu PIN o usa otro número.' }
+      });
+    }
+    throw e;
+  }
 
   // Link products to merchant_id
   await db.prepare('UPDATE products SET merchant_id = ? WHERE session_id = ?').run(merchant.id, sessionId);
@@ -586,9 +624,18 @@ onboardingRouter.post('/sessions/:id/complete', async (req, res) => {
 
   await db.prepare("UPDATE onboarding_sessions SET status = 'COMPLETED', user_id = ? WHERE id = ?").run(userId, sessionId);
 
+  // Cuenta recién creada: el dispositivo que la registra queda vinculado y recibe su token de identidad.
+  let identityToken: string | null = null;
+  const regDevice = headerString(req, 'x-device-id');
+  if (isValidDeviceId(regDevice)) {
+    const dev = await linkDevice(merchant.id, regDevice, 'Dispositivo de registro', clientIp(req));
+    if (!dev.revoked) identityToken = await issueIdentityToken(merchant.id, regDevice);
+  }
+
   res.status(201).json({
     user_id: userId,
     merchant_id: merchant.id,
+    identity_token: identityToken,
     credit_line_id: lineId,
     access_token: 'jwt_mock_' + userId,
     refresh_token: 'rt_mock_' + userId,
@@ -633,6 +680,12 @@ onboardingRouter.post('/sessions/:id/security-pin', async (req, res) => {
   if (!session) {
     return res.status(404).json({ error: { code: 'SESSION_NOT_FOUND', message: 'Sesión de registro no encontrada.' } });
   }
+  // Con el id de sesión (que no es secreto) no se puede sobrescribir el PIN de una cuenta ya
+  // protegida: para eso están /auth/pin/change y /auth/pin/recover.
+  const owner = await db.prepare('SELECT id FROM merchant_profiles WHERE session_id = ?').get(sessionId) as { id: string } | undefined;
+  if (owner && (await credentialFor(owner.id))) {
+    return res.status(409).json({ error: { code: 'PIN_ALREADY_SET', message: 'Esta cuenta ya tiene un PIN. Usa "¿Olvidé mi PIN?" si no lo recuerdas.' } });
+  }
   // El PIN nunca se guarda en texto plano: scrypt con pimienta (ver security/crypto.ts).
   const pinHash = hashPin(pin);
   const merchant = await db.transaction(async () => {
@@ -645,9 +698,18 @@ onboardingRouter.post('/sessions/:id/security-pin', async (req, res) => {
   // La credencial de cobro vive en la zona de dinero: la escribe ese módulo, con su usuario de base.
   if (merchant) await setMerchantPinHash(merchant.id, pinHash);
 
+  // Primera vez que se fija el PIN de este comercio: el dispositivo queda vinculado y recibe su token de identidad.
+  let identityToken: string | null = null;
+  const deviceId = headerString(req, 'x-device-id');
+  if (merchant && isValidDeviceId(deviceId)) {
+    const dev = await linkDevice(merchant.id, deviceId, 'Dispositivo de registro', clientIp(req));
+    if (!dev.revoked) identityToken = await issueIdentityToken(merchant.id, deviceId);
+  }
+
   res.status(200).json({
     success: true,
     message: '¡PIN de seguridad de 6 dígitos activado con éxito!',
-    pin_configured: true
+    pin_configured: true,
+    identity_token: identityToken
   });
 });

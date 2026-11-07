@@ -17,8 +17,12 @@ import {
   linkDevice,
   requireMerchant,
   resolveClaimedMerchant,
+  issueIdentityToken,
+  merchantTokenRequired,
+  revokeIdentityTokens,
   revokeSessions,
   setMerchantPinHash,
+  verifyIdentityToken,
   stepUpRequired
 } from '../security/auth.js';
 import { alertMerchant, recentAlerts } from '../security/events.js';
@@ -39,6 +43,9 @@ authRouter.get('/me', async (req, res) => {
   if (!claimed) return fail(res, 401, 'NOT_AUTHENTICATED', 'No hay sesión activa.');
   const merchant = await getMerchant(claimed);
   if (!merchant) return fail(res, 404, 'SESSION_EXPIRED', 'La sesión expiró. Vuelve a iniciar sesión.');
+  if (merchantTokenRequired() && !(await verifyIdentityToken(req, merchant.id))) {
+    return fail(res, 401, 'MERCHANT_AUTH_REQUIRED', 'Tu sesión no es válida. Vuelve a iniciar sesión.');
+  }
   res.json({ merchant_id: merchant.id, business_name: merchant.business_name });
 });
 
@@ -52,6 +59,22 @@ authRouter.get('/pin/status', async (req, res) => {
     locked_until: cred?.locked_until && new Date(cred.locked_until) > new Date() ? cred.locked_until : null
   });
 });
+
+// Fallos de DNI por cuenta: sin esto, el DNI (semipúblico) se podría adivinar sin límite
+// cambiando de IP. En memoria, igual que el limitador por IP.
+const recoverFailures = new Map<string, { count: number; resetAt: number }>();
+const RECOVER_MAX_FAILURES = 5;
+const RECOVER_WINDOW_MS = 15 * 60_000;
+const recoverLocked = (id: string) => {
+  const f = recoverFailures.get(id);
+  return !!f && f.resetAt > Date.now() && f.count >= RECOVER_MAX_FAILURES;
+};
+const recoverFailed = (id: string) => {
+  const now = Date.now();
+  const f = recoverFailures.get(id);
+  if (!f || f.resetAt <= now) recoverFailures.set(id, { count: 1, resetAt: now + RECOVER_WINDOW_MS });
+  else f.count += 1;
+};
 
 // Recuperar acceso: verifica teléfono + DNI → resetea PIN → emite sesión.
 // No requiere PIN actual; la identidad se prueba con el DNI del registro.
@@ -79,7 +102,7 @@ authRouter.post('/pin/recover', authLimiter, async (req, res) => {
 
   // Fallback: estado inconsistente (user_id nunca se enlazó), buscar por merchant_profiles.phone
   if (!profile) {
-    const short = phone.startsWith('+51') ? phone.slice(3) : phone.replace(/\D/g, '').slice(-9);
+    const short = phone.slice(3);
     if (short.length === 9) {
       profile = await db.prepare(`
         SELECT id, dni FROM merchant_profiles
@@ -90,29 +113,54 @@ authRouter.post('/pin/recover', authLimiter, async (req, res) => {
     }
   }
 
-  if (!profile) return fail(res, 404, 'MERCHANT_NOT_FOUND', 'No encontramos una cuenta con ese número.');
+  // Misma respuesta si la cuenta no existe o el DNI no coincide: no revela qué teléfonos están registrados.
+  const mismatch = () => fail(res, 403, 'DNI_MISMATCH', 'Los datos no coinciden. Verifica tu número y tu DNI.');
+  if (!profile) return mismatch();
 
+  if (recoverLocked(profile.id)) {
+    await audit({ actorType: 'MERCHANT', actorId: profile.id, action: 'PIN_RESET', result: 'DENIED', ip, deviceId, details: { reason: 'RECOVERY_LOCKED' } });
+    return fail(res, 429, 'RECOVERY_LOCKED', 'Demasiados intentos. Inténtalo de nuevo en 15 minutos.');
+  }
   if (!profile.dni || profile.dni.replace(/\D/g, '') !== dni.replace(/\D/g, '')) {
+    recoverFailed(profile.id);
     await audit({ actorType: 'MERCHANT', actorId: profile.id, action: 'PIN_RESET', result: 'DENIED', ip, deviceId, details: { reason: 'DNI_MISMATCH' } });
-    return fail(res, 403, 'DNI_MISMATCH', 'El DNI no coincide con el registrado en tu cuenta.');
+    return mismatch();
   }
 
   const merchant = await getMerchant(profile.id);
-  if (!merchant) return fail(res, 404, 'MERCHANT_NOT_FOUND', 'No encontramos una cuenta con ese número.');
+  if (!merchant) return mismatch();
 
+  // Un dispositivo desvinculado no puede usar la recuperación para volver a entrar.
+  const existing = await getDevice(merchant.id, deviceId);
+  if (existing?.revoked_at) {
+    await audit({ actorType: 'MERCHANT', actorId: merchant.id, action: 'PIN_RESET', result: 'DENIED', ip, deviceId, details: { reason: 'DEVICE_REVOKED' } });
+    return fail(res, 403, 'DEVICE_REVOKED', 'Este dispositivo fue desvinculado de tu cuenta. Comunícate con Kuota por el WhatsApp oficial.');
+  }
+
+  const cooldownUntil = addHours(new Date(), config.cooldownHours).toISOString();
   await setMerchantPinHash(merchant.id, hashPin(newPin));
-  await revokeSessions(merchant.id);
+  await db.prepare('UPDATE merchant_credentials SET cooldown_until = ? WHERE merchant_id = ?').run(cooldownUntil, merchant.id);
+  const closed = await revokeSessions(merchant.id);
+  await revokeIdentityTokens(merchant.id);
+  recoverFailures.delete(merchant.id);
 
   const label = typeof req.body?.device_label === 'string' ? req.body.device_label.replace(/[\u0000-\u001f<>]/g, '').slice(0, 60) : null;
   const device = await linkDevice(merchant.id, deviceId, label, ip);
-  if (device.revoked) return fail(res, 403, 'DEVICE_REVOKED', 'Este dispositivo fue desvinculado de tu cuenta.');
   const session = await issueSession(merchant.id, deviceId);
-  await audit({ actorType: 'MERCHANT', actorId: merchant.id, action: 'PIN_RESET', result: 'OK', ip, deviceId, details: { method: 'DNI_RECOVERY' } });
+  const identityToken = await issueIdentityToken(merchant.id, deviceId);
+  await audit({ actorType: 'MERCHANT', actorId: merchant.id, action: 'PIN_RESET', result: 'OK', ip, deviceId, details: { method: 'DNI_RECOVERY', sessions_closed: closed, cooldown_until: cooldownUntil } });
+  await alertMerchant(
+    merchant.id,
+    'PIN_CHANGED',
+    'Restableciste tu PIN con tu DNI',
+    `Cerramos tus otras sesiones y tus límites estarán reducidos por ${config.cooldownHours} horas. Si no fuiste tú, escríbenos de inmediato.`
+  );
   res.status(201).json({
     access_token: session.accessToken,
     token_type: 'Bearer',
     expires_at: session.expiresAt,
     merchant_id: merchant.id,
+    identity_token: identityToken,
     device: { new_device: device.isNew, cooldown_until: device.cooldownUntil ?? null }
   });
 });
@@ -137,12 +185,14 @@ authRouter.post('/sessions', authLimiter, async (req, res) => {
   const device = await linkDevice(merchant.id, deviceId, label, ip);
   if (device.revoked) return fail(res, 403, 'DEVICE_REVOKED', 'Este dispositivo fue desvinculado de tu cuenta.');
   const session = await issueSession(merchant.id, deviceId);
+  const identityToken = await issueIdentityToken(merchant.id, deviceId);
   await audit({ actorType: 'MERCHANT', actorId: merchant.id, action: 'SESSION_OPEN', target: session.sessionId, result: 'OK', ip, deviceId, details: { new_device: device.isNew } });
   res.status(201).json({
     access_token: session.accessToken,
     token_type: 'Bearer',
     expires_at: session.expiresAt,
     merchant_id: merchant.id,
+    identity_token: identityToken,
     device: { new_device: device.isNew, cooldown_until: device.cooldownUntil ?? null }
   });
 });
@@ -181,6 +231,7 @@ authRouter.post('/pin/change', authLimiter, requireMerchant, async (req, res) =>
     auth.merchantId
   );
   const closed = await revokeSessions(auth.merchantId, { exceptSessionId: auth.sessionId });
+  await revokeIdentityTokens(auth.merchantId, auth.deviceId);
   await audit({ actorType: 'MERCHANT', actorId: auth.merchantId, action: 'PIN_CHANGED', result: 'OK', ip, deviceId: auth.deviceId, details: { sessions_closed: closed, cooldown_until: cooldownUntil } });
   await alertMerchant(
     auth.merchantId,

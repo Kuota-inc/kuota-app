@@ -3,6 +3,36 @@ import { v4 as uuidv4 } from 'uuid';
 import { db } from '../db/database.js';
 import { sunatService } from '../services/sunat.service.js';
 import { startVerification } from '../services/kyc.service.js';
+import crypto from 'node:crypto';
+import type { Request, Response } from 'express';
+import { config } from '../security/config.js';
+
+const sha256 = (v: string) => crypto.createHash('sha256').update(v).digest('hex');
+
+/**
+ * Autentica al proveedor con X-Provider-Id + X-Provider-Token (secreto que recibió al registrarse).
+ * El id es público (aparece en las listas de proveedores): sin el token no autentica.
+ * Fuera de producción, sin cabecera se conserva el flujo demo del simulador (no toca datos).
+ */
+async function authProvider(req: Request, res: Response): Promise<string | null | undefined> {
+  const id = req.headers['x-provider-id'];
+  const token = req.headers['x-provider-token'];
+  if (typeof id !== 'string' || !id) {
+    if (!config.isProd) return null;
+    res.status(401).json({ error: { code: 'PROVIDER_AUTH_REQUIRED', message: 'Inicia el registro de proveedor de nuevo.' } });
+    return undefined;
+  }
+  const row = (await db.prepare('SELECT access_token_hash FROM provider_profiles WHERE id = ?').get(id)) as { access_token_hash: string | null } | undefined;
+  const ok =
+    typeof token === 'string' && !!row?.access_token_hash &&
+    row.access_token_hash.length === sha256(token).length &&
+    crypto.timingSafeEqual(Buffer.from(row.access_token_hash), Buffer.from(sha256(token)));
+  if (!ok) {
+    res.status(401).json({ error: { code: 'PROVIDER_AUTH_REQUIRED', message: 'No pudimos validar tu sesión de proveedor.' } });
+    return undefined;
+  }
+  return id;
+}
 
 export const providerRouter = Router();
 
@@ -67,14 +97,7 @@ providerRouter.post('/businesses/confirm', async (req, res) => {
   // 1. Check if business already exists in KUOTA
   const existing = await db.prepare('SELECT id, ruc, razon_social FROM businesses WHERE ruc = ?').get(ruc) as any;
   if (existing) {
-    // Si ya existe, actualiza los datos de contacto y retorna éxito para permitir re-ingreso sin bloquear
-    await db.prepare(`
-      UPDATE businesses
-      SET usuario_propietario = coalesce(?, usuario_propietario),
-          fecha_actualizacion = utc_now_text()
-      WHERE id = ?
-    `).run(legal_rep_dni, existing.id);
-
+    // Ya registrado: no se modifica nada (cualquiera conoce un RUC) ni se entrega acceso.
     const existingReq = await db.prepare('SELECT public_id FROM kyc_requests WHERE session_id = ? ORDER BY created_at DESC LIMIT 1').get(session_id || '') as any;
     const reqId = existingReq?.public_id || 'PRV-89420-PE';
 
@@ -133,19 +156,15 @@ providerRouter.post('/businesses/confirm', async (req, res) => {
   const provId = 'prov_' + uuidv4().substring(0, 10);
   const existingProv = await db.prepare('SELECT id FROM provider_profiles WHERE ruc = ?').get(ruc) as any;
   if (existingProv) {
-    await db.prepare(`
-      UPDATE provider_profiles
-      SET legal_name = ?, legal_rep_dni = coalesce(?, legal_rep_dni), whatsapp = coalesce(?, whatsapp)
-      WHERE id = ?
-    `).run(d.razon_social, legal_rep_dni, whatsapp, existingProv.id);
-  } else {
-    await db.prepare(`
-      INSERT INTO provider_profiles (
-        id, session_id, ruc, legal_name, legal_rep_dni, whatsapp, category,
-        seniority_range, kyc_status, fee_bps
-      ) VALUES (?, ?, ?, ?, ?, ?, 'TEXTILES', '1Y_3Y', 'IN_REVIEW', 100)
-    `).run(provId, session_id, d.ruc, d.razon_social, legal_rep_dni || '', whatsapp || '');
+    return res.status(409).json({ error: { code: 'RUC_ALREADY_REGISTERED', message: 'Este RUC ya está registrado en Kuota. Escríbenos si es tu empresa.' } });
   }
+  const providerToken = crypto.randomBytes(32).toString('base64url');
+  await db.prepare(`
+    INSERT INTO provider_profiles (
+      id, session_id, ruc, legal_name, legal_rep_dni, whatsapp, category,
+      seniority_range, kyc_status, fee_bps, access_token_hash
+    ) VALUES (?, ?, ?, ?, ?, ?, 'TEXTILES', '1Y_3Y', 'IN_REVIEW', 100, ?)
+  `).run(provId, session_id, d.ruc, d.razon_social, legal_rep_dni || '', whatsapp || '', sha256(providerToken));
 
   // 5. Create KYC request with PRV- public id
   const requestId = 'req_' + uuidv4().substring(0, 10);
@@ -156,7 +175,7 @@ providerRouter.post('/businesses/confirm', async (req, res) => {
     VALUES (?, ?, ?, ?, 'IN_PROGRESS', 78)
   `).run(requestId, provId, session_id || 'ses_anon', publicId);
 
-  const finalProvId = existingProv ? existingProv.id : provId;
+  const finalProvId = provId;
 
   res.status(201).json({
     success: true,
@@ -164,6 +183,7 @@ providerRouter.post('/businesses/confirm', async (req, res) => {
     business_id: businessId,
     request_id: publicId,
     provider_id: finalProvId,
+    provider_token: providerToken,
     data: d,
     next_step: 'provider_validating'
   });
@@ -246,7 +266,7 @@ providerRouter.get('/kyc/requests/:publicId', async (req, res) => {
       approved_limit_cents: approvedLimit,
       currency: 'PEN',
       razon_social: razonSocial,
-      legal_rep_dni: repDni
+      legal_rep_dni: typeof repDni === 'string' && repDni.length > 3 ? '•'.repeat(repDni.length - 3) + repDni.slice(-3) : repDni
     }
   });
 });
@@ -304,7 +324,8 @@ providerRouter.post('/kyc/requests/:publicId/verification', async (req, res) => 
 // PRD 13: Actividad Comercial
 providerRouter.put('/activity', async (req, res) => {
   const { category, seniority_range } = req.body;
-  const providerId = req.headers['x-provider-id'] as string | undefined;
+  const providerId = await authProvider(req, res);
+  if (providerId === undefined) return;
 
   if (!category) {
     return res.status(422).json({ error: { code: 'CATEGORY_REQUIRED', message: 'Elige a qué rubro te dedicas.' } });
@@ -576,7 +597,8 @@ providerRouter.get('/savings-estimate', (req, res) => {
 // PRD 16: Cuenta bancaria de abono
 providerRouter.put('/settlement-account', async (req, res) => {
   const { bank, cci } = req.body;
-  const providerId = req.headers['x-provider-id'] as string | undefined;
+  const providerId = await authProvider(req, res);
+  if (providerId === undefined) return;
 
   if (!cci || cci.length !== 20) {
     return res.status(422).json({ error: { code: 'CCI_INVALID', message: 'El código de cuenta interbancario (CCI) debe tener 20 dígitos.' } });
@@ -599,18 +621,22 @@ providerRouter.put('/settlement-account', async (req, res) => {
 
 // PRD 16: Activación definitiva
 providerRouter.post('/activate', async (req, res) => {
-  const providerId = req.headers['x-provider-id'] as string | undefined;
+  const providerId = await authProvider(req, res);
+  if (providerId === undefined) return;
 
+  // La activación NO aprueba el KYC: el estado solo pasa a APPROVED por la decisión de verificación.
+  let kycStatus = 'IN_REVIEW';
   if (providerId) {
-    await db.prepare(`
-      UPDATE provider_profiles SET kyc_status = 'APPROVED', updated_at = utc_now_text()
-      WHERE id = ?
-    `).run(providerId).catch(() => {});
+    const row = (await db.prepare('SELECT kyc_status FROM provider_profiles WHERE id = ?').get(providerId)) as { kyc_status: string | null } | undefined;
+    kycStatus = row?.kyc_status ?? 'IN_REVIEW';
+  } else if (!config.isProd) {
+    kycStatus = 'APPROVED';
   }
+  const verified = kycStatus === 'APPROVED';
 
   res.json({
-    status: 'APPROVED',
-    provider_verified: true,
+    status: kycStatus,
+    provider_verified: verified,
     fee_bps: 100,
     fee_pct: 1.0,
     message: '¡Tu cuenta de Proveedor está lista! Ya puedes generar enlaces de cobro y emitir facturas.'

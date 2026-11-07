@@ -1,3 +1,5 @@
+import { deviceId } from './payments';
+
 // URL del backend: VITE_API_BASE (p. ej. la IP de la PC en la red Wi-Fi para el APK,
 // ver .env.android). Sin ella, el backend de desarrollo en el mismo host que sirvió la
 // página: así la página de pago abierta en otro celular (http://<ip-pc>:5173/pay/…)
@@ -11,6 +13,15 @@ export const API_BASE = ((import.meta.env.VITE_API_BASE as string | undefined) |
 // Sin timeout, un backend inalcanzable (celular fuera de la red) dejaría las
 // pantallas cargando indefinidamente.
 const TIMEOUT_MS = 10000;
+
+/** Mensaje en español cuando el servidor no devuelve uno (HTML, vacío o proxy). */
+function httpMessage(status: number): string {
+  if (status === 404) return 'Esa función no está disponible por ahora. Actualiza la app e inténtalo de nuevo.';
+  if (status === 401 || status === 403) return 'Tu sesión no es válida. Vuelve a iniciar sesión.';
+  if (status === 429) return 'Demasiados intentos. Espera un momento e inténtalo otra vez.';
+  if (status >= 500) return 'Kuota tuvo un problema. Inténtalo de nuevo en unos minutos.';
+  return 'No pudimos completar la acción. Inténtalo de nuevo.';
+}
 
 /** Error de la API con el código del backend ({ error: { code, message } }). */
 export class ApiError extends Error {
@@ -39,8 +50,31 @@ export function getMerchantId(): string | null {
   }
 }
 
+// Token secreto de identidad de este dispositivo (el id del comercio no es un secreto).
+const MERCHANT_TOKEN_KEY = 'kuota.merchant_token';
+let memoryMerchantToken: string | null = null;
+
+export function getMerchantToken(): string | null {
+  try {
+    return localStorage.getItem(MERCHANT_TOKEN_KEY) ?? memoryMerchantToken;
+  } catch {
+    return memoryMerchantToken;
+  }
+}
+
+export function setMerchantToken(token: string | null) {
+  memoryMerchantToken = token;
+  try {
+    if (token) localStorage.setItem(MERCHANT_TOKEN_KEY, token);
+    else localStorage.removeItem(MERCHANT_TOKEN_KEY);
+  } catch {
+    /* almacenamiento no disponible: queda en memoria */
+  }
+}
+
 export function setMerchantId(id: string | null) {
   memoryMerchantId = id;
+  if (!id) setMerchantToken(null);
   try {
     if (id) localStorage.setItem(MERCHANT_KEY, id);
     else localStorage.removeItem(MERCHANT_KEY);
@@ -62,8 +96,30 @@ export function getProviderId(): string | null {
   }
 }
 
+const PROVIDER_TOKEN_KEY = 'kuota.provider_token';
+let memoryProviderToken: string | null = null;
+
+export function getProviderToken(): string | null {
+  try {
+    return localStorage.getItem(PROVIDER_TOKEN_KEY) ?? memoryProviderToken;
+  } catch {
+    return memoryProviderToken;
+  }
+}
+
+export function setProviderToken(token: string | null) {
+  memoryProviderToken = token;
+  try {
+    if (token) localStorage.setItem(PROVIDER_TOKEN_KEY, token);
+    else localStorage.removeItem(PROVIDER_TOKEN_KEY);
+  } catch {
+    /* almacenamiento no disponible: queda en memoria */
+  }
+}
+
 export function setProviderId(id: string | null) {
   memoryProviderId = id;
+  if (!id) setProviderToken(null);
   try {
     if (id) localStorage.setItem(PROVIDER_KEY, id);
     else localStorage.removeItem(PROVIDER_KEY);
@@ -79,7 +135,9 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestInit
   const headers = {
     'Content-Type': 'application/json',
     ...(merchantId ? { 'X-Merchant-Id': merchantId } : {}),
+    ...(getMerchantToken() ? { 'X-Merchant-Token': getMerchantToken() as string, 'X-Device-Id': deviceId() } : {}),
     ...(providerId ? { 'X-Provider-Id': providerId } : {}),
+    ...(getProviderToken() ? { 'X-Provider-Token': getProviderToken() as string } : {}),
     ...(options.headers || {})
   };
   const controller = new AbortController();
@@ -89,12 +147,16 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestInit
     const res = await fetch(url, { ...options, headers, signal: options.signal ?? controller.signal });
     const data = res.status === 204 ? null : await res.json().catch(() => null);
     if (!res.ok) {
-      throw new ApiError(res.status, data?.error?.code ?? `HTTP_${res.status}`, data?.error?.message || `Error ${res.status}: ${res.statusText}`, data);
+      throw new ApiError(res.status, data?.error?.code ?? `HTTP_${res.status}`, data?.error?.message || httpMessage(res.status), data);
     }
     return data as T;
   } catch (err: any) {
     // Solo fallas inesperadas (red o servidor); los 4xx son flujos que maneja la interfaz
     // (PIN, límites, confirmaciones). Sin el cuerpo: puede traer datos del comercio.
+    // El token de identidad venció o fue revocado: volver al inicio de sesión.
+    if (err instanceof ApiError && err.code === 'MERCHANT_AUTH_REQUIRED') {
+      window.dispatchEvent(new Event('kuota:logout'));
+    }
     if (!(err instanceof ApiError) || err.status >= 500) {
       console.error(`API Call failed: ${endpoint}`, err?.code ?? err?.name ?? 'error');
     }
@@ -174,12 +236,17 @@ export const api = {
       body: JSON.stringify(data || {})
     }).then((res: any) => {
       if (res?.merchant_id) setMerchantId(res.merchant_id);
+      if (res?.identity_token) setMerchantToken(res.identity_token);
       return res;
     }),
   setSecurityPin: (sessionId: string, pin: string) =>
     apiRequest(`/onboarding/sessions/${sessionId}/security-pin`, {
       method: 'POST',
-      body: JSON.stringify({ pin })
+      body: JSON.stringify({ pin }),
+      headers: { 'X-Device-Id': deviceId() }
+    }).then((res: any) => {
+      if (res?.identity_token) setMerchantToken(res.identity_token);
+      return res;
     }),
 
   // Merchant Dashboard
@@ -244,7 +311,10 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(data)
     }).then((res: any) => {
-      if (res?.provider_id) setProviderId(res.provider_id);
+      if (res?.provider_id) {
+        setProviderId(res.provider_id);
+        if (res.provider_token) setProviderToken(res.provider_token);
+      }
       return res;
     }),
   getSunatStats: () => apiRequest('/kyc/sunat-stats'),

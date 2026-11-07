@@ -2,7 +2,7 @@
 // confirmación con PIN cuando el backend la pide (STEP_UP_REQUIRED) e
 // idempotencia en la creación de cobros.
 import { Capacitor } from '@capacitor/core';
-import { ApiError, apiRequest } from './client';
+import { ApiError, apiRequest, setMerchantToken } from './client';
 
 // ------------------------------------------------------------- dispositivo
 const DEVICE_KEY = 'kuota.device_id';
@@ -84,10 +84,12 @@ function openSession(): Promise<void> {
     kind: 'session',
     summary: 'Para cobrar con Kuota confirmamos que eres tú.',
     verify: async (pin) => {
-      const r = await apiRequest<{ access_token: string; expires_at: string }>('/auth/sessions', {
+      const r = await apiRequest<{ access_token: string; expires_at: string; identity_token?: string }>('/auth/sessions', {
         method: 'POST',
         body: JSON.stringify({ pin, device_id: deviceId(), device_label: deviceLabel() })
       });
+      // Cada inicio de sesión rota el token de identidad del dispositivo: hay que guardar el nuevo.
+      if (r.identity_token) setMerchantToken(r.identity_token);
       session = { token: r.access_token, expiresAt: Date.parse(r.expires_at) };
     }
   }).finally(() => {
