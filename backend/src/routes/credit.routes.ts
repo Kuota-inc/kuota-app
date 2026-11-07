@@ -143,6 +143,13 @@ creditRouter.post('/purchases', async (req, res) => {
   if (!Number.isInteger(installments) || installments < 1 || installments > MAX_INSTALLMENTS) {
     return res.status(422).json({ error: { code: 'INSTALLMENTS_INVALID', message: 'El número de cuotas no es válido.' } });
   }
+  // El proveedor debe existir y no estar rechazado (o ser uno de los afiliados fijos de la lista de recomendados).
+  if (!(provider_id in AFFILIATED_PROVIDERS)) {
+    const prov = (await db.prepare('SELECT kyc_status FROM provider_profiles WHERE id = ?').get(provider_id)) as { kyc_status: string | null } | undefined;
+    if (!prov || prov.kyc_status === 'REJECTED') {
+      return res.status(422).json({ error: { code: 'PROVIDER_INVALID', message: 'Proveedor no disponible.' } });
+    }
+  }
 
   const created = await db.tx(async () => {
     await db.lock('purchase:' + merchant.id);

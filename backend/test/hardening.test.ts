@@ -119,6 +119,13 @@ describe('Crédito: dueño y validación', () => {
     assert.equal(results.filter((r) => r.status === 201).length, 1);
   });
 
+  test('un proveedor inexistente no recibe compras', async () => {
+    const m = await register('930000013', '73000013', '739164');
+    const r = await call('POST', '/credit/purchases', { provider_id: 'prov_fantasma01', total_cents: 10000, installments: 3 }, { 'X-Merchant-Id': m.merchantId });
+    assert.equal(r.status, 422);
+    assert.equal(r.body.error.code, 'PROVIDER_INVALID');
+  });
+
   test('montos y cuotas inválidos se rechazan (incluida una simulación enorme)', async () => {
     const m = await register('930000006', '73000006', '739164');
     const h = { 'X-Merchant-Id': m.merchantId };

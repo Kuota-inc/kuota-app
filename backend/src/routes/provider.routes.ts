@@ -624,16 +624,19 @@ providerRouter.post('/activate', async (req, res) => {
   const providerId = await authProvider(req, res);
   if (providerId === undefined) return;
 
+  // La activación NO aprueba el KYC: el estado solo pasa a APPROVED por la decisión de verificación.
+  let kycStatus = 'IN_REVIEW';
   if (providerId) {
-    await db.prepare(`
-      UPDATE provider_profiles SET kyc_status = 'APPROVED', updated_at = utc_now_text()
-      WHERE id = ?
-    `).run(providerId).catch(() => {});
+    const row = (await db.prepare('SELECT kyc_status FROM provider_profiles WHERE id = ?').get(providerId)) as { kyc_status: string | null } | undefined;
+    kycStatus = row?.kyc_status ?? 'IN_REVIEW';
+  } else if (!config.isProd) {
+    kycStatus = 'APPROVED';
   }
+  const verified = kycStatus === 'APPROVED';
 
   res.json({
-    status: 'APPROVED',
-    provider_verified: true,
+    status: kycStatus,
+    provider_verified: verified,
     fee_bps: 100,
     fee_pct: 1.0,
     message: '¡Tu cuenta de Proveedor está lista! Ya puedes generar enlaces de cobro y emitir facturas.'

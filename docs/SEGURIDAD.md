@@ -254,23 +254,23 @@ Las rutas `/merchants/me/*` y `/credit/*` identifican al comercio con `X-Merchan
 | R1 | **`KUOTA_SANDBOX=1` activo en producción**: cualquiera con el código de un link puede marcarlo pagado (`/sandbox/360pay/pay`) y confirmar enganches (`/sandbox/openpay/pay`). Los pagos son ficticios | **Crítica si hay dinero real** | Aceptado solo para pruebas | Configurar 360pay y Openpay reales y **quitar la variable** |
 | R2 | **Identidad por cabecera `X-Merchant-Id`** en `/merchants/me` y `/credit` (el id es un identificador, no un secreto; aparece en respuestas) | **Alta** | Mitigado parcialmente (404 sin id) | Derivar el comercio del `access_token` firmado en todas las rutas; no aceptar el id del cliente |
 | R3 | Recuperación de PIN basada en teléfono + DNI (ambos semipúblicos) | Media-alta | Mitigado (límite por cuenta, alerta, enfriamiento) | Añadir OTP por SMS/WhatsApp o prueba de vida (Didit) y enfriar más |
-| R4 | KYC de comercio/proveedor aprobado en modo demo si Didit no está configurado; `/providers/activate` no verifica KYC | Alta | Abierto | Configurar Didit; activar proveedor solo con KYC aprobado |
+| R4 | KYC de comercio/proveedor aprobado en modo demo si Didit no está configurado | Alta | **Parcial**: `/providers/activate` ya no auto-aprueba (el estado solo cambia por decisión de verificación) | Configurar Didit |
 | R5 | Roles de base no aplicados (un solo usuario `DATABASE_URL`) | Media | Abierto | Crear usuarios `kuota_core_rw` / `kuota_payments_rw` y definir `PAYMENTS_DATABASE_URL` |
 | R6 | Rate limit y contadores de recuperación **en memoria** (se reinician con cada deploy y no se comparten entre réplicas) | Media | Abierto | Redis o límite en el API Gateway/WAF |
 | R7 | Bloqueo de PIN denegable por terceros (5 PIN erróneos con solo el teléfono bloquean 15 min) | Media | Diseño | CAPTCHA/Play Integrity, bloqueo por dispositivo+cuenta |
-| R8 | `AndroidManifest`: `allowBackup="true"` y `cleartext`/`androidScheme: http` en Capacitor | Media | Abierto | `allowBackup=false`, `androidScheme: https`, `cleartext: false`, *certificate pinning* |
+| R8 | `androidScheme: http` y `cleartext` en Capacitor | Media | **Parcial**: `allowBackup=false` aplicado (sin copia de datos de la app) | `androidScheme: https` + `cleartext: false` (requiere migrar el almacenamiento local y ajustar CORS), *certificate pinning* |
 | R9 | Sin firma/ofuscación de release ni detección de root/emulador; el APK actual es `debug` | Media | Abierto | Build release firmado, R8/ProGuard, Play Integrity API |
 | R10 | Scoring y niveles manipulables o incoherentes (señales, progresión, mora inexistente) | Media | Parcial (señales con lista cerrada y sin duplicados) | Reglas de nivel y vencimientos basadas en eventos verificados |
 | R11 | El enganche y las cuotas de crédito **no cobran dinero real** (solo cambian estado) | Alta | Abierto | Cobro real por cuota con confirmación por webhook antes de marcar `PAID` |
 | R12 | Sin cifrado a nivel de columna de PII (DNI, teléfono, CCI) ni política de retención | Media | Abierto | Cifrado de columnas con KMS, minimización y retención/ARCO (Ley 29733) |
-| R13 | Sin monitoreo/alertas operativas (Sentry, métricas, alerta por `audit/verify` roto) ni backups probados | Media | Abierto | Observabilidad, backups con prueba de restauración, rotación de secretos |
-| R14 | Aprobación de proveedor/ID en compras: `provider_id` solo se valida por formato (la lista de recomendados es fija) | Media | Abierto | Tabla real de proveedores afiliados y validación de existencia/estado |
+| R13 | Sin monitoreo externo (Sentry, métricas) ni backups probados | Media | **Parcial**: el servidor verifica la cadena de la bitácora al arrancar y cada hora y registra `[ALERTA-SEGURIDAD]` si se rompe | Observabilidad, alertas sobre ese log, backups con prueba de restauración, rotación de secretos |
+| R14 | Compras a crédito: la lista de recomendados es fija | Media | **Parcial**: la compra exige proveedor existente y no rechazado (o uno de los afiliados fijos) | Reemplazar la lista fija por la tabla real de proveedores afiliados |
 
 ---
 
 ## 15. Controles de verificación (pruebas automatizadas)
 
-`backend/test/*.test.ts` (node:test, 62 pruebas): migraciones y roles, PIN hash/bloqueo/sesión ligada al dispositivo, token alterado, links (monto, BOLA, inmutabilidad, vencimiento), step-up de un solo uso, límites y enfriamiento, webhook firmado (ventana, firma, monto, repetición), antifraude, bitácora (cadena rota al alterar), KYC con Didit simulado, 360pay simulado y regresiones de la ronda de QA (`hardening.test.ts`): dueño en pagos de cuotas, no pisar PIN, sesión de onboarding sin fuga, recuperación de PIN, validación de compras, carreras, búsqueda y señales.
+`backend/test/*.test.ts` (node:test, 63 pruebas): migraciones y roles, PIN hash/bloqueo/sesión ligada al dispositivo, token alterado, links (monto, BOLA, inmutabilidad, vencimiento), step-up de un solo uso, límites y enfriamiento, webhook firmado (ventana, firma, monto, repetición), antifraude, bitácora (cadena rota al alterar), KYC con Didit simulado, 360pay simulado y regresiones de la ronda de QA (`hardening.test.ts`): dueño en pagos de cuotas, no pisar PIN, sesión de onboarding sin fuga, recuperación de PIN, validación de compras, carreras, búsqueda y señales.
 
 Auditoría de QA: 8 agentes especializados atacaron la API contra una réplica local de producción (68 hallazgos, de los cuales se corrigieron los críticos y altos de backend; ver §14 para lo pendiente).
 
