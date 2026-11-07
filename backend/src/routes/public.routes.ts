@@ -13,17 +13,18 @@ publicRouter.get('/stats', (req, res) => {
 });
 
 publicRouter.get('/legal/documents', (req, res) => {
+  const origin = `${req.protocol}://${req.get('host')}`;
   res.json({
     terms: {
       version: '2026.1',
       title: 'Términos y Condiciones del Servicio Kuota Perú',
-      url: 'https://kuota.pe/legal/terminos',
+      url: `${origin}/legal/terminos`,
       published_at: '2026-01-01T00:00:00Z'
     },
     privacy: {
       version: '2026.1',
       title: 'Política de Privacidad y Tratamiento de Datos Personales (Ley 29733)',
-      url: 'https://kuota.pe/legal/privacidad',
+      url: `${origin}/legal/privacidad`,
       published_at: '2026-01-01T00:00:00Z'
     }
   });

@@ -12,6 +12,7 @@ import { sandboxRouter, webhookRouter } from './routes/webhook.routes.js';
 import { internalRouter } from './routes/internal.routes.js';
 import { payPageRouter } from './routes/payPage.routes.js';
 import { devRouter } from './routes/dev.routes.js';
+import { legalRouter } from './routes/legal.routes.js';
 import { config, isAllowedOrigin } from './security/config.js';
 import { rateLimit } from './security/guards.js';
 
@@ -79,6 +80,8 @@ export async function createApp() {
 
   // Página de cobro para clientes (sin sesión, HTML)
   app.use('/pay', payPageRouter);
+  // Privacidad, Términos y Libro de Reclamaciones (páginas públicas + POST /api/v1/complaints)
+  app.use(legalRouter);
 
   // Manejador central de errores (formato PRD 00). En producción no se filtran detalles internos.
   // eslint-disable-next-line @typescript-eslint/no-unused-vars

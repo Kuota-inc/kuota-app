@@ -9,6 +9,14 @@ function defaultApiBase(): string {
   return `http://${host && /^[\w.-]+$/.test(host) ? host : 'localhost'}:3001/api/v1`;
 }
 export const API_BASE = ((import.meta.env.VITE_API_BASE as string | undefined) || defaultApiBase()).replace(/\/+$/, '');
+/** Origen del backend (sin /api/v1): sirve las páginas legales y el Libro de Reclamaciones. */
+export const API_ORIGIN = (() => {
+  try {
+    return new URL(API_BASE).origin;
+  } catch {
+    return '';
+  }
+})();
 
 // Sin timeout, un backend inalcanzable (celular fuera de la red) dejaría las
 // pantallas cargando indefinidamente.

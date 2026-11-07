@@ -244,6 +244,8 @@ El id del comercio (`X-Merchant-Id`) **no es un secreto**; lo que prueba la iden
 - El PIN se pide con teclado propio, se envía por HTTPS solo a `/auth/*` y se borra del estado tras usarlo.
 - Cierre de sesión: revoca la sesión en servidor y limpia comercio, proveedor y token.
 - **Bloqueo de la app con PIN**: al abrirla con una sesión guardada y al volver de segundo plano tras ≥ 60 s se muestra una pantalla de bloqueo y se pide el PIN (verificado en el servidor, con el mismo límite de 5 intentos / 15 min).
+- **Desbloqueo con huella o rostro (opcional)**: BiometricPrompt de AndroidX (biometría fuerte), activable desde Perfil tras confirmar con el sensor. Es un candado **local**: abre la app, pero las operaciones con dinero siguen pidiendo el PIN al servidor (la sesión de cobros se descarta al bloquear). Si la biometría falla, se cancela o se bloquea, se cae al PIN.
+- **Capturas de pantalla bloqueadas en pantallas sensibles** (`FLAG_SECURE` mediante el plugin `KuotaSecure`): login y recuperación de PIN, ventana de PIN, creación de PIN, identidad y verificación (DNI, RUC), cuentas de abono y Perfil. Cobros, ventas, crédito e inicio permiten capturas para poder compartir comprobantes.
 - **Privacidad en «apps recientes»**: al pasar a segundo plano la ventana se marca `FLAG_SECURE` y la miniatura sale en negro; se retira al volver, por lo que no bloquea capturas durante el uso.
 - Mensajes de error en español sin filtrar detalles técnicos.
 

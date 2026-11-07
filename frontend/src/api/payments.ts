@@ -98,6 +98,11 @@ function openSession(summary = 'Para cobrar con Kuota confirmamos que eres tú.'
   return opening;
 }
 
+/** Descarta la sesión de cobros en memoria: la próxima operación con dinero vuelve a pedir el PIN. */
+export function forgetSession() {
+  session = null;
+}
+
 /** Bloqueo de la app: descarta la sesión en memoria y pide el PIN (se verifica en el servidor). */
 export function unlockWithPin(): Promise<void> {
   session = null;

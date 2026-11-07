@@ -1,7 +1,11 @@
 import React, { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { App as NativeApp } from '@capacitor/app';
-import { KuotaNotifications } from './plugins/kuotaNotifications';
+import { KuotaBiometric } from './plugins/kuotaBiometric';
+import { useSecureScreen } from './plugins/kuotaSecure';
+import { useToast } from './components/toast-context';
+import { isBiometricEnabled, resetSettings } from './services/appSettings';
+import { refreshListener, setCaptureHandler } from './services/paymentListener';
 import { api, apiRequest, getMerchantId, setMerchantId, setProviderId } from './api/client';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { useDeviceMode } from './hooks/useDeviceMode';
@@ -12,7 +16,7 @@ import { KuotearModal } from './screens/dashboard/KuotearModal';
 import { NotificationsSheet } from './screens/dashboard/NotificationsSheet';
 import { ToastProvider, ToastViewport } from './components/Toast';
 import { PinPromptHost, PinPromptProvider } from './components/PinPrompt';
-import { logout as logoutPayments, unlockWithPin } from './api/payments';
+import { forgetSession, logout as logoutPayments, unlockWithPin } from './api/payments';
 import { RotateCcw, Store, Building2, KeyRound, UserCircle } from 'lucide-react';
 
 // Pantallas que no son la inicial se cargan bajo demanda (bundle inicial más liviano).
@@ -45,6 +49,17 @@ function ScreenFallback() {
 }
 
 const ONBOARDED_KEY = 'kuota.onboarded';
+// Pantallas con PIN, DNI/RUC, cuentas de abono o datos del perfil.
+const SENSITIVE_SCREENS = new Set([
+  'login',
+  'onboarding_merchant_identity',
+  'onboarding_merchant_validating',
+  'onboarding_security_pin',
+  'onboarding_provider_fiscal',
+  'onboarding_provider_validating',
+  'onboarding_provider_savings',
+  'profile'
+]);
 function readFlag(key: string): boolean {
   try {
     return localStorage.getItem(key) === '1';
@@ -74,6 +89,13 @@ function AppShell() {
   const backgroundedAt = useRef<number | null>(null);
   const [activeTab, setActiveTab] = useState<string>('inicio');
   const [isKuotearOpen, setIsKuotearOpen] = useState<boolean>(false);
+  // Pantallas con credenciales o datos de identidad: sin capturas ni grabación de pantalla (solo Android).
+  // Cobros, ventas, crédito e inicio sí permiten capturas (p. ej. compartir un comprobante).
+  useSecureScreen(
+    locked ||
+      SENSITIVE_SCREENS.has(currentScreen) ||
+      (currentScreen.startsWith('dashboard') && activeTab === 'perfil')
+  );
   const [isNotificationsOpen, setIsNotificationsOpen] = useState<boolean>(false);
   const [notificationsSeen, setNotificationsSeen] = useState<boolean>(false);
   const [sessionId, setSessionId] = useState<string>('ses_demo_123');
@@ -98,6 +120,7 @@ function AppShell() {
     void logoutPayments().catch(() => {});
     setMerchantId(null);
     setProviderId(null);
+    resetSettings();
     setLocked(false);
     writeFlag(ONBOARDED_KEY, false);
     setCurrentScreen('welcome');
@@ -211,22 +234,33 @@ function AppShell() {
       }
     };
   });
-  const promptUnlock = () => {
+  // Desbloqueo: huella/rostro si está activada (candado local; los cobros siguen pidiendo el PIN);
+  // si se cancela o falla, o no está activada, se pide el PIN y se verifica en el servidor.
+  const promptUnlock = async (pinOnly = false) => {
     if (unlocking.current) return;
     unlocking.current = true;
-    unlockWithPin()
-      .then(() => setLocked(false))
-      .catch(() => {
-        /* cancelado o PIN no verificado: sigue bloqueada hasta que lo intente de nuevo */
-      })
-      .finally(() => {
-        unlocking.current = false;
-      });
+    try {
+      if (!pinOnly && isBiometricEnabled()) {
+        try {
+          await KuotaBiometric.authenticate({ title: 'Desbloquear Kuota', subtitle: 'Usa tu huella o rostro', negativeText: 'Usar PIN' });
+          setLocked(false);
+          return;
+        } catch {
+          /* cancelada, bloqueada o fallida: se continúa con el PIN */
+        }
+      }
+      await unlockWithPin();
+      setLocked(false);
+    } catch {
+      /* cancelado o PIN no verificado: sigue bloqueada hasta que lo intente de nuevo */
+    } finally {
+      unlocking.current = false;
+    }
   };
 
   useEffect(() => {
     if (!locked) return;
-    const t = window.setTimeout(promptUnlock, 350);
+    const t = window.setTimeout(() => void promptUnlock(), 350);
     return () => window.clearTimeout(t);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [locked]);
@@ -240,7 +274,10 @@ function AppShell() {
       }
       const away = backgroundedAt.current ? Date.now() - backgroundedAt.current : 0;
       backgroundedAt.current = null;
-      if (away >= 60_000 && getMerchantId() && readFlag(ONBOARDED_KEY)) setLocked(true);
+      if (away >= 60_000 && getMerchantId() && readFlag(ONBOARDED_KEY)) {
+        forgetSession();
+        setLocked(true);
+      }
     });
     return () => {
       sub.then((h) => h.remove());
@@ -262,16 +299,25 @@ function AppShell() {
     StatusBar.setBackgroundColor({ color: '#f9f9ff' });
   }, []);
 
-  // Bloque 3: suscribirse al listener de notificaciones de pago
+  // Detección de abonos Yape/Plin: se (re)evalúa el permiso al abrir y cada vez que se vuelve a la app
+  // (la persona pudo concederlo en Ajustes). Cada abono detectado se registra como venta declarada.
+  const appToast = useToast();
+  const toastRef = useRef(appToast);
+  toastRef.current = appToast;
   useEffect(() => {
-    let handle: { remove: () => void } | null = null;
-    KuotaNotifications.checkPermission().then(({ granted }) => {
-      if (!granted) return;
-      KuotaNotifications.addListener('notificationCaptured', (data) => {
-        api.postScoringSignal('PAYMENT_CAPTURED', data.appPackage).catch(() => {});
-      }).then((h) => { handle = h; });
-    }).catch(() => {});
-    return () => { handle?.remove(); };
+    setCaptureHandler(({ amountCents, source }) =>
+      toastRef.current.success(`Abono ${source === 'YAPE' ? 'Yape' : 'Plin'} de S/ ${(amountCents / 100).toFixed(2)} registrado`)
+    );
+    void refreshListener();
+    const sub = Capacitor.isNativePlatform()
+      ? NativeApp.addListener('appStateChange', ({ isActive }) => {
+          if (isActive) void refreshListener();
+        })
+      : null;
+    return () => {
+      setCaptureHandler(null);
+      sub?.then((h) => h.remove());
+    };
   }, []);
 
   // Reset to initial screen
@@ -572,11 +618,20 @@ function AppShell() {
               <p className="text-sm text-white/80 mt-2 max-w-xs">Ingresa tu PIN para continuar. Así protegemos tu cuenta si pierdes el celular.</p>
               <button
                 type="button"
-                onClick={promptUnlock}
+                onClick={() => void promptUnlock()}
                 className="mt-8 w-full max-w-xs py-3.5 rounded-2xl bg-white text-[#00248b] font-black text-sm shadow-lg cursor-pointer"
               >
-                Desbloquear con PIN
+                {isBiometricEnabled() ? 'Desbloquear con huella o rostro' : 'Desbloquear con PIN'}
               </button>
+              {isBiometricEnabled() && (
+                <button
+                  type="button"
+                  onClick={() => void promptUnlock(true)}
+                  className="mt-3 text-xs font-bold text-white/90 underline cursor-pointer"
+                >
+                  Usar PIN
+                </button>
+              )}
               <button
                 type="button"
                 onClick={handleLogout}

@@ -41,6 +41,31 @@ internalRouter.get('/reconciliation/runs', async (_req, res) => {
   });
 });
 
+// ------------------------------------------------- Libro de Reclamaciones
+// Pendientes primero y por fecha límite de respuesta (15 días hábiles).
+internalRouter.get('/complaints', async (req, res) => {
+  const status = typeof req.query.status === 'string' ? req.query.status : null;
+  const rows = await coreDb.all(
+    `SELECT * FROM complaints ${status ? 'WHERE status = ?' : ''} ORDER BY (status = 'RECEIVED') DESC, due_at ASC LIMIT 200`,
+    ...(status ? [status] : [])
+  );
+  res.json({ data: rows });
+});
+
+internalRouter.post('/complaints/:code/respond', async (req, res) => {
+  const response = typeof req.body?.response === 'string' ? req.body.response.trim().slice(0, 4000) : '';
+  if (response.length < 5) return fail(res, 422, 'RESPONSE_REQUIRED', 'Escribe la respuesta al cliente.');
+  const done = await coreDb.run(
+    "UPDATE complaints SET status = 'RESPONDED', response = ?, responded_at = ? WHERE code = ? AND status = 'RECEIVED'",
+    response,
+    nowIso(),
+    req.params.code
+  );
+  if (!done.changes) return fail(res, 404, 'COMPLAINT_NOT_FOUND', 'Reclamo no encontrado o ya respondido.');
+  await audit({ actorType: 'ADMIN', actorId: actor(req), action: 'COMPLAINT_RESPONDED', target: req.params.code, result: 'OK', ip: clientIp(req) });
+  res.json({ success: true });
+});
+
 // ---------------------------------------------------------------- bitácora
 internalRouter.get('/audit/verify', async (_req, res) => res.json(await verifyAuditChain()));
 internalRouter.get('/audit', async (req, res) => res.json({ data: await recentAudit(Number(req.query.limit) || 50) }));

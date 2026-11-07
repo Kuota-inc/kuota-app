@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { Delete, Loader2, ShieldCheck } from 'lucide-react';
 import { ApiError } from '../api/client';
 import { CancelledError, setPinHandler, type PinPromptOptions } from '../api/payments';
+import { useSecureScreen } from '../plugins/kuotaSecure';
 import { DialogPanel } from './DialogPanel';
 import { PinPromptContext, type PinRequestState } from './pin-prompt-context';
 
@@ -54,6 +55,7 @@ export const PinPromptProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 export const PinPromptHost: React.FC = () => {
   const ctx = useContext(PinPromptContext);
   const request = ctx?.request ?? null;
+  useSecureScreen(!!request);
   return (
     <AnimatePresence>
       {request && <PinSheet key={request.id} request={request} onCancel={ctx!.close} />}

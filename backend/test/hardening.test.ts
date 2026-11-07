@@ -265,3 +265,45 @@ describe('Transparencia del costo del crédito', () => {
     assert.ok(longer.body.tea_pct < r.body.tea_pct, 'más cuotas con el mismo interés total = menor TEA');
   });
 });
+
+describe('Páginas legales y Libro de Reclamaciones', () => {
+  const origin = () => base.replace('/api/v1', '');
+  const body = {
+    kind: 'RECLAMO', full_name: 'Ana Prueba Quispe', doc_type: 'DNI', doc_number: '47891234', phone: '987654321',
+    email: 'ana@example.com', service: 'Cobros y links de pago', description: 'No se acreditó mi cobro de S/ 50 del día de ayer.'
+  };
+
+  test('privacidad, términos y reclamaciones se sirven y reflejan la normativa', async () => {
+    for (const [path, needle] of [['/legal/privacidad', '29733'], ['/legal/terminos', 'TEA/TCEA'], ['/reclamaciones', '15 días hábiles']] as const) {
+      const r = await fetch(origin() + path);
+      assert.equal(r.status, 200, path);
+      assert.match(await r.text(), new RegExp(needle), path);
+    }
+    const docs = await call('GET', '/legal/documents');
+    assert.ok(!docs.body.privacy.url.includes('kuota.pe'), 'enlaces propios, no a un dominio inexistente');
+  });
+
+  test('registrar un reclamo devuelve número de hoja y fecha límite de 15 días hábiles', async () => {
+    resetRateLimits();
+    const r = await call('POST', '/complaints', body);
+    assert.equal(r.status, 201);
+    assert.match(r.body.code, /^HR-\d{4}-\d{6}$/);
+    const due = new Date(r.body.due_at).getTime() - Date.now();
+    assert.ok(due > 18 * 86400_000 && due < 24 * 86400_000, 'entre 18 y 24 días calendario');
+    const bad = await call('POST', '/complaints', { ...body, email: 'no-es-correo' });
+    assert.equal(bad.status, 422);
+    assert.equal((await call('POST', '/complaints', { ...body, kind: 'OTRO' })).status, 422);
+  });
+
+  test('operaciones ve los reclamos y los responde (token admin)', async () => {
+    resetRateLimits();
+    const made = await call('POST', '/complaints', body);
+    const { secrets } = await import('../src/security/config.js');
+    const admin = { Authorization: `Bearer ${secrets.adminToken}` };
+    assert.equal((await call('GET', '/internal/complaints')).status, 401);
+    const list = await call('GET', '/internal/complaints', undefined, admin);
+    assert.ok(list.body.data.some((c: any) => c.code === made.body.code));
+    assert.equal((await call('POST', `/internal/complaints/${made.body.code}/respond`, { response: 'Acreditamos tu cobro.' }, admin)).status, 200);
+    assert.equal((await call('POST', `/internal/complaints/${made.body.code}/respond`, { response: 'Otra vez' }, admin)).status, 404);
+  });
+});

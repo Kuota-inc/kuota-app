@@ -27,7 +27,10 @@ import {
   BellRing,
   LogOut
 } from 'lucide-react';
-import { api } from '../../api/client';
+import { API_ORIGIN, api } from '../../api/client';
+import { KuotaBiometric, biometricReasonText } from '../../plugins/kuotaBiometric';
+import { isBiometricEnabled, setBiometricEnabled } from '../../services/appSettings';
+import { disableListener, enableListener, listenerStatus, onListenerChange, refreshListener, type ListenerStatus } from '../../services/paymentListener';
 import { useDialog } from '../../hooks/useDialog';
 import { ChangePinPanel, DevicesPanel, LimitsPanel, SecurityActivityPanel } from './PaymentSecurityPanels';
 
@@ -47,8 +50,53 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onLogout }
   const [rubro, setRubro] = useState<string>('');
   const [zona, setZona] = useState<string>('');
 
-  const [isListenerActive, setIsListenerActive] = useState<boolean>(true);
-  const [biometricEnabled, setBiometricEnabled] = useState<boolean>(false);
+  // Listener Yape/Plin: refleja el permiso real de Android y la preferencia guardada.
+  const [listenerState, setListenerState] = useState<ListenerStatus>(listenerStatus());
+  const isListenerActive = listenerState === 'ACTIVE';
+  const [biometricEnabled, setBiometricOn] = useState<boolean>(isBiometricEnabled());
+  useEffect(() => {
+    void refreshListener().then(setListenerState);
+    return onListenerChange(() => setListenerState(listenerStatus()));
+  }, []);
+
+  const toggleBiometric = async () => {
+    if (biometricEnabled) {
+      setBiometricEnabled(false);
+      setBiometricOn(false);
+      showToast('Huella digital desactivada.');
+      return;
+    }
+    try {
+      const info = await KuotaBiometric.isAvailable();
+      if (!info.available) {
+        showToast(biometricReasonText(info.reason));
+        return;
+      }
+      // Se confirma con la biometría antes de activarla: así se sabe que el sensor funciona y es de esta persona.
+      await KuotaBiometric.authenticate({ title: 'Activar huella o rostro', subtitle: 'Confirma para desbloquear Kuota con tu biometría', negativeText: 'Cancelar' });
+      setBiometricEnabled(true);
+      setBiometricOn(true);
+      showToast('Listo: desbloquearás Kuota con tu huella o rostro. Los cobros seguirán pidiendo tu PIN.');
+    } catch (e: any) {
+      if (e?.code !== 'CANCELED') showToast(biometricReasonText('UNKNOWN'));
+    }
+  };
+
+  const toggleListener = async () => {
+    if (listenerState === 'UNSUPPORTED') {
+      showToast('La detección automática solo funciona en la app Android.');
+      return;
+    }
+    if (isListenerActive) {
+      setActiveModal('modal-listener-alert');
+      return;
+    }
+    const r = await enableListener();
+    setListenerState(listenerStatus());
+    showToast(r === 'ACTIVE' ? 'Listener Yape & Plin activado.' : 'En Ajustes, activa "Kuota" en Acceso a notificaciones y vuelve a la app.');
+  };
+
+  const listenerLabel = { ACTIVE: 'Activo', OFF: 'Inactivo', NO_PERMISSION: 'Sin permiso', UNSUPPORTED: 'No disponible' }[listenerState];
   const [catalogProducts, setCatalogProducts] = useState<any[] | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -335,7 +383,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onLogout }
                       isListenerActive ? 'bg-[#00248b]/10 text-[#00248b]' : 'bg-slate-200 text-slate-600'
                     }`}
                   >
-                    {isListenerActive ? 'Activo' : 'Inactivo'}
+                    {listenerLabel}
                   </span>
                 </div>
                 <p className="text-[10px] text-[#4a5f7e] mt-0.5 leading-tight">
@@ -348,14 +396,9 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onLogout }
             <button
               type="button"
               aria-label="Cambiar estado del listener de notificaciones"
-              onClick={() => {
-                if (isListenerActive) {
-                  setActiveModal('modal-listener-alert');
-                } else {
-                  setIsListenerActive(true);
-                  showToast('Listener Yape & Plin reactivado con éxito');
-                }
-              }}
+              onClick={() => void toggleListener()}
+              role="switch"
+              aria-checked={isListenerActive}
               className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full p-0.5 transition-colors duration-200 focus:outline-none ${
                 isListenerActive ? 'bg-[#1a3bb0]' : 'bg-slate-300'
               }`}
@@ -371,7 +414,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onLogout }
           {/* Enlaces Legales & Reclamaciones */}
           <div className="space-y-1 pt-1 border-t border-[#e7eefe]">
             <a
-              href="https://kuota.pe/legal"
+              href={`${API_ORIGIN}/legal/privacidad`}
               target="_blank"
               rel="noopener noreferrer"
               className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-[#eff3ff] transition text-left"
@@ -385,7 +428,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onLogout }
               <ExternalLink size={14} className="text-[#4a5f7e]" />
             </a>
             <a
-              href="https://kuota.pe/reclamaciones"
+              href={`${API_ORIGIN}/reclamaciones`}
               target="_blank"
               rel="noopener noreferrer"
               className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-[#eff3ff] transition text-left"
@@ -426,13 +469,9 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onLogout }
             {/* Huella / FaceID */}
             <button
               type="button"
-              onClick={() => {
-                setBiometricEnabled(v => {
-                  const next = !v;
-                  showToast(next ? 'Huella digital activada para esta cuenta.' : 'Huella digital desactivada.');
-                  return next;
-                });
-              }}
+              onClick={() => void toggleBiometric()}
+              role="switch"
+              aria-checked={biometricEnabled}
               className="w-full flex items-center justify-between p-3 rounded-2xl bg-[#eff3ff] hover:bg-[#e7eefe] active:scale-[0.99] transition text-left cursor-pointer border border-transparent hover:border-blue-200"
             >
               <div className="flex items-center gap-3">
@@ -735,10 +774,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onLogout }
                   <div className="flex flex-col gap-2 pt-2">
                     <button
                       type="button"
-                      onClick={() => {
-                        setIsListenerActive(true);
-                        closeModal();
-                      }}
+                      onClick={closeModal}
                       className="w-full h-11 rounded-full bg-[#1a3bb0] hover:bg-[#00248b] text-white text-xs font-bold shadow-md active:scale-95 transition cursor-pointer"
                     >
                       Mantener Listener Activo
@@ -746,7 +782,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onLogout }
                     <button
                       type="button"
                       onClick={() => {
-                        setIsListenerActive(false);
+                        void disableListener().then(() => setListenerState(listenerStatus()));
                         closeModal();
                         showToast('Listener suspendido');
                       }}
