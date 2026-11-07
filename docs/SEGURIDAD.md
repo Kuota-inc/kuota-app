@@ -243,6 +243,8 @@ El id del comercio (`X-Merchant-Id`) **no es un secreto**; lo que prueba la iden
 - Almacena en `localStorage`: `kuota.merchant_id`, `kuota.provider_id`/`provider_token`, id de dispositivo aleatorio y banderas de UI. **No guarda PIN** ni token de sesión en disco (el access token vive en memoria y dura 15 min).
 - El PIN se pide con teclado propio, se envía por HTTPS solo a `/auth/*` y se borra del estado tras usarlo.
 - Cierre de sesión: revoca la sesión en servidor y limpia comercio, proveedor y token.
+- **Bloqueo de la app con PIN**: al abrirla con una sesión guardada y al volver de segundo plano tras ≥ 60 s se muestra una pantalla de bloqueo y se pide el PIN (verificado en el servidor, con el mismo límite de 5 intentos / 15 min).
+- **Privacidad en «apps recientes»**: al pasar a segundo plano la ventana se marca `FLAG_SECURE` y la miniatura sale en negro; se retira al volver, por lo que no bloquea capturas durante el uso.
 - Mensajes de error en español sin filtrar detalles técnicos.
 
 ---
@@ -258,7 +260,7 @@ El id del comercio (`X-Merchant-Id`) **no es un secreto**; lo que prueba la iden
 | R5 | Roles de base no aplicados (un solo usuario `DATABASE_URL`) | Media | Abierto | Crear usuarios `kuota_core_rw` / `kuota_payments_rw` y definir `PAYMENTS_DATABASE_URL` |
 | R6 | Rate limit y contadores de recuperación **en memoria** (se reinician con cada deploy y no se comparten entre réplicas) | Media | Abierto | Redis o límite en el API Gateway/WAF |
 | R7 | Bloqueo de PIN denegable por terceros (5 PIN erróneos con solo el teléfono bloquean 15 min) | Media | Diseño | CAPTCHA/Play Integrity, bloqueo por dispositivo+cuenta |
-| R8 | `androidScheme: http` y `cleartext` en Capacitor | Media | **Parcial**: `allowBackup=false` aplicado (sin copia de datos de la app) | `androidScheme: https` + `cleartext: false` (requiere migrar el almacenamiento local y ajustar CORS), *certificate pinning* |
+| R8 | `androidScheme: http` y `cleartext` en Capacitor | Media | **Parcial**: `allowBackup=false` aplicado (sin copia de datos de la app), bloqueo con PIN al abrir y miniatura oculta en apps recientes | `androidScheme: https` + `cleartext: false` (requiere migrar el almacenamiento local y ajustar CORS), *certificate pinning* |
 | R9 | Sin firma/ofuscación de release ni detección de root/emulador; el APK actual es `debug` | Media | Abierto | Build release firmado, R8/ProGuard, Play Integrity API |
 | R10 | Scoring y niveles manipulables o incoherentes (señales, progresión, mora inexistente) | Media | Parcial (señales con lista cerrada y sin duplicados) | Reglas de nivel y vencimientos basadas en eventos verificados |
 | R11 | El enganche y las cuotas de crédito **no cobran dinero real** (solo cambian estado) | Alta | Abierto | Cobro real por cuota con confirmación por webhook antes de marcar `PAID` |
