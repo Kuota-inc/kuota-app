@@ -12,7 +12,7 @@ import { KuotearModal } from './screens/dashboard/KuotearModal';
 import { NotificationsSheet } from './screens/dashboard/NotificationsSheet';
 import { ToastProvider, ToastViewport } from './components/Toast';
 import { PinPromptHost, PinPromptProvider } from './components/PinPrompt';
-import { logout as logoutPayments } from './api/payments';
+import { logout as logoutPayments, unlockWithPin } from './api/payments';
 import { RotateCcw, Store, Building2, KeyRound, UserCircle } from 'lucide-react';
 
 // Pantallas que no son la inicial se cargan bajo demanda (bundle inicial más liviano).
@@ -66,6 +66,12 @@ function AppShell() {
   const [currentScreen, setCurrentScreen] = useState<string>(() =>
     Capacitor.isNativePlatform() && !readFlag(ONBOARDED_KEY) ? 'welcome' : 'dashboard'
   );
+  // Bloqueo por seguridad: al abrir la app (y al volver tras un rato en segundo plano) se pide el PIN.
+  const [locked, setLocked] = useState<boolean>(
+    () => Capacitor.isNativePlatform() && !!getMerchantId() && readFlag(ONBOARDED_KEY)
+  );
+  const unlocking = useRef(false);
+  const backgroundedAt = useRef<number | null>(null);
   const [activeTab, setActiveTab] = useState<string>('inicio');
   const [isKuotearOpen, setIsKuotearOpen] = useState<boolean>(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState<boolean>(false);
@@ -92,6 +98,7 @@ function AppShell() {
     void logoutPayments().catch(() => {});
     setMerchantId(null);
     setProviderId(null);
+    setLocked(false);
     writeFlag(ONBOARDED_KEY, false);
     setCurrentScreen('welcome');
     setActiveTab('inicio');
@@ -204,6 +211,42 @@ function AppShell() {
       }
     };
   });
+  const promptUnlock = () => {
+    if (unlocking.current) return;
+    unlocking.current = true;
+    unlockWithPin()
+      .then(() => setLocked(false))
+      .catch(() => {
+        /* cancelado o PIN no verificado: sigue bloqueada hasta que lo intente de nuevo */
+      })
+      .finally(() => {
+        unlocking.current = false;
+      });
+  };
+
+  useEffect(() => {
+    if (!locked) return;
+    const t = window.setTimeout(promptUnlock, 350);
+    return () => window.clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [locked]);
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    const sub = NativeApp.addListener('appStateChange', ({ isActive }) => {
+      if (!isActive) {
+        backgroundedAt.current = Date.now();
+        return;
+      }
+      const away = backgroundedAt.current ? Date.now() - backgroundedAt.current : 0;
+      backgroundedAt.current = null;
+      if (away >= 60_000 && getMerchantId() && readFlag(ONBOARDED_KEY)) setLocked(true);
+    });
+    return () => {
+      sub.then((h) => h.remove());
+    };
+  }, []);
+
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
     const sub = NativeApp.addListener('backButton', () => backRef.current());
@@ -520,6 +563,29 @@ function AppShell() {
               }
             }}
           />
+          {locked && (
+            <div className="fixed inset-0 z-[60] bg-gradient-to-b from-[#00248b] to-[#1a3bb0] flex flex-col items-center justify-center text-white px-8 text-center">
+              <div className="w-20 h-20 rounded-3xl bg-white/15 border border-white/25 flex items-center justify-center mb-6">
+                <KeyRound size={36} />
+              </div>
+              <h1 className="text-2xl font-black tracking-tight">Kuota está bloqueada</h1>
+              <p className="text-sm text-white/80 mt-2 max-w-xs">Ingresa tu PIN para continuar. Así protegemos tu cuenta si pierdes el celular.</p>
+              <button
+                type="button"
+                onClick={promptUnlock}
+                className="mt-8 w-full max-w-xs py-3.5 rounded-2xl bg-white text-[#00248b] font-black text-sm shadow-lg cursor-pointer"
+              >
+                Desbloquear con PIN
+              </button>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="mt-4 text-xs font-bold text-white/80 underline cursor-pointer"
+              >
+                Cerrar sesión
+              </button>
+            </div>
+          )}
           <PinPromptHost />
           <ToastViewport />
         </PhoneSimulator>

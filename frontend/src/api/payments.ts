@@ -78,11 +78,11 @@ const authHeaders = (): Record<string, string> => ({
   'X-Device-Id': deviceId()
 });
 
-function openSession(): Promise<void> {
+function openSession(summary = 'Para cobrar con Kuota confirmamos que eres tú.'): Promise<void> {
   opening ??= askPin({
     title: 'Ingresa tu PIN',
     kind: 'session',
-    summary: 'Para cobrar con Kuota confirmamos que eres tú.',
+    summary,
     verify: async (pin) => {
       const r = await apiRequest<{ access_token: string; expires_at: string; identity_token?: string }>('/auth/sessions', {
         method: 'POST',
@@ -96,6 +96,12 @@ function openSession(): Promise<void> {
     opening = null;
   });
   return opening;
+}
+
+/** Bloqueo de la app: descarta la sesión en memoria y pide el PIN (se verifica en el servidor). */
+export function unlockWithPin(): Promise<void> {
+  session = null;
+  return openSession('Para abrir Kuota confirma que eres tú.');
 }
 
 export async function logout() {
