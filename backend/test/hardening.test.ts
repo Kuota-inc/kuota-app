@@ -252,3 +252,16 @@ describe('Identidad por token de dispositivo (X-Merchant-Token)', () => {
     }
   });
 });
+
+describe('Transparencia del costo del crédito', () => {
+  test('la simulación informa la TEA real (no una cifra fija) y el costo total', async () => {
+    const r = await call('POST', '/credit/simulations', { purchase_cents: 30000, installments: 3 });
+    assert.equal(r.status, 200);
+    assert.notEqual(r.body.tcea, 18.5);
+    assert.ok(r.body.tea_pct > 200 && r.body.tea_pct < 300, `TEA ${r.body.tea_pct}`);
+    assert.equal(r.body.tcea_pct, r.body.tea_pct);
+    assert.equal(r.body.interest_cents, r.body.total_repayment_cents - r.body.financed_cents);
+    const longer = await call('POST', '/credit/simulations', { purchase_cents: 30000, installments: 12 });
+    assert.ok(longer.body.tea_pct < r.body.tea_pct, 'más cuotas con el mismo interés total = menor TEA');
+  });
+});

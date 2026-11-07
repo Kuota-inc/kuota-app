@@ -67,7 +67,7 @@ La **Res. SBS 01747-2026** (publicada el 03-07-2026) regula el modelo BaaS: enti
 
 ### 4.1 Lo que hace el producto hoy (código)
 - Interés fijo de **9,98 % sobre el monto financiado**, en **3 cuotas iguales cada 14 días** (plazo 42 días) (`credit.routes.ts`).
-- La app y `/credit/simulations` informan una **TCEA fija de 18,5 %**, sin relación con el cálculo real.
+- Hasta el 2026-11-07 la app y `/credit/simulations` informaban una **TCEA fija de 18,5 %**, sin relación con el cálculo real. **Corregido** (ver §4.5).
 
 ### 4.2 Cálculo de la tasa efectiva anual
 Con un capital financiado de 1,00, tres pagos de 0,3666 (1,0998/3) a los 14, 28 y 42 días, la tasa implícita es **4,91 % por periodo de 14 días**:
@@ -75,6 +75,9 @@ Con un capital financiado de 1,00, tres pagos de 0,3666 (1,0998/3) a los 14, 28 
 > **TEA = (1 + 0,04912)^(365/14) − 1 ≈ 249 %**
 
 (El costo financiero total es 9,98 % del capital financiado en 42 días; la TEA es alta por el plazo corto. Un cálculo formal de TCEA debe incluir comisiones, seguros y el efecto del enganche, según el formato exigido por transparencia.)
+
+### 4.2.1 Estado de la corrección (2026-11-07)
+`/credit/simulations` ahora calcula la **TEA/TCEA real** a partir del cronograma (tasa interna de retorno de las cuotas, base 365 días; sin comisiones ni seguros TEA = TCEA) y devuelve además el **interés total** y el **total en cuotas**. La pantalla de compra a crédito muestra esos tres datos **antes de confirmar**. Con el plan actual (3 cuotas quincenales) la TEA informada es ≈ 249 %.
 
 ### 4.3 Comparación con los topes
 - **Ley 31143**: el BCRP fija tasas máximas semestrales; exceder el tope se considera **usura** (art. 214 del Código Penal). La ley limita el tope a **crédito de consumo y a micro y pequeña empresa del sistema financiero** ([texto consolidado](https://leyes.congreso.gob.pe/Documentos/2016_2021/ADLP/Texto_Consolidado/31143-TXM.pdf)).
@@ -84,7 +87,7 @@ Con un capital financiado de 1,00, tres pagos de 0,3666 (1,0998/3) a los 14, 28 
 ### 4.4 Riesgos para Kuota
 | Riesgo | Detalle | Acción |
 |---|---|---|
-| **Transparencia / publicidad engañosa** | Mostrar TCEA 18,5 % cuando la TEA real supera el 200 % puede constituir infracción al Código de Consumo | **Corregir de inmediato**: calcular y mostrar TEA/TCEA real, cronograma y costo total antes de contratar |
+| **Transparencia / publicidad engañosa** | Mostrar TCEA 18,5 % cuando la TEA real supera el 200 % puede constituir infracción al Código de Consumo | **Corregido en la app (TEA real, interés y total antes de confirmar)**; falta el contrato/hoja resumen con el formato oficial de transparencia **[Verificar con abogado]** |
 | **Usura** | Aunque el tope de la Ley 31143 se dirige al sistema financiero, **no está claro** si el art. 214 del Código Penal alcanza a prestamistas no supervisados; además el Código Civil prevé una tasa máxima convencional fijada por el BCRP para operaciones entre particulares **[Verificar con abogado]** | Opinión legal escrita antes de seguir colocando crédito; rediseñar el precio (plazo más largo o tasa menor) |
 | **Cambio de estatus** | Si Kuota se licencia (SBS) quedará sujeta al tope de la Ley 31143 | Considerar el tope en el modelo financiero |
 
@@ -204,7 +207,7 @@ Marco penal relacionado: el **Convenio de Budapest** se ratificó en 2019 (Res. 
 
 | # | Brecha | Norma | Prioridad | Plazo sugerido |
 |---|---|---|---|---|
-| 1 | Mostrar TCEA/TEA real, cronograma y costo total; retirar “18,5 %” | Consumo / transparencia | **Crítica** | 0–7 días |
+| 1 | ~~Mostrar TCEA/TEA real y costo total; retirar “18,5 %”~~ **Hecho 2026-11-07** (falta hoja resumen contractual) | Consumo / transparencia | **Crítica** | Hecho |
 | 2 | Opinión legal sobre usura (art. 214 CP, tasa máx. del Código Civil) y rediseño del precio | Ley 31143, CP, CC | **Crítica** | 0–30 días |
 | 3 | Registro UIF + Oficial de Cumplimiento + SPLAFT | Res. SBS 650-2024, 789-2018 | **Crítica** | 0–30 días |
 | 4 | Definir flujo de fondos (liquidación directa vs. custodia) y estatus de dinero electrónico | Ley 29985 | Alta | 0–30 días |

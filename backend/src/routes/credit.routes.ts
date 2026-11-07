@@ -7,6 +7,27 @@ import { computeScore, persistScore } from '../services/scoring.service.js';
 
 export const creditRouter = Router();
 
+/**
+ * Tasa efectiva anual (TEA) implícita de un cronograma: resuelve la tasa por periodo que iguala el
+ * capital financiado con el valor presente de las cuotas (pagos cada 14 días) y la anualiza (365 días).
+ * Sin comisiones ni seguros, TCEA = TEA. Devuelve porcentaje con un decimal; null si no hay financiamiento.
+ */
+export function effectiveAnnualRatePct(financedCents: number, installmentAmounts: number[], periodDays = 14): number | null {
+  if (financedCents <= 0 || installmentAmounts.length === 0) return null;
+  const pv = (r: number) => installmentAmounts.reduce((sum, a, i) => sum + a / Math.pow(1 + r, i + 1), 0);
+  if (pv(0) <= financedCents) return 0;
+  let lo = 0;
+  let hi = 1;
+  while (pv(hi) > financedCents && hi < 1e6) hi *= 2;
+  for (let i = 0; i < 200; i++) {
+    const mid = (lo + hi) / 2;
+    if (pv(mid) > financedCents) lo = mid;
+    else hi = mid;
+  }
+  const annual = Math.pow(1 + (lo + hi) / 2, 365 / periodDays) - 1;
+  return Math.round(annual * 1000) / 10;
+}
+
 const MAX_PURCHASE_CENTS = 100_000_000;
 const MAX_INSTALLMENTS = 12;
 
@@ -104,7 +125,7 @@ creditRouter.post('/simulations', async (req, res) => {
   const totalToPayCents = financedCents + totalInterestCents;
   const installmentCents = Math.round(totalToPayCents / installments);
 
-  const schedule = [];
+  const schedule: { number: number; due_date: string; amount_cents: number }[] = [];
   const today = new Date();
   for (let i = 1; i <= installments; i++) {
     const dueDate = new Date(today);
@@ -124,7 +145,10 @@ creditRouter.post('/simulations', async (req, res) => {
     installments_count: installments,
     installment_cents: installmentCents,
     total_repayment_cents: totalToPayCents,
-    tcea: 18.5,
+    interest_cents: totalInterestCents,
+    // TEA/TCEA reales calculadas del cronograma (sin comisiones ni seguros: ambas coinciden).
+    tea_pct: effectiveAnnualRatePct(financedCents, schedule.map((s) => s.amount_cents)),
+    tcea_pct: effectiveAnnualRatePct(financedCents, schedule.map((s) => s.amount_cents)),
     schedule
   });
 });
