@@ -307,3 +307,55 @@ describe('Páginas legales y Libro de Reclamaciones', () => {
     assert.equal((await call('POST', `/internal/complaints/${made.body.code}/respond`, { response: 'Otra vez' }, admin)).status, 404);
   });
 });
+
+describe('Avisos por correo de los reclamos', () => {
+  test('al registrar sale la copia al cliente y la alerta a operaciones; al responder, la respuesta al cliente', async () => {
+    resetRateLimits();
+    const sent: any[] = [];
+    const realFetch = globalThis.fetch;
+    process.env.RESEND_API_KEY = 're_test';
+    process.env.KUOTA_COMPLAINTS_EMAIL = 'ops@example.com';
+    globalThis.fetch = (async (url: any, init?: any) => {
+      if (String(url).includes('api.resend.com')) {
+        sent.push(JSON.parse(init.body));
+        return new Response('{"id":"msg_1"}', { status: 200 });
+      }
+      return realFetch(url, init);
+    }) as typeof fetch;
+    try {
+      const made = await call('POST', '/complaints', {
+        kind: 'RECLAMO', full_name: 'Luis <b>Prueba</b>', doc_type: 'DNI', doc_number: '47891234', phone: '987654321',
+        email: 'luis@example.com', description: 'Cobro duplicado <script>alert(1)</script> el viernes'
+      });
+      assert.equal(made.status, 201);
+      assert.equal(made.body.email_sent, true);
+      assert.equal(sent.length, 2);
+      assert.deepEqual(sent.map((m) => m.to[0]).sort(), ['luis@example.com', 'ops@example.com']);
+      assert.ok(sent[0].subject.includes(made.body.code) || sent[1].subject.includes(made.body.code));
+      assert.ok(!sent.some((m) => m.html.includes('<script>')), 'el contenido del cliente va escapado en el correo');
+
+      const { secrets } = await import('../src/security/config.js');
+      const admin = { Authorization: `Bearer ${secrets.adminToken}` };
+      const resp = await call('POST', `/internal/complaints/${made.body.code}/respond`, { response: 'Ya devolvimos el cobro duplicado.' }, admin);
+      assert.equal(resp.status, 200);
+      assert.equal(resp.body.email_sent, true);
+      assert.equal(sent.length, 3);
+      assert.equal(sent[2].to[0], 'luis@example.com');
+      assert.ok(sent[2].html.includes('devolvimos'));
+    } finally {
+      globalThis.fetch = realFetch;
+      delete process.env.RESEND_API_KEY;
+      delete process.env.KUOTA_COMPLAINTS_EMAIL;
+    }
+  });
+
+  test('sin proveedor de correo el reclamo se registra igual', async () => {
+    resetRateLimits();
+    const r = await call('POST', '/complaints', {
+      kind: 'QUEJA', full_name: 'Marta Sin Correo', doc_type: 'DNI', doc_number: '47891235', phone: '987654322',
+      email: 'marta@example.com', description: 'Esperé mucho tiempo en la atención.'
+    });
+    assert.equal(r.status, 201);
+    assert.equal(r.body.email_sent, false);
+  });
+});

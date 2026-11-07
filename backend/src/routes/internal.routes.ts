@@ -13,6 +13,7 @@ import { getLinkById } from '../security/links.js';
 import { runReconciliation, validProviderReport } from '../security/reconciliation.js';
 import { KNOWN_RULES, riskMetrics } from '../security/risk.js';
 import { formatSoles, nowIso } from '../security/time.js';
+import { notifyComplaintResponded } from '../services/complaints.js';
 
 export const internalRouter = Router();
 internalRouter.use(requireAdmin(secrets.adminToken));
@@ -63,7 +64,10 @@ internalRouter.post('/complaints/:code/respond', async (req, res) => {
   );
   if (!done.changes) return fail(res, 404, 'COMPLAINT_NOT_FOUND', 'Reclamo no encontrado o ya respondido.');
   await audit({ actorType: 'ADMIN', actorId: actor(req), action: 'COMPLAINT_RESPONDED', target: req.params.code, result: 'OK', ip: clientIp(req) });
-  res.json({ success: true });
+  // La respuesta llega al correo del cliente.
+  const c = await coreDb.get<{ full_name: string; email: string }>('SELECT full_name, email FROM complaints WHERE code = ?', req.params.code);
+  const emailed = c ? await notifyComplaintResponded({ code: req.params.code, full_name: c.full_name, email: c.email, response }) : false;
+  res.json({ success: true, email_sent: emailed });
 });
 
 // ---------------------------------------------------------------- bitácora

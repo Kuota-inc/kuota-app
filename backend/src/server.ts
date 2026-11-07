@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { createApp } from './app.js';
 import { verifyAuditChain } from './security/audit.js';
+import { complaintsDigest } from './services/complaints.js';
 
 const PORT = Number(process.env.PORT) || 3001;
 
@@ -19,3 +20,8 @@ async function watchAuditChain() {
 }
 setTimeout(watchAuditChain, 30_000).unref();
 setInterval(watchAuditChain, 60 * 60_000).unref();
+
+// Reclamos por vencer (15 días hábiles): resumen diario a operaciones.
+const watchComplaints = () => void complaintsDigest().catch((e) => console.error('[reclamos]', e instanceof Error ? e.message : e));
+setTimeout(watchComplaints, 60_000).unref();
+setInterval(watchComplaints, 60 * 60_000).unref();

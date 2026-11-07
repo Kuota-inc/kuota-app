@@ -8,6 +8,7 @@ import { db } from '../db/database.js';
 import { randomId } from '../security/crypto.js';
 import { rateLimit } from '../security/guards.js';
 import { fail } from '../security/http.js';
+import { notifyComplaintCreated } from '../services/complaints.js';
 
 export const legalRouter = Router();
 
@@ -174,7 +175,7 @@ f.addEventListener("submit",function(e){
   .then(function(r){return r.json().then(function(j){return{s:r.status,j:j}})})
   .then(function(x){
     if(x.s===201){
-      document.querySelector("main").innerHTML='<div class="ok"><h2>Hoja de reclamación registrada</h2><div class="code">'+x.j.code+'</div><p>Guarda este número. Responderemos al correo que indicaste a más tardar el <b>'+x.j.due_date_label+'</b> (15 días hábiles).</p><p><a href="/reclamaciones">Registrar otro</a></p></div>';
+      document.querySelector("main").innerHTML='<div class="ok"><h2>Hoja de reclamación registrada</h2><div class="code">'+x.j.code+'</div><p>Guarda este número. '+(x.j.email_sent?'Te enviamos una copia a tu correo. ':'')+'Responderemos al correo que indicaste a más tardar el <b>'+x.j.due_date_label+'</b> (15 días hábiles).</p><p><a href="/reclamaciones">Registrar otro</a></p></div>';
       window.scrollTo(0,0);
     }else{
       err.textContent=(x.j&&x.j.error&&x.j.error.message)||"No pudimos registrar tu reclamo. Inténtalo de nuevo.";err.style.display="block";
@@ -284,5 +285,10 @@ legalRouter.post('/api/v1/complaints', rateLimit({ name: 'complaints', windowMs:
     if (inserted.changes) code = candidate;
   }
   if (!code) return fail(res, 503, 'TRY_AGAIN', 'No pudimos registrar tu hoja ahora. Inténtalo de nuevo.');
-  res.status(201).json({ code, kind, due_at: due.toISOString(), due_date_label: dateLabel(due) });
+  // Copia al cliente y alerta a operaciones. Un fallo de correo no invalida el reclamo (ya quedó registrado).
+  const mailed = await notifyComplaintCreated({
+    code, kind, full_name: fullName, email, phone, doc_type: docType, doc_number: docNumber,
+    service, description, request, claim_amount_cents: amount === null ? null : Math.round(amount * 100), due_label: dateLabel(due)
+  }).catch(() => ({ customer: false, ops: false }));
+  res.status(201).json({ code, kind, due_at: due.toISOString(), due_date_label: dateLabel(due), email_sent: mailed.customer });
 });
