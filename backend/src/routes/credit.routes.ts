@@ -8,6 +8,13 @@ import { computeScore, persistScore } from '../services/scoring.service.js';
 export const creditRouter = Router();
 
 /**
+ * Interés plano sobre el saldo financiado. 5,5 % en 3 cuotas quincenales equivale a una TEA ≈ 102 %,
+ * por debajo del tope de referencia del BCRP (114,13 % anual, may–oct 2026). Si se cambia, revisar la TEA
+ * que informa la simulación y la opinión legal sobre usura (docs/CUMPLIMIENTO-REGULATORIO.md §4).
+ */
+export const INTEREST_RATE = 0.055;
+
+/**
  * Tasa efectiva anual (TEA) implícita de un cronograma: resuelve la tasa por periodo que iguala el
  * capital financiado con el valor presente de las cuotas (pagos cada 14 días) y la anualiza (365 días).
  * Sin comisiones ni seguros, TCEA = TEA. Devuelve porcentaje con un decimal; null si no hay financiamiento.
@@ -119,8 +126,7 @@ creditRouter.post('/simulations', async (req, res) => {
   const downPaymentCents = Math.round((purchase_cents * downPaymentPct) / 100);
   const financedCents = purchase_cents - downPaymentCents;
 
-  // Interés total ~9.98% sobre saldo financiado (como en PRD 09: 118 * 1.0998 ≈ 129.78 / 3 = 43.26)
-  const interestRate = 0.0998;
+  const interestRate = INTEREST_RATE;
   const totalInterestCents = Math.round(financedCents * interestRate);
   const totalToPayCents = financedCents + totalInterestCents;
   const installmentCents = Math.round(totalToPayCents / installments);
@@ -210,7 +216,7 @@ creditRouter.post('/purchases', async (req, res) => {
     const downPaymentCents = Math.round((total_cents * downPaymentPct) / 100);
     const financedCents = total_cents - downPaymentCents;
 
-    const interestRate = 0.0998;
+    const interestRate = INTEREST_RATE;
     const totalInterestCents = Math.round(financedCents * interestRate);
     const totalToPayCents = financedCents + totalInterestCents;
     const installmentCents = Math.round(totalToPayCents / installments);

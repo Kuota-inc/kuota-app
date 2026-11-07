@@ -77,7 +77,10 @@ Con un capital financiado de 1,00, tres pagos de 0,3666 (1,0998/3) a los 14, 28 
 (El costo financiero total es 9,98 % del capital financiado en 42 días; la TEA es alta por el plazo corto. Un cálculo formal de TCEA debe incluir comisiones, seguros y el efecto del enganche, según el formato exigido por transparencia.)
 
 ### 4.2.1 Estado de la corrección (2026-11-07)
-`/credit/simulations` ahora calcula la **TEA/TCEA real** a partir del cronograma (tasa interna de retorno de las cuotas, base 365 días; sin comisiones ni seguros TEA = TCEA) y devuelve además el **interés total** y el **total en cuotas**. La pantalla de compra a crédito muestra esos tres datos **antes de confirmar**. Con el plan actual (3 cuotas quincenales) la TEA informada es ≈ 249 %.
+`/credit/simulations` ahora calcula la **TEA/TCEA real** a partir del cronograma (tasa interna de retorno de las cuotas, base 365 días; sin comisiones ni seguros TEA = TCEA) y devuelve además el **interés total** y el **total en cuotas**. La pantalla de compra a crédito muestra esos tres datos **antes de confirmar**. Con el plan original (interés plano de 9,98 %, 3 cuotas quincenales) la TEA era ≈ 249 %.
+
+### 4.2.2 Rediseño del precio (2026-11-07)
+Se redujo el interés plano a **5,5 %** sobre el saldo financiado (constante `INTEREST_RATE` en `credit.routes.ts`). Resultado: **TEA ≈ 101,6 % con 3 cuotas** (por debajo del tope de referencia del BCRP de 114,13 %) y ≈ 49 % con 6 cuotas. Las compras ya creadas conservan sus condiciones originales. Esto **no sustituye** la opinión legal sobre usura (§4.4) ni el efecto en el margen del negocio.
 
 ### 4.3 Comparación con los topes
 - **Ley 31143**: el BCRP fija tasas máximas semestrales; exceder el tope se considera **usura** (art. 214 del Código Penal). La ley limita el tope a **crédito de consumo y a micro y pequeña empresa del sistema financiero** ([texto consolidado](https://leyes.congreso.gob.pe/Documentos/2016_2021/ADLP/Texto_Consolidado/31143-TXM.pdf)).
@@ -88,7 +91,7 @@ Con un capital financiado de 1,00, tres pagos de 0,3666 (1,0998/3) a los 14, 28 
 | Riesgo | Detalle | Acción |
 |---|---|---|
 | **Transparencia / publicidad engañosa** | Mostrar TCEA 18,5 % cuando la TEA real supera el 200 % puede constituir infracción al Código de Consumo | **Corregido en la app (TEA real, interés y total antes de confirmar)**; falta el contrato/hoja resumen con el formato oficial de transparencia **[Verificar con abogado]** |
-| **Usura** | Aunque el tope de la Ley 31143 se dirige al sistema financiero, **no está claro** si el art. 214 del Código Penal alcanza a prestamistas no supervisados; además el Código Civil prevé una tasa máxima convencional fijada por el BCRP para operaciones entre particulares **[Verificar con abogado]** | Opinión legal escrita antes de seguir colocando crédito; rediseñar el precio (plazo más largo o tasa menor) |
+| **Usura** | **Mitigado en el precio** (TEA ≈ 102 % < 114,13 %). Aunque el tope de la Ley 31143 se dirige al sistema financiero, **no está claro** si el art. 214 del Código Penal alcanza a prestamistas no supervisados; además el Código Civil prevé una tasa máxima convencional fijada por el BCRP para operaciones entre particulares **[Verificar con abogado]** | Opinión legal escrita antes de seguir colocando crédito; rediseñar el precio (plazo más largo o tasa menor) |
 | **Cambio de estatus** | Si Kuota se licencia (SBS) quedará sujeta al tope de la Ley 31143 | Considerar el tope en el modelo financiero |
 
 ---
@@ -208,7 +211,7 @@ Marco penal relacionado: el **Convenio de Budapest** se ratificó en 2019 (Res. 
 | # | Brecha | Norma | Prioridad | Plazo sugerido |
 |---|---|---|---|---|
 | 1 | ~~Mostrar TCEA/TEA real y costo total; retirar “18,5 %”~~ **Hecho 2026-11-07** (falta hoja resumen contractual) | Consumo / transparencia | **Crítica** | Hecho |
-| 2 | Opinión legal sobre usura (art. 214 CP, tasa máx. del Código Civil) y rediseño del precio | Ley 31143, CP, CC | **Crítica** | 0–30 días |
+| 2 | Opinión legal sobre usura (art. 214 CP, tasa máx. del Código Civil). **Rediseño del precio hecho** (interés 5,5 %, TEA ≈ 102 %) | Ley 31143, CP, CC | **Crítica** | Opinión: 0–30 días |
 | 3 | Registro UIF + Oficial de Cumplimiento + SPLAFT | Res. SBS 650-2024, 789-2018 | **Crítica** | 0–30 días |
 | 4 | Definir flujo de fondos (liquidación directa vs. custodia) y estatus de dinero electrónico | Ley 29985 | Alta | 0–30 días |
 | 5 | Configurar **Didit real** (quitar aprobación demo) y listas PEP/restrictivas | UIF / Ley 29733 | Alta | 0–30 días |

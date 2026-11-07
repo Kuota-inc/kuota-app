@@ -258,7 +258,7 @@ describe('Transparencia del costo del crédito', () => {
     const r = await call('POST', '/credit/simulations', { purchase_cents: 30000, installments: 3 });
     assert.equal(r.status, 200);
     assert.notEqual(r.body.tcea, 18.5);
-    assert.ok(r.body.tea_pct > 200 && r.body.tea_pct < 300, `TEA ${r.body.tea_pct}`);
+    assert.ok(r.body.tea_pct > 90 && r.body.tea_pct < 114.13, `TEA ${r.body.tea_pct} debe quedar bajo el tope de referencia del BCRP`);
     assert.equal(r.body.tcea_pct, r.body.tea_pct);
     assert.equal(r.body.interest_cents, r.body.total_repayment_cents - r.body.financed_cents);
     const longer = await call('POST', '/credit/simulations', { purchase_cents: 30000, installments: 12 });
