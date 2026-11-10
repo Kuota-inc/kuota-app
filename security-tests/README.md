@@ -24,5 +24,5 @@ Los informes quedan en `security-tests/reports/` (no se versionan).
 ## Pendientes conocidos (aceptados temporalmente)
 
 - **Simulador de pagos encendido en producción** (`KUOTA_SANDBOX=1`): cualquiera con el código de un link puede marcarlo como pagado. Se apaga solo si se conecta la pasarela de producción de 360pay; apagarlo a mano antes de mover dinero real.
-- **APK de depuración:** para entregar a clientes usar `npm run apk:release` con `frontend/android/keystore.properties` (firma propia, no depurable).
+- **APK:** a clientes se entrega solo el de release (`npm run apk:release`, firmado con `frontend/android/keystore.properties`, no depurable). El de depuración (`npm run apk`) es solo para desarrollo.
 - **Tokens en localStorage**, **sin R8** y **sin pinning de certificados**: endurecimientos planificados (pinning cuando haya dominio propio).
