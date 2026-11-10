@@ -49,3 +49,6 @@ desktop.ini
 
 # Config de Firebase (no es secreta, pero se mantiene fuera del repo)
 google-services.json
+
+# Material comercial interno (no publicar)
+docs/gtm/

@@ -5,7 +5,7 @@ import { isCancelled, newIdempotencyKey, paymentsApi, type PaymentLink } from '.
 import { Delete, ArrowRight, CheckCircle2, Copy, ArrowLeft, ShieldCheck, Clock, XCircle, Hourglass, Share2 } from 'lucide-react';
 import { useToast } from '../../components/toast-context';
 import { QrCode } from '../../components/QrCode';
-import { FEE_PCT } from '../../config/fee';
+import { FEE_PCT, MIN_AMOUNT_CENTS, localQuote } from '../../config/fee';
 
 interface PaymentLinkScreenProps {
   onBack: () => void;
@@ -34,16 +34,15 @@ export const PaymentLinkScreen: React.FC<PaymentLinkScreenProps> = ({ onBack, on
 
   // Cotización local inmediata mientras responde el backend; solo se usa la
   // respuesta de la API si corresponde al monto actual (evita respuestas fuera de orden).
-  const localFee = Math.ceil((amountCents * FEE_PCT) / 100);
   const quote =
     amountCents <= 0
       ? null
       : apiQuote && apiQuote.amount_cents === amountCents
         ? apiQuote
-        : { amount_cents: amountCents, fee_cents: localFee, net_cents: amountCents - localFee };
+        : localQuote(amountCents);
 
   useEffect(() => {
-    if (amountCents < 100) return;
+    if (amountCents < MIN_AMOUNT_CENTS) return;
     let alive = true;
     const t = window.setTimeout(() => {
       api
@@ -115,7 +114,7 @@ export const PaymentLinkScreen: React.FC<PaymentLinkScreenProps> = ({ onBack, on
   };
 
   const handleCreateAndIssue = async () => {
-    if (amountCents < 100) return;
+    if (amountCents < MIN_AMOUNT_CENTS) return;
     const finalConcept = concept.trim() || 'Cobro de venta';
     const fingerprint = `${amountCents}|${finalConcept}`;
     if (pendingKey.current?.fingerprint !== fingerprint) pendingKey.current = { fingerprint, key: newIdempotencyKey() };
@@ -230,9 +229,9 @@ export const PaymentLinkScreen: React.FC<PaymentLinkScreenProps> = ({ onBack, on
 
               {/* Commission breakdown (PRD 08) */}
               {quote && (
-                <div className="pt-2 flex justify-center gap-4 text-[11px] text-[#4a5f7e] border-t border-slate-100">
+                <div className="pt-2 flex flex-wrap justify-center gap-x-4 gap-y-0.5 text-[11px] text-[#4a5f7e] border-t border-slate-100">
                   <div>
-                    Comisión ({FEE_PCT}%):{' '}
+                    Comisión ({FEE_PCT}% + IGV, mín. S/ 4.50):{' '}
                     <strong className="text-red-600">S/ {(quote.fee_cents / 100).toFixed(2)}</strong>
                   </div>
                   <div>
@@ -418,7 +417,7 @@ export const PaymentLinkScreen: React.FC<PaymentLinkScreenProps> = ({ onBack, on
           <button
             type="button"
             onClick={handleCreateAndIssue}
-            disabled={loading || amountCents < 100}
+            disabled={loading || amountCents < MIN_AMOUNT_CENTS}
             className="w-full py-3.5 px-4 bg-gradient-to-r from-[#00248b] to-[#1a3bb0] hover:from-[#1a3bb0] hover:to-[#00248b] text-white rounded-2xl font-bold text-sm shadow-lg shadow-blue-900/20 active:scale-[0.98] transition flex items-center justify-center gap-2 disabled:opacity-50"
           >
             <span>{loading ? 'Generando link...' : 'Generar Link y QR de Cobro'}</span>

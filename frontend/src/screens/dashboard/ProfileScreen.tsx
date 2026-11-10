@@ -33,6 +33,7 @@ import { KuotaBiometric, biometricReasonText } from '../../plugins/kuotaBiometri
 import { isBiometricEnabled, setBiometricEnabled } from '../../services/appSettings';
 import { disableListener, enableListener, listenerStatus, onListenerChange, refreshListener, type ListenerStatus } from '../../services/paymentListener';
 import { useDialog } from '../../hooks/useDialog';
+import { PlanPanel } from '../../components/PlanPanel';
 import { ChangePinPanel, DevicesPanel, LimitsPanel, SecurityActivityPanel } from './PaymentSecurityPanels';
 
 interface ProfileScreenProps {
@@ -444,6 +445,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onLogout }
             </a>
           </div>
         </section>
+
+        <PlanPanel />
 
         {/* 6. Seguridad */}
         <section className="bg-white rounded-3xl p-4 shadow-sm border border-[#e1e8f8] space-y-3">

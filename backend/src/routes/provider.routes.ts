@@ -624,6 +624,13 @@ providerRouter.get('/me', async (req, res) => {
   const id = await authProvider(req, res);
   if (id === undefined) return;
   if (!id) return res.status(401).json({ error: { code: 'PROVIDER_AUTH_REQUIRED', message: 'Inicia sesión para continuar.' } });
+  // Fase de pruebas (sandbox): aún no hay SUNAT/RENIEC reales, igual que la verificación DEMO de los documentos,
+  // el proveedor que completó su registro queda verificado. Con la verificación real activa, esto no corre.
+  if (config.sandboxEnabled) {
+    await db.prepare(
+      "UPDATE provider_profiles SET kyc_status = 'APPROVED', approved_limit_cents = COALESCE(approved_limit_cents, 4500000) WHERE id = ? AND kyc_status = 'IN_REVIEW'"
+    ).run(id);
+  }
   const p = (await db.prepare(
     'SELECT id, legal_name, ruc, category, kyc_status, fee_bps, approved_limit_cents, settlement_bank, settlement_cci, whatsapp, created_at FROM provider_profiles WHERE id = ?'
   ).get(id)) as Record<string, any> | undefined;

@@ -2,11 +2,37 @@ import { Router } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { db } from '../db/database.js';
 import { config } from '../security/config.js';
+import { PLANS, planOf, withIgv } from '../security/pricing.js';
 import { getMerchantProfile } from '../security/merchantContext.js';
 import { getNotificationState, markSeen, parsePreferences, savePreferences, unreadCount } from './notifications.js';
 
 export const merchantRouter = Router();
 
+
+// Planes de suscripción (Basic / Pro). El cobro de la suscripción se activa cuando haya banco real.
+const planView = (id: unknown) => {
+  const current = planOf(id);
+  return {
+    current: current.id,
+    billing: 'PENDIENTE_BANCO',
+    plans: Object.values(PLANS).map((p) => ({ ...p, price_with_igv_cents: withIgv(p.price_cents) }))
+  };
+};
+
+merchantRouter.get('/plan', async (req, res) => {
+  const merchant = await getMerchantProfile(req);
+  res.json(planView(merchant.plan));
+});
+
+merchantRouter.post('/plan', async (req, res) => {
+  const merchant = await getMerchantProfile(req);
+  const wanted = req.body?.plan;
+  if (wanted !== 'BASIC' && wanted !== 'PRO') {
+    return res.status(422).json({ error: { code: 'PLAN_INVALID', message: 'Elige el plan Basic o Pro.' } });
+  }
+  await db.prepare('UPDATE merchant_profiles SET plan = ?, plan_changed_at = ? WHERE id = ?').run(wanted, new Date().toISOString(), merchant.id);
+  res.json(planView(wanted));
+});
 
 // PRD 05: Inicio (Home agregado p95 < 400ms)
 merchantRouter.get('/home', async (req, res) => {

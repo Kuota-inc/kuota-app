@@ -261,6 +261,8 @@ export const api = {
   getHome: () => apiRequest('/merchants/me/home'),
   getKuotearModal: () => apiRequest('/merchants/me/kuotear'),
   getWelcomeSummary: () => apiRequest('/merchants/me/welcome-summary'),
+  getPlan: () => apiRequest('/merchants/me/plan'),
+  setPlan: (plan: 'BASIC' | 'PRO') => apiRequest('/merchants/me/plan', { method: 'POST', body: JSON.stringify({ plan }) }),
   getProducts: () => apiRequest('/merchants/me/products'),
   addProduct: (product: { name: string; price_cents: number; is_frequent?: boolean }) =>
     apiRequest('/merchants/me/products', {

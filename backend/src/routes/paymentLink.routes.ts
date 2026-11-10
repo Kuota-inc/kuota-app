@@ -5,6 +5,7 @@
 import { Router } from 'express';
 import { paymentsDb as db } from '../db/client.js';
 import { config } from '../security/config.js';
+import { computeFees, planOf } from '../security/pricing.js';
 import { randomId, randomToken } from '../security/crypto.js';
 import { audit } from '../security/audit.js';
 import { consumeStepUp, getMerchant, requireMerchant, stepUpRequired } from '../security/auth.js';
@@ -32,7 +33,7 @@ import { addHours, formatSoles, nowIso } from '../security/time.js';
 export const paymentLinkRouter = Router();
 
 const FEE_BPS = config.feeBps; // por defecto 1.00 % (KUOTA_FEE_BPS)
-const MIN_AMOUNT = 100; // S/ 1.00
+const MIN_AMOUNT = 1000; // S/ 10.00 (la comisión mínima + IGV es S/ 5.31: por debajo el neto sería casi cero)
 const MAX_AMOUNT = 10_000_000; // S/ 100 000.00 (techo técnico; rigen los límites del comercio)
 
 function parseAmount(v: unknown): number | null {
@@ -47,18 +48,21 @@ function cleanText(v: unknown, max: number): string | null {
 }
 
 const fees = (amount: number) => {
-  const fee = Math.ceil((amount * FEE_BPS) / 10_000);
-  return { fee, net: amount - fee };
+  const f = computeFees(amount, FEE_BPS);
+  return { fee: f.fee, net: f.net, base: f.base, igv: f.igv };
 };
 
 // PRD 08: cotización (sin efectos; no requiere sesión)
 paymentLinkRouter.post('/quote', (req, res) => {
   const amount = parseAmount(req.body?.amount_cents);
-  if (!amount) return fail(res, 422, 'AMOUNT_INVALID', 'Ingresa un monto desde S/ 1.00.');
-  const { fee, net } = fees(amount);
+  if (!amount) return fail(res, 422, 'AMOUNT_INVALID', 'Ingresa un monto desde S/ 10.00.');
+  const { fee, net, base, igv } = fees(amount);
   res.json({
     amount_cents: amount,
     fee_cents: fee,
+    fee_base_cents: base,
+    igv_cents: igv,
+    min_fee_cents: 450,
     fee_pct: FEE_BPS / 100,
     net_cents: net,
     estimated_points: Math.max(1, Math.floor(amount / 1000))
@@ -127,6 +131,10 @@ paymentLinkRouter.post('/', requireFeature('LINK_CREATE'), idempotent, async (re
   // cobros simultáneos no superan juntos el tope diario ni esquivan una regla.
   const outcome: Outcome = await db.tx(async () => {
     await db.lock(`links:${merchant.id}`);
+    const plan = planOf((merchant as { plan?: string }).plan);
+    if (plan.max_tx_cents !== null && amount > plan.max_tx_cents) {
+      return { kind: 'fail', status: 422, code: 'PLAN_LIMIT', message: `Tu plan ${plan.name} permite hasta ${formatSoles(plan.max_tx_cents)} por cobro. Cambia al plan Pro para cobrar montos mayores.` };
+    }
     const { problem, limits } = await checkLinkLimits(merchant, auth.deviceId, amount);
     if (problem) {
       await audit({ actorType: 'MERCHANT', actorId: merchant.id, action: 'LINK_CREATE', result: 'DENIED', ip, deviceId: auth.deviceId, details: { reason: problem.code, amount_cents: amount } });
