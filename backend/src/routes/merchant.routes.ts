@@ -1,7 +1,9 @@
 import { Router } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { db } from '../db/database.js';
+import crypto from 'node:crypto';
 import { config } from '../security/config.js';
+import { sunatService } from '../services/sunat.service.js';
 import { PLANS, planOf, withIgv } from '../security/pricing.js';
 import { getMerchantProfile } from '../security/merchantContext.js';
 import { getNotificationState, markSeen, parsePreferences, savePreferences, unreadCount } from './notifications.js';
@@ -32,6 +34,104 @@ merchantRouter.post('/plan', async (req, res) => {
   }
   await db.prepare('UPDATE merchant_profiles SET plan = ?, plan_changed_at = ? WHERE id = ?').run(wanted, new Date().toISOString(), merchant.id);
   res.json(planView(wanted));
+});
+
+// ── Perfiles: RUC verificado, activación de Kuota Payments (paywall) y perfil Provider ────────────────────────
+const maskRuc = (v: unknown) => (typeof v === 'string' && v.length > 3 ? '•'.repeat(v.length - 3) + v.slice(-3) : null);
+const lastNine = (v: unknown) => (typeof v === 'string' ? v.replace(/[^0-9]/g, '').slice(-9) : '');
+
+// Qué puede hacer este usuario: vender exige RUC verificado y Kuota Payments activo.
+merchantRouter.get('/profile-access', async (req, res) => {
+  const m = (await getMerchantProfile(req)) as Record<string, any>;
+  const phone = lastNine(m.phone);
+  const prov = phone.length === 9
+    ? ((await db.prepare(
+        "SELECT id, legal_name, kyc_status FROM provider_profiles WHERE right(regexp_replace(coalesce(whatsapp, ''), '[^0-9]', '', 'g'), 9) = ? ORDER BY created_at DESC LIMIT 1"
+      ).get(phone)) as { id: string; legal_name: string | null; kyc_status: string | null } | undefined)
+    : undefined;
+  const rucVerified = m.ruc_verified === true;
+  res.json({
+    business_name: m.business_name ?? null,
+    ruc_verified: rucVerified,
+    ruc_masked: rucVerified ? maskRuc(m.ruc) : null,
+    payments_active: m.payments_active !== false,
+    can_sell: rucVerified && m.payments_active !== false,
+    next_step: !rucVerified ? 'ADD_RUC' : m.payments_active === false ? 'PAYWALL' : 'SELL',
+    can_have_provider: rucVerified,
+    provider: prov ? { id: prov.id, business_name: prov.legal_name, kyc_status: prov.kyc_status } : null
+  });
+});
+
+// Valida el RUC en SUNAT y devuelve la razón social para que el usuario confirme que es su negocio.
+merchantRouter.get('/ruc/lookup/:ruc', async (req, res) => {
+  const m = (await getMerchantProfile(req)) as Record<string, any>;
+  const ruc = String(req.params.ruc || '').replace(/\D/g, '');
+  if (ruc.length !== 11) return res.status(422).json({ error: { code: 'RUC_INVALID', message: 'El RUC tiene 11 dígitos. Revísalo y vuelve a intentar.' } });
+  const r = await sunatService.buscarPorRuc(ruc);
+  if (!r.success || !r.data) {
+    return res.status(404).json({ error: { code: 'RUC_NOT_FOUND', message: r.error || 'No pudimos validar ese RUC en SUNAT. Revisa que esté activo y sea el tuyo.' } });
+  }
+  const dup = await db.prepare('SELECT id FROM merchant_profiles WHERE ruc = ? AND ruc_verified = TRUE AND id <> ?').get(ruc, m.id);
+  if (dup) {
+    return res.status(409).json({ error: { code: 'RUC_ALREADY_REGISTERED', message: 'Este RUC ya está registrado con otro teléfono. Recupera el acceso a tu cuenta original.' } });
+  }
+  res.json({ ruc, razon_social: r.data.razon_social, direccion: (r.data as any).direccion_fiscal ?? null });
+});
+
+// Agrega el RUC al mismo usuario (mismo teléfono, clave e historial).
+merchantRouter.post('/ruc', async (req, res) => {
+  const m = (await getMerchantProfile(req)) as Record<string, any>;
+  const ruc = String(req.body?.ruc || '').replace(/\D/g, '');
+  if (ruc.length !== 11) return res.status(422).json({ error: { code: 'RUC_INVALID', message: 'El RUC tiene 11 dígitos. Revísalo y vuelve a intentar.' } });
+  const r = await sunatService.buscarPorRuc(ruc);
+  if (!r.success || !r.data) {
+    return res.status(404).json({ error: { code: 'RUC_NOT_FOUND', message: r.error || 'No pudimos validar ese RUC en SUNAT.' } });
+  }
+  const dup = await db.prepare('SELECT id FROM merchant_profiles WHERE ruc = ? AND ruc_verified = TRUE AND id <> ?').get(ruc, m.id);
+  if (dup) {
+    return res.status(409).json({ error: { code: 'RUC_ALREADY_REGISTERED', message: 'Este RUC ya está registrado con otro teléfono. Recupera el acceso a tu cuenta original.' } });
+  }
+  await db.prepare('UPDATE merchant_profiles SET ruc = ?, ruc_verified = TRUE, business_name = ?, updated_at = utc_now_text() WHERE id = ?').run(ruc, r.data.razon_social, m.id);
+  res.json({ ruc_verified: true, ruc_masked: maskRuc(ruc), business_name: r.data.razon_social });
+});
+
+// Paywall de Kuota Payments: aceptar activa vender. En pruebas no se cobra la suscripción (ver /plan).
+merchantRouter.post('/sales/activate', async (req, res) => {
+  const m = (await getMerchantProfile(req)) as Record<string, any>;
+  if (m.ruc_verified !== true) {
+    return res.status(409).json({ error: { code: 'RUC_REQUIRED', message: 'Agrega tu RUC para poder vender.' } });
+  }
+  const wanted = req.body?.plan === 'PRO' ? 'PRO' : 'BASIC';
+  await db.prepare('UPDATE merchant_profiles SET payments_active = TRUE, plan = ?, plan_changed_at = ? WHERE id = ?').run(wanted, new Date().toISOString(), m.id);
+  res.json({ payments_active: true, ...planView(wanted) });
+});
+
+// Crea el perfil Provider reutilizando el RUC verificado, el teléfono y la clave de este usuario.
+merchantRouter.post('/provider-profile', async (req, res) => {
+  const m = (await getMerchantProfile(req)) as Record<string, any>;
+  if (m.ruc_verified !== true) {
+    return res.status(409).json({ error: { code: 'RUC_REQUIRED', message: 'Agrega tu RUC para abrir tu perfil Provider.' } });
+  }
+  const phone = lastNine(m.phone);
+  const cred = (await db.prepare('SELECT pin_hash FROM merchant_credentials WHERE merchant_id = ?').get(m.id)) as { pin_hash: string } | undefined;
+  if (!cred?.pin_hash) return res.status(409).json({ error: { code: 'PIN_NOT_CONFIGURED', message: 'Primero crea tu PIN.' } });
+  const token = crypto.randomBytes(32).toString('base64url');
+  const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+  const existing = (await db.prepare('SELECT id, whatsapp FROM provider_profiles WHERE ruc = ?').get(m.ruc)) as { id: string; whatsapp: string | null } | undefined;
+  let providerId: string;
+  if (existing) {
+    if (lastNine(existing.whatsapp) !== phone) {
+      return res.status(409).json({ error: { code: 'RUC_ALREADY_REGISTERED', message: 'Este RUC ya tiene un perfil Provider con otro teléfono.' } });
+    }
+    providerId = existing.id;
+    await db.prepare('UPDATE provider_profiles SET access_token_hash = ? WHERE id = ?').run(tokenHash, providerId);
+  } else {
+    providerId = 'prov_' + uuidv4().substring(0, 10);
+    await db.prepare(
+      "INSERT INTO provider_profiles (id, ruc, legal_name, whatsapp, category, seniority_range, kyc_status, fee_bps, pin_hash, access_token_hash) VALUES (?, ?, ?, ?, ?, ?, 'IN_REVIEW', ?, ?, ?)"
+    ).run(providerId, m.ruc, m.business_name ?? 'Mi empresa', phone, m.category ?? 'OTHER', m.seniority_range ?? '1Y_3Y', config.feeBps, cred.pin_hash, tokenHash);
+  }
+  res.status(201).json({ provider_id: providerId, provider_token: token, business_name: m.business_name ?? null });
 });
 
 // PRD 05: Inicio (Home agregado p95 < 400ms)

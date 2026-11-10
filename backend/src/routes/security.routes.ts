@@ -239,12 +239,29 @@ async function providerLogin(req: Request, res: Response): Promise<boolean> {
   await audit({ actorType: 'MERCHANT', actorId: prov.id, action: 'SESSION_OPEN', result: 'OK', ip, details: { role: 'PROVIDER' } });
   res.status(201).json({
     role: 'PROVIDER',
+    profiles: ['PROVIDER'],
     provider_id: prov.id,
     provider_token: token,
     business_name: prov.legal_name,
     kyc_status: prov.kyc_status
   });
   return true;
+}
+
+// Si el mismo teléfono también tiene perfil Provider y la clave coincide, se abre ese perfil con un token nuevo
+// (así el cambio de perfil dentro de la app no vuelve a pedir la clave).
+async function dualProviderLogin(phoneRaw: unknown, pin: unknown) {
+  const phone = typeof phoneRaw === 'string' ? phoneRaw.replace(/[^0-9]/g, '').slice(-9) : '';
+  if (phone.length !== 9 || typeof pin !== 'string') return null;
+  const prov = await coreDb.get<{ id: string; legal_name: string | null; kyc_status: string | null; pin_hash: string | null }>(
+    `SELECT id, legal_name, kyc_status, pin_hash FROM provider_profiles
+     WHERE right(regexp_replace(coalesce(whatsapp, ''), '[^0-9]', '', 'g'), 9) = ? ORDER BY created_at DESC LIMIT 1`,
+    phone
+  );
+  if (!prov?.pin_hash || !verifyPin(pin, prov.pin_hash)) return null;
+  const token = randomToken(32);
+  await coreDb.run('UPDATE provider_profiles SET access_token_hash = ? WHERE id = ?', sha256Hex(token), prov.id);
+  return { provider_id: prov.id, provider_token: token, business_name: prov.legal_name, kyc_status: prov.kyc_status };
 }
 
 authRouter.post('/sessions', authLimiter, async (req, res) => {
@@ -274,12 +291,15 @@ authRouter.post('/sessions', authLimiter, async (req, res) => {
   const closedElsewhere = await revokeSessions(merchant.id, { exceptDeviceId: deviceId });
   await revokeIdentityTokens(merchant.id, deviceId);
   await audit({ actorType: 'MERCHANT', actorId: merchant.id, action: 'SESSION_OPEN', target: session.sessionId, result: 'OK', ip, deviceId, details: { new_device: device.isNew, sessions_closed_elsewhere: closedElsewhere } });
+  const dual = await dualProviderLogin((merchant as { phone?: string | null }).phone ?? req.body?.phone, req.body?.pin);
   res.status(201).json({
     access_token: session.accessToken,
     token_type: 'Bearer',
     expires_at: session.expiresAt,
     merchant_id: merchant.id,
     identity_token: identityToken,
+    profiles: dual ? ['EMPRENDEDOR', 'PROVIDER'] : ['EMPRENDEDOR'],
+    provider: dual,
     device: { new_device: device.isNew, cooldown_until: device.cooldownUntil ?? null }
   });
 });

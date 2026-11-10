@@ -166,16 +166,16 @@ onboardingRouter.post('/sessions/:id/merchant-identity', async (req, res) => {
   if (existing) {
     await db.prepare(`
       UPDATE merchant_profiles
-      SET dni = ?, full_name = ?, phone = ?, ruc = coalesce(?, ruc), business_name = coalesce(?, business_name),
+      SET dni = ?, full_name = ?, phone = ?, ruc_verified = (ruc_verified OR ? IS NOT NULL), ruc = coalesce(?, ruc), business_name = coalesce(?, business_name),
           address = coalesce(?, address), district = coalesce(?, district), kyc_status = 'IN_PROGRESS', updated_at = utc_now_text()
       WHERE session_id = ?
-    `).run(dni, full_name.trim().toUpperCase(), cleanPhone, bRuc, bName, bAddress, bDistrict, sessionId);
+    `).run(dni, full_name.trim().toUpperCase(), cleanPhone, bRuc, bRuc, bName, bAddress, bDistrict, sessionId);
   } else {
     merchantId = 'mer_' + uuidv4().substring(0, 10);
     await db.prepare(`
-      INSERT INTO merchant_profiles (id, session_id, dni, full_name, phone, ruc, business_name, address, district, kyc_status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'IN_PROGRESS')
-    `).run(merchantId, sessionId, dni, full_name.trim().toUpperCase(), cleanPhone, bRuc, bName, bAddress, bDistrict);
+      INSERT INTO merchant_profiles (id, session_id, dni, full_name, phone, ruc, business_name, address, district, kyc_status, ruc_verified, payments_active)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'IN_PROGRESS', ?, FALSE)
+    `).run(merchantId, sessionId, dni, full_name.trim().toUpperCase(), cleanPhone, bRuc, bName, bAddress, bDistrict, bRuc !== null);
   }
 
   // Generar ID público de solicitud: BIZ-XXXXX-PE si es Business, MER-XXXXX-PE si es Personal
@@ -458,8 +458,8 @@ onboardingRouter.put('/sessions/:id/merchant-activity', async (req, res) => {
   } else {
     const profileId = 'mer_' + uuidv4().substring(0, 10);
     await db.prepare(`
-      INSERT INTO merchant_profiles (id, session_id, category, seniority_range, tier_hint, business_name)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO merchant_profiles (id, session_id, category, seniority_range, tier_hint, business_name, payments_active)
+      VALUES (?, ?, ?, ?, ?, ?, FALSE)
     `).run(profileId, sessionId, category, seniority_range, tierHint, business_name || 'Mi Negocio Kuota');
   }
 

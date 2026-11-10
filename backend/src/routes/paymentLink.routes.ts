@@ -115,6 +115,9 @@ paymentLinkRouter.post('/', requireFeature('LINK_CREATE'), idempotent, async (re
   const auth = req.auth!;
   const merchant = await getMerchant(auth.merchantId);
   if (!merchant) return fail(res, 404, 'MERCHANT_NOT_FOUND', 'Comercio no encontrado.');
+  if ((merchant as { payments_active?: boolean }).payments_active === false) {
+    return fail(res, 403, 'PAYMENTS_NOT_ACTIVE', 'Activa Kuota Payments para poder vender.');
+  }
   const amount = parseAmount(req.body?.amount_cents);
   if (!amount) return fail(res, 422, 'AMOUNT_INVALID', 'Ingresa un monto desde S/ 1.00.');
   const concept = cleanText(req.body?.concept, 80) ?? 'Cobro Kuota';

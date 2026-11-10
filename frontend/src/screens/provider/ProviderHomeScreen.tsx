@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Building2, CheckCircle2, Clock, Landmark, LogOut, ShieldCheck } from 'lucide-react';
 import { apiRequest } from '../../api/client';
+import { ProfileSwitcher } from '../../components/ProfileSwitcher';
 
 interface ProviderProfile {
   id: string;
@@ -51,6 +52,9 @@ export const ProviderHomeScreen: React.FC<{ onLogout: () => void }> = ({ onLogou
           <div className="min-w-0">
             <p className="text-xs text-white/80">Panel de proveedor</p>
             <h1 className="text-lg font-black leading-tight truncate">{profile?.business_name || 'Tu empresa'}</h1>
+          </div>
+          <div className="ml-auto shrink-0">
+            <ProfileSwitcher active="PROVIDER" />
           </div>
         </div>
         <span className={`mt-4 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${st.tone}`}>

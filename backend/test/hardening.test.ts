@@ -462,3 +462,64 @@ describe('Proveedor: recuperar el PIN', () => {
     assert.equal((await call('POST', '/auth/sessions', { pin: '861953', phone: '+51984000222', device_id: 'provider_device_000002' })).status, 201);
   });
 });
+
+describe('Perfiles: RUC, paywall de Kuota Payments y perfil Provider', () => {
+  test('con DNI no se vende ni se abre Provider; con RUC sí, tras el paywall, y el login ofrece los dos perfiles', async () => {
+    resetRateLimits();
+    await register('930000031', '73000031', '739164');
+    const login = await call('POST', '/auth/sessions', { pin: '739164', phone: '+51930000031', device_id: 'profiles_device_00001' });
+    assert.equal(login.status, 201);
+    assert.deepEqual(login.body.profiles, ['EMPRENDEDOR'], 'un solo perfil entra directo');
+    const hdr = { Authorization: `Bearer ${login.body.access_token}`, 'X-Device-Id': 'profiles_device_00001', 'X-Merchant-Id': login.body.merchant_id };
+
+    const a0 = await call('GET', '/merchants/me/profile-access', undefined, hdr);
+    assert.equal(a0.status, 200);
+    assert.equal(a0.body.ruc_verified, false);
+    assert.equal(a0.body.next_step, 'ADD_RUC');
+    assert.equal(a0.body.can_have_provider, false);
+    assert.equal((await call('POST', '/merchants/me/sales/activate', {}, hdr)).body.error.code, 'RUC_REQUIRED');
+    assert.equal((await call('POST', '/merchants/me/provider-profile', {}, hdr)).body.error.code, 'RUC_REQUIRED');
+
+    // RUC mal digitado: no se completa.
+    assert.equal((await call('GET', '/merchants/me/ruc/lookup/123', undefined, hdr)).status, 422);
+    const look = await call('GET', '/merchants/me/ruc/lookup/20392817263', undefined, hdr);
+    assert.equal(look.status, 200);
+    assert.ok(look.body.razon_social, 'muestra la razón social para confirmar');
+    assert.equal((await call('POST', '/merchants/me/ruc', { ruc: '20392817263' }, hdr)).status, 200);
+
+    const a1 = await call('GET', '/merchants/me/profile-access', undefined, hdr);
+    assert.equal(a1.body.ruc_verified, true);
+    assert.equal(a1.body.next_step, 'PAYWALL');
+    assert.ok(!JSON.stringify(a1.body).includes('20392817263'), 'RUC enmascarado');
+
+    // Otro teléfono no puede reclamar el mismo RUC.
+    await register('930000032', '73000032', '739164');
+    const login2 = await call('POST', '/auth/sessions', { pin: '739164', phone: '+51930000032', device_id: 'profiles_device_00002' });
+    const hdr2 = { Authorization: `Bearer ${login2.body.access_token}`, 'X-Device-Id': 'profiles_device_00002', 'X-Merchant-Id': login2.body.merchant_id };
+    assert.equal((await call('POST', '/merchants/me/ruc', { ruc: '20392817263' }, hdr2)).body.error.code, 'RUC_ALREADY_REGISTERED');
+
+    assert.equal((await call('POST', '/merchants/me/sales/activate', { plan: 'BASIC' }, hdr)).status, 200);
+    assert.equal((await call('GET', '/merchants/me/profile-access', undefined, hdr)).body.next_step, 'SELL');
+
+    // Perfil Provider con el RUC y la clave del mismo usuario.
+    const prov = await call('POST', '/merchants/me/provider-profile', {}, hdr);
+    assert.equal(prov.status, 201);
+    resetRateLimits();
+    const dual = await call('POST', '/auth/sessions', { pin: '739164', phone: '+51930000031', device_id: 'profiles_device_00001' });
+    assert.equal(dual.status, 201);
+    assert.deepEqual(dual.body.profiles, ['EMPRENDEDOR', 'PROVIDER'], 'dos perfiles: el modal de elección');
+    assert.equal(dual.body.provider.provider_id, prov.body.provider_id);
+    const mine = { 'X-Provider-Id': dual.body.provider.provider_id, 'X-Provider-Token': dual.body.provider.provider_token };
+    assert.equal((await call('GET', '/providers/me', undefined, mine)).status, 200);
+  });
+
+  test('un comercio nuevo no puede crear links hasta activar Kuota Payments', async () => {
+    resetRateLimits();
+    await register('930000033', '73000033', '739164');
+    const login = await call('POST', '/auth/sessions', { pin: '739164', phone: '+51930000033', device_id: 'profiles_device_00003' });
+    const hdr = { Authorization: `Bearer ${login.body.access_token}`, 'X-Device-Id': 'profiles_device_00003', 'Idempotency-Key': 'idem-profiles-0000001' };
+    const r = await call('POST', '/payment-links', { amount_cents: 30000 }, hdr);
+    assert.equal(r.status, 403);
+    assert.equal(r.body.error.code, 'PAYMENTS_NOT_ACTIVE');
+  });
+});

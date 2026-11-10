@@ -5,6 +5,11 @@ import { KuotaBiometric } from './plugins/kuotaBiometric';
 import { useSecureScreen } from './plugins/kuotaSecure';
 import { useToast } from './components/toast-context';
 import { HelpFab } from './components/HelpFab';
+import { ProfileChooser } from './components/ProfileChooser';
+import { ADD_RUC_EVENT, SWITCH_EVENT } from './components/ProfileSwitcher';
+import { AddRucSheet } from './screens/dashboard/AddRucSheet';
+import { PaywallSheet } from './screens/dashboard/PaywallSheet';
+import { getActiveProfile, profilesApi, setActiveProfile, type ProfileKind } from './api/profiles';
 import { isBiometricEnabled, resetSettings } from './services/appSettings';
 import { refreshListener, setCaptureHandler } from './services/paymentListener';
 import { api, apiRequest, getMerchantId, getProviderId, setMerchantId, setProviderId } from './api/client';
@@ -93,7 +98,9 @@ function AppShell() {
   const [currentScreen, setCurrentScreen] = useState<string>(() => {
     if (!Capacitor.isNativePlatform()) return 'dashboard';
     if (!readFlag(ONBOARDED_KEY)) return 'welcome';
-    return !getMerchantId() && getProviderId() ? 'provider_home' : 'dashboard';
+    // Sesión ya abierta: se abre en el último perfil usado.
+    if (getProviderId() && (!getMerchantId() || getActiveProfile() === 'PROVIDER')) return 'provider_home';
+    return 'dashboard';
   });
   // Bloqueo por seguridad: al abrir la app (y al volver tras un rato en segundo plano) se pide el PIN.
   const [locked, setLocked] = useState<boolean>(
@@ -103,6 +110,8 @@ function AppShell() {
   const backgroundedAt = useRef<number | null>(null);
   const [activeTab, setActiveTab] = useState<string>('inicio');
   const [isKuotearOpen, setIsKuotearOpen] = useState<boolean>(false);
+  const [chooser, setChooser] = useState<boolean>(false);
+  const [sellFlow, setSellFlow] = useState<null | 'add_ruc' | 'paywall' | 'add_ruc_profile'>(null);
   // Pantallas con credenciales o datos de identidad: sin capturas ni grabación de pantalla (solo Android).
   // Cobros, ventas, crédito e inicio sí permiten capturas (p. ej. compartir un comprobante).
   useSecureScreen(
@@ -135,12 +144,45 @@ function AppShell() {
     if (getProviderId()) void apiRequest('/providers/logout', { method: 'POST' }).catch(() => {});
     setMerchantId(null);
     setProviderId(null);
+    setActiveProfile(null);
+    setChooser(false);
+    setSellFlow(null);
     resetSettings();
     setLocked(false);
     writeFlag(ONBOARDED_KEY, false);
     setCurrentScreen('welcome');
     setActiveTab('inicio');
   };
+
+  // Vender: 1) ¿RUC completado? -> Agregar mi RUC, 2) ¿Kuota Payments activo? -> paywall, 3) flujo de venta.
+  const requestSell = async () => {
+    try {
+      const a = await profilesApi.access();
+      if (a.next_step === 'ADD_RUC') { setSellFlow('add_ruc'); return; }
+      if (a.next_step === 'PAYWALL') { setSellFlow('paywall'); return; }
+    } catch {
+      /* si no se puede consultar, el servidor igual bloquea la venta */
+    }
+    setCurrentScreen('dashboard');
+    setActiveTab('cobros');
+  };
+
+  // Cambio de perfil (botón de perfil) y "Agregar mi RUC" desde Perfil: sin volver a pedir la clave.
+  useEffect(() => {
+    const onSwitch = (e: Event) => {
+      const p = (e as CustomEvent<ProfileKind>).detail;
+      setActiveProfile(p);
+      setActiveTab('inicio');
+      setCurrentScreen(p === 'PROVIDER' ? 'provider_home' : 'dashboard');
+    };
+    const onAddRuc = () => setSellFlow('add_ruc_profile');
+    window.addEventListener(SWITCH_EVENT, onSwitch);
+    window.addEventListener(ADD_RUC_EVENT, onAddRuc);
+    return () => {
+      window.removeEventListener(SWITCH_EVENT, onSwitch);
+      window.removeEventListener(ADD_RUC_EVENT, onAddRuc);
+    };
+  }, []);
 
   // Al arrancar en dashboard (sesión previa), valida que el merchant_id siga existiendo.
   // Si fue reseteado (DB borrada), redirige a bienvenida automáticamente.
@@ -371,9 +413,17 @@ function AppShell() {
       case 'login':
         return (
           <LoginScreen
-            onSuccess={(role) => {
+            onSuccess={(role, profiles) => {
               writeFlag(ONBOARDED_KEY, true);
-              setCurrentScreen(role === 'PROVIDER' ? 'provider_home' : 'dashboard');
+              if (role !== 'PROVIDER' && profiles && profiles.length > 1) {
+                // Dos perfiles: el modal de elección va antes de cualquier pantalla de inicio.
+                setCurrentScreen('dashboard');
+                setChooser(true);
+                return;
+              }
+              const p: ProfileKind = role === 'PROVIDER' ? 'PROVIDER' : 'EMPRENDEDOR';
+              setActiveProfile(p);
+              setCurrentScreen(p === 'PROVIDER' ? 'provider_home' : 'dashboard');
             }}
             onBack={() => setCurrentScreen('welcome')}
           />
@@ -605,6 +655,8 @@ function AppShell() {
           onTabChange={(tab) => {
             if (tab === 'kuotear') {
               setIsKuotearOpen(true);
+            } else if (tab === 'cobros') {
+              void requestSell();
             } else {
               setCurrentScreen('dashboard');
               setActiveTab(tab);
@@ -643,7 +695,7 @@ function AppShell() {
               if (screenKey === 'buy_on_credit') {
                 setActiveTab('comprar_credito');
               } else if (screenKey === 'payment_link') {
-                setActiveTab('cobros');
+                void requestSell();
               }
             }}
           />
@@ -681,6 +733,47 @@ function AppShell() {
           )}
           {!locked && !isKuotearOpen && currentScreen.startsWith('dashboard') && HELP_TABS.has(activeTab) && (
             <HelpFab screenName={HELP_TABS.get(activeTab)!} />
+          )}
+          {chooser && (
+            <ProfileChooser
+              onChoose={(p) => {
+                setChooser(false);
+                setActiveProfile(p);
+                setActiveTab('inicio');
+                setCurrentScreen(p === 'PROVIDER' ? 'provider_home' : 'dashboard');
+              }}
+              onLogout={handleLogout}
+            />
+          )}
+          {(sellFlow === 'add_ruc' || sellFlow === 'add_ruc_profile') && (
+            <AddRucSheet
+              reason={sellFlow === 'add_ruc' ? 'sell' : 'profile'}
+              onClose={() => {
+                const fromSell = sellFlow === 'add_ruc';
+                setSellFlow(null);
+                if (fromSell) setIsKuotearOpen(true);
+              }}
+              onDone={() => {
+                const fromSell = sellFlow === 'add_ruc';
+                setSellFlow(null);
+                appToast.success('Listo, tu RUC quedó registrado.');
+                if (fromSell) void requestSell();
+              }}
+            />
+          )}
+          {sellFlow === 'paywall' && (
+            <PaywallSheet
+              onClose={() => {
+                setSellFlow(null);
+                setIsKuotearOpen(true);
+              }}
+              onActivated={() => {
+                setSellFlow(null);
+                appToast.success('Kuota Payments activado.');
+                setCurrentScreen('dashboard');
+                setActiveTab('cobros');
+              }}
+            />
           )}
           <PinPromptHost />
           <ToastViewport />

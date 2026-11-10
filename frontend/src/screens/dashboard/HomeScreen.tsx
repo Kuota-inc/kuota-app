@@ -4,6 +4,7 @@ import { api } from '../../api/client';
 import { AnimatedNumber } from '../../components/AnimatedNumber';
 import { Bell, Sparkles, ChevronRight } from 'lucide-react';
 import { useToast } from '../../components/toast-context';
+import { ProfileSwitcher } from '../../components/ProfileSwitcher';
 
 interface HomeScreenProps {
   onNavigateTab: (tab: string) => void;
@@ -165,6 +166,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateTab, onOpenKuo
           </button>
         </div>
         <div className="flex items-center gap-2">
+          <ProfileSwitcher active="EMPRENDEDOR" />
           <motion.button
             type="button"
             onClick={onOpenNotifications}

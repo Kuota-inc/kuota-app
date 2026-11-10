@@ -1,3 +1,4 @@
+import { applyLoginProfiles, type ProfileKind } from '../../api/profiles';
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { apiRequest, setMerchantId, setMerchantToken, setProviderId, setProviderToken } from '../../api/client';
@@ -16,7 +17,7 @@ import {
 } from 'lucide-react';
 
 interface LoginScreenProps {
-  onSuccess: (role?: 'PROVIDER') => void;
+  onSuccess: (role?: 'PROVIDER', profiles?: ProfileKind[]) => void;
   onBack: () => void;
 }
 
@@ -93,7 +94,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, onBack }) =
     setError(null);
     setMerchantId(null);
     try {
-      const res = await apiRequest<{ access_token: string; merchant_id: string; identity_token?: string; expires_at: string; role?: 'PROVIDER'; provider_id?: string; provider_token?: string }>(
+      const res = await apiRequest<{ access_token: string; merchant_id: string; identity_token?: string; expires_at: string; role?: 'PROVIDER'; provider_id?: string; provider_token?: string; profiles?: ProfileKind[]; provider?: { provider_id: string; provider_token: string } | null }>(
         '/auth/sessions',
         {
           method: 'POST',
@@ -115,7 +116,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, onBack }) =
       }
       if (res.merchant_id) setMerchantId(res.merchant_id);
       if (res.identity_token) setMerchantToken(res.identity_token);
-      onSuccess();
+      onSuccess(undefined, applyLoginProfiles(res));
     } catch (err: any) {
       const msg: string = err?.message ?? '';
       if (msg.includes('bloqueado') || msg.includes('locked') || err?.code === 'PIN_LOCKED') {
@@ -137,7 +138,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, onBack }) =
     setError(null);
     setMerchantId(null);
     try {
-      const res = await apiRequest<{ access_token: string; merchant_id: string; identity_token?: string; expires_at: string; role?: 'PROVIDER'; provider_id?: string; provider_token?: string }>(
+      const res = await apiRequest<{ access_token: string; merchant_id: string; identity_token?: string; expires_at: string; role?: 'PROVIDER'; provider_id?: string; provider_token?: string; profiles?: ProfileKind[]; provider?: { provider_id: string; provider_token: string } | null }>(
         '/auth/pin/recover',
         {
           method: 'POST',
