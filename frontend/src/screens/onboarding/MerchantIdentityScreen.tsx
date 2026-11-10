@@ -1,359 +1,331 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../../api/client';
-import {
-  CreditCard,
-  UserCheck,
-  Phone,
-  ShieldCheck,
-  ArrowRight,
-  CheckCircle2,
-  RefreshCw,
-  AlertCircle,
-  Lock,
-  MessageSquare,
-  Edit3,
-} from 'lucide-react';
+import { AlertCircle, ArrowRight, CheckCircle2, IdCard, Lock, MessageSquare, Phone, RefreshCw, ShieldCheck, UserRound } from 'lucide-react';
 
 interface MerchantIdentityScreenProps {
   sessionId: string;
   onNext: (requestId: string) => void;
 }
 
+type DocType = 'DNI' | 'CE';
+
+// Cada documento define su formato, su teclado y sus textos de ayuda.
+const DOCS: Record<DocType, {
+  tab: string;
+  tabHint: string;
+  label: string;
+  placeholder: string;
+  help: string;
+  inputMode: 'numeric' | 'text';
+  clean: (v: string) => string;
+  valid: (v: string) => boolean;
+  error: string;
+  nameHint: string;
+}> = {
+  DNI: {
+    tab: 'DNI',
+    tabHint: 'Peruano/a',
+    label: 'Número de DNI',
+    placeholder: '47891234',
+    help: 'DNI azul o DNI electrónico. 8 dígitos.',
+    inputMode: 'numeric',
+    clean: (v) => v.replace(/\D/g, '').slice(0, 8),
+    valid: (v) => /^\d{8}$/.test(v),
+    error: 'Ingresa un DNI válido de 8 dígitos.',
+    nameHint: 'Como figura en tu DNI'
+  },
+  CE: {
+    tab: 'Carnet de extranjería',
+    tabHint: 'Extranjero/a residente',
+    label: 'Número de carnet de extranjería',
+    placeholder: '001234567',
+    help: 'Emitido por Migraciones. Escríbelo tal como figura, sin guiones.',
+    inputMode: 'text',
+    clean: (v) => v.toUpperCase().replace(/[^0-9A-Z]/g, '').slice(0, 12),
+    valid: (v) => /^[0-9A-Z]{9,12}$/.test(v),
+    error: 'Ingresa tu carnet de extranjería tal como figura (9 a 12 caracteres).',
+    nameHint: 'Como figura en tu carnet'
+  }
+};
+
 export const MerchantIdentityScreen: React.FC<MerchantIdentityScreenProps> = ({ sessionId, onNext }) => {
-  // El usuario escribe sus propios datos; se comprueban en el paso siguiente
-  // (foto del DNI + selfie con Didit).
-  const [dni, setDni] = useState<string>('');
+  // El usuario escribe sus propios datos; se comprueban en el paso siguiente (foto del documento + selfie).
+  const [docType, setDocType] = useState<DocType>('DNI');
+  const [docNumber, setDocNumber] = useState<string>('');
   const [fullName, setFullName] = useState<string>('');
   const [phone, setPhone] = useState<string>('');
   const [whatsappOptIn, setWhatsappOptIn] = useState<boolean>(true);
 
-  const [verifyingDni, setVerifyingDni] = useState<boolean>(false);
-  // true = el nombre vino sugerido por la búsqueda (no es una validación oficial)
-  const [dniVerified, setDniVerified] = useState<boolean>(false);
+  const [lookingUp, setLookingUp] = useState<boolean>(false);
+  // true = el nombre vino sugerido por la búsqueda del DNI (no es una validación oficial)
+  const [nameSuggested, setNameSuggested] = useState<boolean>(false);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Con 8 dígitos se intenta sugerir el nombre (si el backend lo conoce)
-  const handleDniChange = async (val: string) => {
-    const clean = val.replace(/\D/g, '').slice(0, 8);
-    setDni(clean);
-    setDniVerified(false);
-    setErrorMessage(null);
+  const doc = DOCS[docType];
+  const docOk = doc.valid(docNumber);
 
-    if (clean.length === 8) {
-      setVerifyingDni(true);
-      try {
-        const res = await api.lookupDni(clean);
-        if (res && res.full_name) {
-          if (!fullName.trim()) setFullName(res.full_name);
-          setDniVerified(true);
-        }
-      } catch {
-        /* sin sugerencia: el usuario escribe su nombre */
-      } finally {
-        setVerifyingDni(false);
+  const switchDoc = (next: DocType) => {
+    if (next === docType) return;
+    setDocType(next);
+    setDocNumber('');
+    setNameSuggested(false);
+    setErrorMessage(null);
+  };
+
+  // Solo el DNI tiene sugerencia de nombre; el carnet se escribe a mano.
+  const suggestName = async (dni: string) => {
+    setLookingUp(true);
+    try {
+      const res = await api.lookupDni(dni);
+      if (res?.full_name) {
+        setFullName((prev) => (prev.trim() ? prev : res.full_name));
+        setNameSuggested(true);
       }
+    } catch {
+      /* sin sugerencia: el usuario escribe su nombre */
+    } finally {
+      setLookingUp(false);
     }
   };
 
-  const handleManualDniLookup = async () => {
-    if (dni.length !== 8) return;
-    setVerifyingDni(true);
+  const handleDocChange = (val: string) => {
+    const clean = doc.clean(val);
+    setDocNumber(clean);
+    setNameSuggested(false);
     setErrorMessage(null);
-    try {
-      const res = await api.lookupDni(dni);
-      if (res && res.full_name) {
-        if (!fullName.trim()) setFullName(res.full_name);
-        setDniVerified(true);
-      }
-    } catch {
-      setErrorMessage('No encontramos un nombre para ese DNI. Escríbelo tal como figura en tu documento.');
-    } finally {
-      setVerifyingDni(false);
-    }
+    if (docType === 'DNI' && clean.length === 8) void suggestName(clean);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!dni || dni.length !== 8) {
-      setErrorMessage('Ingresa un DNI peruano válido de 8 dígitos.');
+    if (!docOk) {
+      setErrorMessage(doc.error);
       return;
     }
-    if (!fullName.trim() || fullName.length < 3) {
-      setErrorMessage('Ingresa tus nombres y apellidos completos según DNI.');
+    if (fullName.trim().length < 3) {
+      setErrorMessage('Ingresa tus nombres y apellidos completos.');
       return;
     }
     const cleanPhone = phone.replace(/\D/g, '');
-    if (!cleanPhone || cleanPhone.length !== 9) {
+    if (cleanPhone.length !== 9) {
       setErrorMessage('Ingresa un número de celular de 9 dígitos.');
       return;
     }
 
     setSubmitting(true);
     setErrorMessage(null);
-
     try {
       const res = await api.saveMerchantIdentity(sessionId, {
-        dni,
+        doc_type: docType,
+        dni: docNumber,
         full_name: fullName,
         phone: cleanPhone,
         whatsapp_opt_in: whatsappOptIn
       });
-
-      if (res && res.request_id) {
-        onNext(res.request_id);
-      } else {
-        onNext('MER-' + Math.floor(10000 + Math.random() * 90000) + '-PE');
-      }
+      onNext(res?.request_id || 'MER-' + Math.floor(10000 + Math.random() * 90000) + '-PE');
     } catch (err: any) {
-      setErrorMessage(err.message || 'Error al validar identidad');
+      setErrorMessage(err?.message || 'No pudimos guardar tus datos. Inténtalo de nuevo.');
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <div className="flex-1 flex flex-col justify-between p-4 bg-[#f9f9ff] overflow-y-auto select-none">
-      <form onSubmit={handleSubmit} className="space-y-3.5">
-        {/* Step Progress Bar Header */}
-        <div className="space-y-1.5 pt-0.5">
+    <div className="flex-1 flex flex-col p-4 bg-[#f9f9ff] overflow-y-auto">
+      <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+        {/* Progreso */}
+        <div className="space-y-1.5">
           <div className="flex justify-between items-center text-xs">
-            <span className="font-semibold text-[#4a5f7e]">Paso 1 de 5</span>
-            <div className="flex items-center gap-1.5 text-[10px] text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full font-bold border border-emerald-200/80">
-              <Lock size={10} />
-              <span>Conexión Segura SSL</span>
-            </div>
-          </div>
-          <div className="h-1.5 w-full bg-[#e1e8f8] rounded-full overflow-hidden">
-            <div className="h-full bg-gradient-to-r from-[#00248b] to-[#1a3bb0] w-1/5 rounded-full transition-all duration-500 shadow-sm"></div>
-          </div>
-        </div>
-
-        {/* Heading */}
-        <div>
-          <h1 className="text-xl font-black text-[#0b2545] tracking-tight">
-            Tus datos de identificación
-          </h1>
-          <p className="text-xs text-[#4a5f7e] mt-1 leading-relaxed">
-            Escribe tus datos tal como figuran en tu DNI. En el siguiente paso los comprobamos con una foto de tu DNI y una selfie.
-          </p>
-        </div>
-
-        {/* 1. DNI Card */}
-        <div className="p-3.5 bg-white rounded-3xl border border-[#e1e8f8] shadow-sm space-y-2.5 transition hover:border-blue-200">
-          <div className="flex items-center justify-between text-xs">
-            <label htmlFor="merchant-identity-field-1" className="flex items-center gap-1.5 font-bold text-[#0b2545]">
-              <span className="text-sm">🇵🇪</span>
-              <span>Número de DNI</span>
-            </label>
-
-            {verifyingDni ? (
-              <span className="text-[10px] text-[#1a3bb0] font-bold flex items-center gap-1 bg-blue-50 px-2 py-0.5 rounded-full">
-                <RefreshCw size={10} className="animate-spin" />
-                <span>Buscando…</span>
-              </span>
-            ) : dniVerified ? (
-              <motion.span
-                initial={{ scale: 0.9 }}
-                animate={{ scale: 1 }}
-                className="text-[10px] text-emerald-700 font-bold flex items-center gap-1 bg-emerald-50 border border-emerald-200/80 px-2.5 py-0.5 rounded-full shadow-xs"
-              >
-                <CheckCircle2 size={11} className="text-emerald-700" />
-                <span>Nombre sugerido</span>
-              </motion.span>
-            ) : (
-              <span className="text-[10px] text-[#4a5f7e] font-medium">8 dígitos</span>
-            )}
-          </div>
-
-          <div className="relative flex items-center">
-            <div className="absolute left-3 w-8 h-8 rounded-xl bg-[#eff3ff] text-[#00248b] flex items-center justify-center shrink-0">
-              <CreditCard size={17} />
-            </div>
-            <input
-              id="merchant-identity-field-1"
-              type="tel"
-              inputMode="numeric"
-              maxLength={8}
-              value={dni}
-              onChange={(e) => handleDniChange(e.target.value)}
-              placeholder="Ej. 47891234"
-              className="w-full pl-13 pr-24 py-3 rounded-2xl bg-[#eff3ff]/50 border border-[#c5c5d6]/70 text-lg font-mono font-black tracking-widest text-[#0b2545] focus:bg-white focus:outline-none focus:border-[#1a3bb0] focus:ring-2 focus:ring-[#1a3bb0]/20 transition"
-            />
-            {dni.length === 8 && !verifyingDni && !dniVerified && (
-              <button
-                type="button"
-                onClick={handleManualDniLookup}
-                className="absolute right-2 px-2.5 py-1 bg-[#1a3bb0] text-white rounded-xl text-xs font-bold shadow-sm hover:bg-[#00248b] active:scale-95 transition cursor-pointer"
-              >
-                Buscar
-              </button>
-            )}
-          </div>
-          <p className="text-[10px] text-[#4a5f7e]">
-            DNI Azul o DNI Electrónico (DNIe) de persona natural
-          </p>
-        </div>
-
-        {/* 2. Nombre del titular (lo escribe el usuario; se comprueba con el DNI en el paso siguiente) */}
-        <div className="p-3.5 bg-gradient-to-br from-white to-[#f5f8ff] rounded-3xl border border-[#d8e2ff] shadow-sm space-y-2 transition">
-          <div className="flex items-center justify-between text-xs">
-            <label htmlFor="merchant-identity-field-2" className="flex items-center gap-1.5 font-bold text-[#0b2545]">
-              <UserCheck size={14} className="text-[#00248b]" />
-              <span>Nombres y Apellidos del Titular</span>
-            </label>
-            <span className="text-[10px] text-[#4a5f7e] flex items-center gap-1">
-              <Edit3 size={11} aria-hidden="true" /> Como en tu DNI
+            <span className="font-bold text-[#4a5f7e]">Paso 1 de 5</span>
+            <span className="flex items-center gap-1 text-[11px] text-emerald-800 font-bold">
+              <Lock size={12} aria-hidden="true" /> Datos cifrados
             </span>
           </div>
+          <div className="h-1.5 w-full bg-[#e1e8f8] rounded-full overflow-hidden" role="progressbar" aria-valuenow={1} aria-valuemin={1} aria-valuemax={5} aria-label="Paso 1 de 5">
+            <div className="h-full bg-gradient-to-r from-[#00248b] to-[#1a3bb0] w-1/5 rounded-full" />
+          </div>
+        </div>
 
-          <div className="relative">
+        <div>
+          <h1 className="text-2xl font-black text-[#0b2545] tracking-tight leading-tight">Tus datos de identificación</h1>
+          <p className="text-[13px] text-[#4a5f7e] mt-1.5 leading-relaxed">
+            Escríbelos tal como figuran en tu documento. En el siguiente paso los comprobamos con una foto del documento y una selfie.
+          </p>
+        </div>
+
+        {/* 1. Documento */}
+        <section className="p-4 bg-white rounded-3xl border border-[#e1e8f8] shadow-sm space-y-3" aria-labelledby="doc-section-title">
+          <h2 id="doc-section-title" className="text-[13px] font-black text-[#0b2545] flex items-center gap-2">
+            <span className="w-7 h-7 rounded-xl bg-[#eff3ff] text-[#00248b] flex items-center justify-center" aria-hidden="true">
+              <IdCard size={16} />
+            </span>
+            Documento de identidad
+          </h2>
+
+          <div role="radiogroup" aria-label="Tipo de documento" className="grid grid-cols-2 gap-2 p-1 bg-[#eff3ff] rounded-2xl">
+            {(Object.keys(DOCS) as DocType[]).map((k) => {
+              const active = k === docType;
+              return (
+                <button
+                  key={k}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  onClick={() => switchDoc(k)}
+                  className={`px-2.5 py-2 rounded-xl text-left transition cursor-pointer ${
+                    active ? 'bg-white shadow-sm ring-1 ring-[#1a3bb0]' : 'hover:bg-white/60'
+                  }`}
+                >
+                  <span className={`block text-[13px] font-black leading-tight ${active ? 'text-[#00248b]' : 'text-[#0b2545]'}`}>{DOCS[k].tab}</span>
+                  <span className="block text-[11px] text-[#4a5f7e] leading-tight mt-0.5">{DOCS[k].tabHint}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <label htmlFor="identity-doc-number" className="text-xs font-bold text-[#0b2545]">{doc.label}</label>
+              {lookingUp ? (
+                <span className="text-[11px] text-[#1a3bb0] font-bold flex items-center gap-1">
+                  <RefreshCw size={11} className="animate-spin" aria-hidden="true" /> Buscando…
+                </span>
+              ) : docOk ? (
+                <span className="text-[11px] text-emerald-800 font-bold flex items-center gap-1">
+                  <CheckCircle2 size={12} aria-hidden="true" /> Formato correcto
+                </span>
+              ) : null}
+            </div>
             <input
-              id="merchant-identity-field-2"
+              id="identity-doc-number"
+              type="text"
+              inputMode={doc.inputMode}
+              autoCapitalize="characters"
+              autoComplete="off"
+              spellCheck={false}
+              value={docNumber}
+              onChange={(e) => handleDocChange(e.target.value)}
+              placeholder={`Ej. ${doc.placeholder}`}
+              aria-describedby="identity-doc-help"
+              className="w-full px-4 py-3 rounded-2xl bg-[#f7f9ff] border border-[#c5cfe8] text-lg font-mono font-black tracking-widest text-[#0b2545] placeholder:text-[#9aa8c9] placeholder:font-semibold focus:bg-white focus:outline-none focus:border-[#1a3bb0] focus:ring-2 focus:ring-[#1a3bb0]/20 transition"
+            />
+            <p id="identity-doc-help" className="text-[11px] text-[#4a5f7e]">{doc.help}</p>
+          </div>
+
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <label htmlFor="identity-full-name" className="text-xs font-bold text-[#0b2545] flex items-center gap-1.5">
+                <UserRound size={14} className="text-[#00248b]" aria-hidden="true" /> Nombres y apellidos
+              </label>
+              <span className="text-[11px] text-[#4a5f7e]">{nameSuggested ? 'Sugerido: revísalo' : doc.nameHint}</span>
+            </div>
+            <input
+              id="identity-full-name"
               type="text"
               value={fullName}
               autoComplete="name"
-              onChange={(e) => setFullName(e.target.value.toUpperCase())}
+              onChange={(e) => {
+                setFullName(e.target.value.toUpperCase());
+                setNameSuggested(false);
+              }}
               placeholder="Nombres y apellidos completos"
-              className="w-full px-3.5 py-2.5 rounded-2xl border text-xs font-black tracking-wide text-[#0b2545] transition bg-white border-[#c5c5d6]/70 focus:outline-none focus:border-[#1a3bb0] focus:ring-2 focus:ring-blue-100"
+              className="w-full px-4 py-3 rounded-2xl bg-[#f7f9ff] border border-[#c5cfe8] text-sm font-bold tracking-wide text-[#0b2545] placeholder:text-[#9aa8c9] placeholder:font-semibold focus:bg-white focus:outline-none focus:border-[#1a3bb0] focus:ring-2 focus:ring-[#1a3bb0]/20 transition"
             />
           </div>
+        </section>
 
-          <div className="flex items-center justify-between text-[10px] text-emerald-800 bg-emerald-50/80 px-2.5 py-1 rounded-xl border border-emerald-200/60">
-            <span className="flex items-center gap-1 font-semibold">
-              <CheckCircle2 size={12} className="text-emerald-700 shrink-0" />
-              <span>Lo comprobamos con la foto de tu DNI en el siguiente paso</span>
+        {/* 2. Contacto */}
+        <section className="p-4 bg-white rounded-3xl border border-[#e1e8f8] shadow-sm space-y-3" aria-labelledby="contact-section-title">
+          <h2 id="contact-section-title" className="text-[13px] font-black text-[#0b2545] flex items-center gap-2">
+            <span className="w-7 h-7 rounded-xl bg-[#eff3ff] text-[#00248b] flex items-center justify-center" aria-hidden="true">
+              <Phone size={15} />
             </span>
-          </div>
-        </div>
-
-        {/* 3. Phone / WhatsApp Field con Prefijo +51 */}
-        <div className="p-3.5 bg-white rounded-3xl border border-[#e1e8f8] shadow-sm space-y-2 transition hover:border-blue-200">
-          <label htmlFor="merchant-identity-field-3" className="text-xs font-bold text-[#0b2545] flex items-center gap-1.5">
-            <Phone size={14} className="text-[#1a3bb0]" />
-            <span>Número de celular (WhatsApp activo)</span>
-          </label>
-
-          <div className="relative flex items-center">
-            {/* Country Flag & Prefix Pill */}
-            <div className="absolute left-2 flex items-center gap-1 px-2.5 py-1.5 bg-[#eff3ff] rounded-xl border border-[#d8e2ff] text-xs font-bold text-[#0b2545] shrink-0">
-              <span>🇵🇪</span>
-              <span>+51</span>
+            Celular
+          </h2>
+          <div className="space-y-1.5">
+            <label htmlFor="identity-phone" className="text-xs font-bold text-[#0b2545]">Número con WhatsApp activo</label>
+            <div className="flex items-stretch rounded-2xl border border-[#c5cfe8] bg-[#f7f9ff] focus-within:bg-white focus-within:border-[#1a3bb0] focus-within:ring-2 focus-within:ring-[#1a3bb0]/20 transition overflow-hidden">
+              <span className="flex items-center gap-1 px-3 text-sm font-bold text-[#0b2545] border-r border-[#c5cfe8] bg-[#eff3ff]" aria-hidden="true">
+                🇵🇪 +51
+              </span>
+              <input
+                id="identity-phone"
+                type="tel"
+                inputMode="numeric"
+                autoComplete="tel-national"
+                maxLength={9}
+                value={phone}
+                onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 9))}
+                placeholder="987 654 321"
+                className="flex-1 min-w-0 px-3 py-3 bg-transparent text-base font-mono font-bold tracking-wider text-[#0b2545] placeholder:text-[#9aa8c9] focus:outline-none"
+              />
             </div>
-
-            <input
-              id="merchant-identity-field-3"
-              type="tel"
-              inputMode="numeric"
-              maxLength={9}
-              value={phone}
-              onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 9))}
-              placeholder="987 654 321"
-              className="w-full pl-22 pr-4 py-3 rounded-2xl bg-[#eff3ff]/50 border border-[#c5c5d6]/70 text-base font-mono font-bold tracking-wider text-[#0b2545] focus:bg-white focus:outline-none focus:border-[#1a3bb0] focus:ring-2 focus:ring-[#1a3bb0]/20 transition"
-            />
+            <p className="text-[11px] text-[#4a5f7e]">Aquí te llegan los comprobantes de cobro y las confirmaciones de aKuotas!</p>
           </div>
 
-          <p className="text-[10px] text-[#4a5f7e] leading-tight">
-            Te enviaremos los comprobantes de cobro y la confirmación de compras aKuotas.
-          </p>
-        </div>
-
-        {/* 4. WhatsApp Interactive Toggle Card */}
-        <div
-          role="switch"
-          aria-checked={whatsappOptIn}
-          aria-labelledby="whatsapp-optin-label"
-          tabIndex={0}
-          onClick={() => setWhatsappOptIn(!whatsappOptIn)}
-          onKeyDown={(e) => {
-            if (e.key === ' ' || e.key === 'Enter') {
-              e.preventDefault();
-              setWhatsappOptIn(!whatsappOptIn);
-            }
-          }}
-          className="p-3 rounded-3xl bg-white border border-[#e1e8f8] shadow-sm flex items-center justify-between gap-3 cursor-pointer hover:border-emerald-300 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#b8c3ff]"
-        >
-          <div className="flex items-start gap-3 min-w-0">
-            <div className="w-8 h-8 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 mt-0.5">
-              <MessageSquare size={17} />
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5">
-                <span id="whatsapp-optin-label" className="text-xs font-bold text-[#0b2545]">Notificaciones por WhatsApp</span>
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-              </div>
-              <p className="text-[10px] text-[#4a5f7e] mt-0.5 leading-snug">
-                Recibe avisos al instante cuando tus clientes paguen por QR y recordatorios de cuotas.
-              </p>
-            </div>
-          </div>
-
-          {/* Toggle Switch (visual; el rol switch está en la tarjeta) */}
-          <div
-            aria-hidden="true"
-            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full p-0.5 transition-colors duration-200 ease-in-out ${
-              whatsappOptIn ? 'bg-[#00248b]' : 'bg-slate-300'
-            }`}
+          <button
+            type="button"
+            role="switch"
+            aria-checked={whatsappOptIn}
+            onClick={() => setWhatsappOptIn(!whatsappOptIn)}
+            className="w-full flex items-center justify-between gap-3 p-3 rounded-2xl bg-[#f7f9ff] border border-[#e1e8f8] text-left cursor-pointer"
           >
-            <span
-              className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition duration-200 ease-in-out ${
-                whatsappOptIn ? 'translate-x-5' : 'translate-x-0'
-              }`}
-            />
-          </div>
-        </div>
+            <span className="flex items-start gap-2.5 min-w-0">
+              <span className="w-7 h-7 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0" aria-hidden="true">
+                <MessageSquare size={15} />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-xs font-bold text-[#0b2545]">Avisos por WhatsApp</span>
+                <span className="block text-[11px] text-[#4a5f7e] leading-snug">Cuando te paguen y antes de cada cuota.</span>
+              </span>
+            </span>
+            <span aria-hidden="true" className={`relative inline-flex h-6 w-11 shrink-0 rounded-full p-0.5 transition-colors ${whatsappOptIn ? 'bg-[#00248b]' : 'bg-slate-300'}`}>
+              <span className={`inline-block h-5 w-5 rounded-full bg-white shadow-md transition ${whatsappOptIn ? 'translate-x-5' : 'translate-x-0'}`} />
+            </span>
+          </button>
+        </section>
 
-        {/* Error Feedback */}
         <AnimatePresence>
           {errorMessage && (
             <motion.div
+              role="alert"
               initial={{ opacity: 0, y: 5 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
-              className="p-3 bg-red-50 rounded-2xl border border-red-200 text-xs text-red-900 flex items-start gap-2 shadow-xs"
+              className="p-3 bg-red-50 rounded-2xl border border-red-200 text-red-900 flex items-start gap-2"
             >
-              <AlertCircle size={16} className="text-red-600 shrink-0 mt-0.5" />
-              <div className="flex-1 text-[11px] font-medium leading-tight">{errorMessage}</div>
+              <AlertCircle size={16} className="text-red-700 shrink-0 mt-0.5" aria-hidden="true" />
+              <span className="text-xs font-semibold leading-snug">{errorMessage}</span>
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* 5. Ley 29733 Security Seal Card */}
-        <div className="p-3 bg-[#eff3ff] rounded-2xl border border-[#d8e2ff] flex items-start gap-2.5 text-[11px] text-[#0b2545]">
-          <div className="w-7 h-7 rounded-xl bg-blue-100 text-[#00248b] flex items-center justify-center shrink-0 mt-0.5">
-            <ShieldCheck size={16} />
-          </div>
-          <div className="leading-snug">
-            <span className="font-bold text-[#00248b]">Protección de Datos (Ley 29733): </span>
-            <span className="text-[#4a5f7e]">
-              Tu DNI solo se usa para verificar tu identidad y generar tu línea de microcrédito. Kuota no guarda las fotos de tu DNI ni tu selfie.
-            </span>
-          </div>
+        <div className="p-3 rounded-2xl bg-[#eff3ff] border border-[#d8e2ff] flex items-start gap-2.5">
+          <ShieldCheck size={18} className="text-[#00248b] shrink-0 mt-0.5" aria-hidden="true" />
+          <p className="text-[11px] text-[#2b3f66] leading-snug">
+            <span className="font-bold text-[#00248b]">Ley 29733: </span>
+            Tu documento solo se usa para verificar tu identidad y evaluar tu línea. Kuota no guarda las fotos de tu documento ni tu selfie.
+          </p>
         </div>
 
-        {/* Submit CTA Button */}
-        <div className="pt-1 pb-1">
-          <motion.button
-            whileTap={{ scale: 0.98 }}
-            whileHover={{ scale: 1.01 }}
-            type="submit"
-            disabled={submitting}
-            className="w-full py-3.5 bg-gradient-to-r from-[#00248b] to-[#1a3bb0] hover:from-[#1a3bb0] hover:to-[#00248b] text-white rounded-2xl font-black text-sm shadow-lg shadow-blue-950/20 transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-75"
-          >
-            {submitting ? (
-              <>
-                <RefreshCw size={17} className="animate-spin text-white" />
-                <span>Guardando…</span>
-              </>
-            ) : (
-              <>
-                <span>Continuar a la verificación</span>
-                <ArrowRight size={17} />
-              </>
-            )}
-          </motion.button>
-        </div>
+        <motion.button
+          whileTap={{ scale: 0.98 }}
+          type="submit"
+          disabled={submitting}
+          className="w-full py-3.5 bg-gradient-to-r from-[#00248b] to-[#1a3bb0] text-white rounded-2xl font-black text-sm shadow-lg shadow-blue-950/20 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-70"
+        >
+          {submitting ? (
+            <>
+              <RefreshCw size={17} className="animate-spin" aria-hidden="true" /> Guardando…
+            </>
+          ) : (
+            <>
+              Continuar a la verificación <ArrowRight size={17} aria-hidden="true" />
+            </>
+          )}
+        </motion.button>
       </form>
     </div>
   );

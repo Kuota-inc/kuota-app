@@ -92,7 +92,7 @@ merchantRouter.post('/ruc', async (req, res) => {
   if (dup) {
     return res.status(409).json({ error: { code: 'RUC_ALREADY_REGISTERED', message: 'Este RUC ya está registrado con otro teléfono. Recupera el acceso a tu cuenta original.' } });
   }
-  const ownership = rucOwnership(ruc, m.dni);
+  const ownership = rucOwnership(ruc, m.dni, m.doc_type ?? 'DNI');
   if (ownership === 'MISMATCH') {
     return res.status(403).json({ error: { code: 'RUC_NOT_YOURS', message: RUC_NOT_YOURS } });
   }

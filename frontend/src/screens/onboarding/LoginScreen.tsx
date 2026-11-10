@@ -144,7 +144,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, onBack }) =
           method: 'POST',
           body: JSON.stringify({
             phone: '+51' + phone.replace(/\D/g, ''),
-            dni: recoveryDni.replace(/\D/g, ''),
+            dni: recoveryDni,
             new_pin: newPinStr,
             device_id: deviceId(),
             device_label: Capacitor.isNativePlatform() ? 'App Kuota (Android)' : 'Navegador (Web)',
@@ -165,7 +165,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, onBack }) =
     } catch (err: any) {
       const msg: string = err?.message ?? '';
       if (err?.code === 'DNI_MISMATCH') {
-        setError('Los datos no coinciden. Verifica tu número de celular y tu DNI.');
+        setError('Los datos no coinciden. Verifica tu número de celular y tu documento.');
       } else if (err?.code === 'RECOVERY_LOCKED') {
         setError('Demasiados intentos. Inténtalo de nuevo en 15 minutos.');
       } else {
@@ -383,28 +383,30 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, onBack }) =
                     Verifica tu identidad
                   </h1>
                   <p className="text-xs text-[#4a5f7e] mt-1 leading-relaxed">
-                    Ingresa el DNI que usaste al registrarte para restablecer tu PIN.
+                    Ingresa el DNI o carnet de extranjería que usaste al registrarte para restablecer tu PIN.
                   </p>
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-[#0b2545]">DNI (8 dígitos)</label>
+                  <label htmlFor="recovery-doc" className="text-xs font-bold text-[#0b2545]">DNI o carnet de extranjería</label>
                   <input
-                    type="tel"
-                    inputMode="numeric"
-                    maxLength={8}
+                    id="recovery-doc"
+                    type="text"
+                    autoCapitalize="characters"
+                    autoComplete="off"
+                    maxLength={12}
                     value={recoveryDni}
                     onChange={(e) => {
-                      setRecoveryDni(e.target.value.replace(/\D/g, '').slice(0, 8));
+                      setRecoveryDni(e.target.value.toUpperCase().replace(/[^0-9A-Z]/g, '').slice(0, 12));
                       setError(null);
                     }}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter' && recoveryDni.replace(/\D/g, '').length === 8) {
+                      if (e.key === 'Enter' && recoveryDni.length >= 8) {
                         setError(null);
                         setStep('recovery_pin');
                       }
                     }}
-                    placeholder="XXXXXXXX"
+                    placeholder="Ej. 47891234"
                     className="w-full px-4 py-3.5 rounded-2xl bg-white border border-[#c5c5d6] text-sm font-bold text-[#0b2545] focus:outline-none focus:border-[#1a3bb0] focus:ring-2 focus:ring-[#1a3bb0]/20 shadow-sm transition tracking-widest"
                     autoFocus
                   />
@@ -429,8 +431,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, onBack }) =
                 whileTap={{ scale: 0.97 }}
                 type="button"
                 onClick={() => {
-                  if (recoveryDni.replace(/\D/g, '').length < 8) {
-                    setError('Ingresa tu DNI de 8 dígitos.');
+                  if (recoveryDni.length < 8) {
+                    setError('Ingresa tu DNI (8 dígitos) o tu carnet de extranjería.');
                     return;
                   }
                   setError(null);

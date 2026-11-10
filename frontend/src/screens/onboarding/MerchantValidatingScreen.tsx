@@ -179,7 +179,7 @@ export const MerchantValidatingScreen: React.FC<MerchantValidatingScreenProps> =
                 <div>
                   <p className="text-xs font-black text-[#0b2545]">Verificación biométrica requerida</p>
                   <p className="text-[11px] text-[#4a5f7e] leading-relaxed mt-0.5">
-                    Necesitamos verificar tu identidad mediante el escaneo de tu DNI y una selfie con prueba de vida.
+                    Necesitamos verificar tu identidad mediante el escaneo de tu documento (DNI o carnet de extranjería) y una selfie con prueba de vida.
                   </p>
                 </div>
               </div>
@@ -195,7 +195,7 @@ export const MerchantValidatingScreen: React.FC<MerchantValidatingScreenProps> =
                 </div>
                 <div className="flex items-center gap-2">
                   <CheckCircle2 size={13} className="text-[#1a3bb0] shrink-0" />
-                  <span>Ten tu DNI físico a la mano</span>
+                  <span>Ten tu documento físico a la mano</span>
                 </div>
               </div>
 

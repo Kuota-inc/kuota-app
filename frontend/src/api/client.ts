@@ -214,7 +214,7 @@ export const api = {
       })
     }),
   lookupDni: (dni: string) => apiRequest(`/onboarding/reniec/${dni}`),
-  saveMerchantIdentity: (sessionId: string, data: { account_type?: 'PERSONAL' | 'BUSINESS'; ruc?: string; dni: string; full_name: string; phone: string; whatsapp_opt_in?: boolean }) =>
+  saveMerchantIdentity: (sessionId: string, data: { account_type?: 'PERSONAL' | 'BUSINESS'; ruc?: string; doc_type?: 'DNI' | 'CE'; dni: string; full_name: string; phone: string; whatsapp_opt_in?: boolean }) =>
     apiRequest(`/onboarding/sessions/${sessionId}/merchant-identity`, {
       method: 'POST',
       body: JSON.stringify(data)

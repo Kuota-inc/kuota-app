@@ -92,10 +92,16 @@ onboardingRouter.get('/reniec/:dni', (req, res) => {
 // Solicitud de datos de identidad del Emprendedor (Soporta Personal [KYC] y Business [KYB + KYC])
 onboardingRouter.post('/sessions/:id/merchant-identity', async (req, res) => {
   const sessionId = req.params.id;
-  const { account_type = 'PERSONAL', ruc, dni, full_name, phone, whatsapp_opt_in = true } = req.body;
+  const { account_type = 'PERSONAL', ruc, full_name, phone, whatsapp_opt_in = true } = req.body;
+  // Documento: DNI peruano (8 dígitos) o carnet de extranjería (9 a 12 caracteres alfanuméricos).
+  const docType: 'DNI' | 'CE' = req.body?.doc_type === 'CE' ? 'CE' : 'DNI';
+  const dni = typeof req.body?.dni === 'string' ? req.body.dni.toUpperCase().replace(/[^0-9A-Z]/g, '') : '';
 
-  if (!dni || !/^\d{8}$/.test(dni)) {
+  if (docType === 'DNI' && !/^\d{8}$/.test(dni)) {
     return res.status(422).json({ error: { code: 'DNI_INVALID', message: 'Ingresa un DNI peruano válido de 8 dígitos.' } });
+  }
+  if (docType === 'CE' && !/^[0-9A-Z]{9,12}$/.test(dni)) {
+    return res.status(422).json({ error: { code: 'CE_INVALID', message: 'Ingresa tu carnet de extranjería tal como figura en el documento (9 a 12 caracteres).' } });
   }
   if (!full_name || full_name.trim().length < 3) {
     return res.status(422).json({ error: { code: 'NAME_REQUIRED', message: 'Ingresa los nombres y apellidos completos.' } });
@@ -121,7 +127,7 @@ onboardingRouter.post('/sessions/:id/merchant-identity', async (req, res) => {
     }
     businessData = sunatRes.data;
     // Titularidad: el RUC 10 debe llevar el DNI del titular; uno de empresa queda en revisión (no se verifica solo).
-    if (rucOwnership(ruc, dni) === 'MISMATCH') {
+    if (rucOwnership(ruc, dni, docType) === 'MISMATCH') {
       return res.status(403).json({ error: { code: 'RUC_NOT_YOURS', message: RUC_NOT_YOURS } });
     }
     const taken = await db.prepare('SELECT id FROM merchant_profiles WHERE ruc = ? AND ruc_verified = TRUE AND session_id <> ?').get(ruc, sessionId);
@@ -171,22 +177,22 @@ onboardingRouter.post('/sessions/:id/merchant-identity', async (req, res) => {
   const bRuc = businessData ? businessData.ruc : null;
   const bAddress = businessData ? businessData.direccion_fiscal : null;
   const bDistrict = businessData ? businessData.distrito : null;
-  const rucAutoVerified = bRuc !== null && rucOwnership(bRuc, dni) === 'MATCH';
+  const rucAutoVerified = bRuc !== null && rucOwnership(bRuc, dni, docType) === 'MATCH';
   const rucReview = bRuc !== null && !rucAutoVerified ? 'PENDING' : rucAutoVerified ? 'APPROVED' : null;
 
   if (existing) {
     await db.prepare(`
       UPDATE merchant_profiles
-      SET dni = ?, full_name = ?, phone = ?, ruc_verified = (ruc_verified OR ?), ruc_review_status = coalesce(?, ruc_review_status), ruc = coalesce(?, ruc), business_name = coalesce(?, business_name),
+      SET dni = ?, doc_type = ?, full_name = ?, phone = ?, ruc_verified = (ruc_verified OR ?), ruc_review_status = coalesce(?, ruc_review_status), ruc = coalesce(?, ruc), business_name = coalesce(?, business_name),
           address = coalesce(?, address), district = coalesce(?, district), kyc_status = 'IN_PROGRESS', updated_at = utc_now_text()
       WHERE session_id = ?
-    `).run(dni, full_name.trim().toUpperCase(), cleanPhone, rucAutoVerified, rucReview, bRuc, bName, bAddress, bDistrict, sessionId);
+    `).run(dni, docType, full_name.trim().toUpperCase(), cleanPhone, rucAutoVerified, rucReview, bRuc, bName, bAddress, bDistrict, sessionId);
   } else {
     merchantId = 'mer_' + uuidv4().substring(0, 10);
     await db.prepare(`
-      INSERT INTO merchant_profiles (id, session_id, dni, full_name, phone, ruc, business_name, address, district, kyc_status, ruc_verified, payments_active, ruc_review_status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'IN_PROGRESS', ?, FALSE, ?)
-    `).run(merchantId, sessionId, dni, full_name.trim().toUpperCase(), cleanPhone, bRuc, bName, bAddress, bDistrict, rucAutoVerified, rucReview);
+      INSERT INTO merchant_profiles (id, session_id, dni, doc_type, full_name, phone, ruc, business_name, address, district, kyc_status, ruc_verified, payments_active, ruc_review_status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'IN_PROGRESS', ?, FALSE, ?)
+    `).run(merchantId, sessionId, dni, docType, full_name.trim().toUpperCase(), cleanPhone, bRuc, bName, bAddress, bDistrict, rucAutoVerified, rucReview);
   }
 
   // Generar ID público de solicitud: BIZ-XXXXX-PE si es Business, MER-XXXXX-PE si es Personal

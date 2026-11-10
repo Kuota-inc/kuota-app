@@ -534,3 +534,33 @@ describe('Perfiles: RUC, paywall de Kuota Payments y perfil Provider', () => {
     assert.equal(r.body.error.code, 'PAYMENTS_NOT_ACTIVE');
   });
 });
+
+describe('Identidad: DNI o carnet de extranjería', () => {
+  test('un extranjero se registra con carnet de extranjería, se valida el formato y recupera el PIN con su carnet', async () => {
+    resetRateLimits();
+    const s = await call('POST', '/onboarding/sessions', { role: 'MERCHANT', device_id: DEVICE, accepted_terms_version: '2026.1', accepted_privacy_version: '2026.1' });
+    const id = s.body.session_id as string;
+    const base = { account_type: 'PERSONAL', full_name: 'MARIA EXTRANJERA QA', phone: '930000041', whatsapp_opt_in: true };
+    // Formato inválido: un CE no es un DNI de 8 dígitos ni lleva símbolos raros.
+    const bad = await call('POST', `/onboarding/sessions/${id}/merchant-identity`, { ...base, doc_type: 'CE', dni: '1234' });
+    assert.equal(bad.status, 422);
+    assert.equal(bad.body.error.code, 'CE_INVALID');
+    // Sin doc_type sigue siendo DNI, y un CE en el campo de DNI se rechaza.
+    assert.equal((await call('POST', `/onboarding/sessions/${id}/merchant-identity`, { ...base, dni: '001234567' })).body.error.code, 'DNI_INVALID');
+    const ok = await call('POST', `/onboarding/sessions/${id}/merchant-identity`, { ...base, doc_type: 'CE', dni: '001-234-567' });
+    assert.equal(ok.status, 201, JSON.stringify(ok.body));
+    await call('PUT', `/onboarding/sessions/${id}/merchant-activity`, { category: 'FOOD', seniority_range: 'CONSOLIDATED', business_name: 'Bodega CE' });
+    await call('PUT', `/onboarding/sessions/${id}/products`, { products: [{ name: 'Pan', price_cents: 50, is_frequent: true }] });
+    const done = await call('POST', `/onboarding/sessions/${id}/complete`, { business_name: 'Bodega CE', phone: '930000041' });
+    assert.equal(done.status, 201);
+    assert.equal((await call('POST', `/onboarding/sessions/${id}/security-pin`, { pin: '739164' })).status, 200);
+
+    // Recuperar el PIN con el carnet (con o sin guiones) funciona; con otro número no.
+    resetRateLimits();
+    const wrong = await call('POST', '/auth/pin/recover', { phone: '+51930000041', dni: '001234568', new_pin: '582941', device_id: 'ce_device_000000001' });
+    assert.notEqual(wrong.status, 201);
+    resetRateLimits();
+    const rec = await call('POST', '/auth/pin/recover', { phone: '+51930000041', dni: '001234567', new_pin: '582941', device_id: 'ce_device_000000001' });
+    assert.equal(rec.status, 201, JSON.stringify(rec.body));
+  });
+});

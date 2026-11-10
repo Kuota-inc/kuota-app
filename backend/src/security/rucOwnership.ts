@@ -6,7 +6,9 @@
 // - RUC 20/15/17 (empresas y otros): requiere revisión manual (KYB) antes de vender.
 export type RucOwnership = 'MATCH' | 'MISMATCH' | 'NEEDS_REVIEW';
 
-export function rucOwnership(ruc: string, dni: string | null | undefined): RucOwnership {
+export function rucOwnership(ruc: string, dni: string | null | undefined, docType: string = 'DNI'): RucOwnership {
+  // Con carnet de extranjería el RUC no se deriva del documento: siempre pasa por revisión manual.
+  if (docType !== 'DNI') return 'NEEDS_REVIEW';
   if (ruc.startsWith('10')) return dni && ruc.slice(2, 10) === String(dni).padStart(8, '0') ? 'MATCH' : 'MISMATCH';
   return 'NEEDS_REVIEW';
 }

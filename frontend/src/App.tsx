@@ -824,7 +824,7 @@ function AppShell() {
                 currentScreen === 'onboarding_merchant_identity' ? 'bg-[#1a3bb0] text-white font-bold' : 'bg-slate-700/60 hover:bg-slate-700 text-slate-300'
               }`}
             >
-              <span>01B · Identidad DNI</span>
+              <span>01B · Identidad (DNI o CE)</span>
               <span className="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
             </button>
             <button

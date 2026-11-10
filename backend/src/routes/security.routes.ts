@@ -145,7 +145,9 @@ authRouter.post('/pin/recover', authLimiter, async (req, res) => {
     await audit({ actorType: 'MERCHANT', actorId: profile.id, action: 'PIN_RESET', result: 'DENIED', ip, deviceId, details: { reason: 'RECOVERY_LOCKED' } });
     return fail(res, 429, 'RECOVERY_LOCKED', 'Demasiados intentos. Inténtalo de nuevo en 15 minutos.');
   }
-  if (!profile.dni || profile.dni.replace(/\D/g, '') !== dni.replace(/\D/g, '')) {
+  // DNI o carnet de extranjería: se compara el documento normalizado (mayúsculas, solo letras y dígitos).
+  const normDoc = (v: string) => v.toUpperCase().replace(/[^0-9A-Z]/g, '');
+  if (!profile.dni || normDoc(profile.dni) !== normDoc(dni)) {
     recoverFailed(profile.id);
     await audit({ actorType: 'MERCHANT', actorId: profile.id, action: 'PIN_RESET', result: 'DENIED', ip, deviceId, details: { reason: 'DNI_MISMATCH' } });
     return mismatch();
