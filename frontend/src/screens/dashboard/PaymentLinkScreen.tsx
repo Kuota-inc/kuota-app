@@ -5,6 +5,7 @@ import { isCancelled, newIdempotencyKey, paymentsApi, type PaymentLink } from '.
 import { Delete, ArrowRight, CheckCircle2, Copy, ArrowLeft, ShieldCheck, Clock, XCircle, Hourglass, Share2 } from 'lucide-react';
 import { useToast } from '../../components/toast-context';
 import { QrCode } from '../../components/QrCode';
+import { FEE_PCT } from '../../config/fee';
 
 interface PaymentLinkScreenProps {
   onBack: () => void;
@@ -31,9 +32,9 @@ export const PaymentLinkScreen: React.FC<PaymentLinkScreenProps> = ({ onBack, on
   const amountNumber = parseFloat(amountStr) || 0;
   const amountCents = Math.round(amountNumber * 100);
 
-  // Cotización local inmediata (1%) mientras responde el backend; solo se usa la
+  // Cotización local inmediata mientras responde el backend; solo se usa la
   // respuesta de la API si corresponde al monto actual (evita respuestas fuera de orden).
-  const localFee = Math.ceil(amountCents * 0.01);
+  const localFee = Math.ceil((amountCents * FEE_PCT) / 100);
   const quote =
     amountCents <= 0
       ? null
@@ -207,11 +208,11 @@ export const PaymentLinkScreen: React.FC<PaymentLinkScreenProps> = ({ onBack, on
             </button>
             <div>
               <h1 className="text-base font-black text-[#0b2545] tracking-tight">Vender y Cobrar</h1>
-              <p className="text-[10px] text-[#4a5f7e]">Genera links de cobro · Tarifa 1% · <b className="text-amber-800">Simulado</b>, sin banco real aún</p>
+              <p className="text-[10px] text-[#4a5f7e]">Genera links de cobro · Tarifa {FEE_PCT}% · <b className="text-amber-800">Simulado</b>, sin banco real aún</p>
             </div>
           </div>
           <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200">
-            Tarifa 1%
+            Tarifa {FEE_PCT}%
           </span>
         </div>
 
@@ -231,7 +232,7 @@ export const PaymentLinkScreen: React.FC<PaymentLinkScreenProps> = ({ onBack, on
               {quote && (
                 <div className="pt-2 flex justify-center gap-4 text-[11px] text-[#4a5f7e] border-t border-slate-100">
                   <div>
-                    Comisión (1%):{' '}
+                    Comisión ({FEE_PCT}%):{' '}
                     <strong className="text-red-600">S/ {(quote.fee_cents / 100).toFixed(2)}</strong>
                   </div>
                   <div>

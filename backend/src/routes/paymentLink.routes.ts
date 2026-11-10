@@ -31,7 +31,7 @@ import { addHours, formatSoles, nowIso } from '../security/time.js';
 
 export const paymentLinkRouter = Router();
 
-const FEE_BPS = 100; // 1.00 %
+const FEE_BPS = config.feeBps; // por defecto 1.00 % (KUOTA_FEE_BPS)
 const MIN_AMOUNT = 100; // S/ 1.00
 const MAX_AMOUNT = 10_000_000; // S/ 100 000.00 (techo técnico; rigen los límites del comercio)
 

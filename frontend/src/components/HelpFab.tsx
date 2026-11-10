@@ -2,13 +2,14 @@ import React, { useEffect, useState } from 'react';
 import { ChevronDown, HelpCircle, MessageCircle, X } from 'lucide-react';
 import { getMerchantId } from '../api/client';
 import { whatsappLink } from '../config/support';
+import { feeLabel } from '../config/fee';
 
 const FAQ: { q: string; a: string }[] = [
   {
     q: '¿Cuándo me llega mi plata?',
     a: 'Cuando se conecte el banco, Kuota te liquida en 48 horas hábiles. Mientras estamos en pruebas, los pagos son simulados y no mueven dinero real.'
   },
-  { q: '¿Cuánto cobra Kuota?', a: 'Cobramos 1 % por cada cobro. Antes de generar el link ves cuánto es la comisión y cuánto recibes neto.' },
+  { q: '¿Cuánto cobra Kuota?', a: `Cobramos ${feeLabel} por cada cobro. Antes de generar el link ves cuánto es la comisión y cuánto recibes neto.` },
   {
     q: '¿Qué pasa si mi cliente no paga?',
     a: 'El link vence a las 48 horas y queda como “Vencido”. Puedes generar uno nuevo desde Nuevo cobro. Si ya pagó y no lo ves, escríbenos.'

@@ -1,5 +1,6 @@
 import { API_ORIGIN } from '../../api/client';
 import React, { useState, useEffect } from 'react';
+import { FEE_PCT } from '../../config/fee';
 import { api } from '../../api/client';
 import { CheckCircle2, ShieldCheck, Sparkles, Building2, Store, KeyRound } from 'lucide-react';
 
@@ -59,7 +60,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onSelectRole, onLo
             El crédito inteligente para tu comercio
           </h1>
           <p className="text-xs text-[#4a5f7e] mt-1.5 leading-relaxed">
-            Financia mercadería con proveedores aliados, cobra a tus clientes al 1% y haz crecer tu capital sin trámites bancarios.
+            Financia mercadería con proveedores aliados, cobra a tus clientes al {FEE_PCT}% y haz crecer tu capital sin trámites bancarios.
           </p>
         </div>
 
@@ -103,7 +104,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onSelectRole, onLo
                 </span>
               </div>
               <p className="text-[11px] text-[#4a5f7e] mt-0.5 leading-snug">
-                Compro mercadería al crédito y cobro con link al 1%
+                Compro mercadería al crédito y cobro con link al {FEE_PCT}%
               </p>
             </div>
           </div>
@@ -122,7 +123,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onSelectRole, onLo
               <div className="flex items-center justify-between">
                 <span className="font-bold text-sm text-[#0b2545]">Soy proveedor</span>
                 <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
-                  Tarifa 1.00%
+                  Tarifa {FEE_PCT}%
                 </span>
               </div>
               <p className="text-[11px] text-[#4a5f7e] mt-0.5 leading-snug">

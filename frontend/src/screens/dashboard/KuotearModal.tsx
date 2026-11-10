@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { FEE_PCT } from '../../config/fee';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../../api/client';
 import { AnimatedNumber } from '../../components/AnimatedNumber';
@@ -181,7 +182,7 @@ export const KuotearModal: React.FC<KuotearModalProps> = ({ isOpen, onClose, onN
                           Vender y cobrar a clientes
                         </span>
                         <span className="text-[10px] font-black uppercase bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded">
-                          Tarifa 1%
+                          Tarifa {FEE_PCT}%
                         </span>
                       </div>
                       <div className="text-[11px] text-[#4a5f7e] mt-0.5 leading-snug">

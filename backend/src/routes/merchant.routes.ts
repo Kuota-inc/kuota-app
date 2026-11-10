@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { db } from '../db/database.js';
+import { config } from '../security/config.js';
 import { getMerchantProfile } from '../security/merchantContext.js';
 import { getNotificationState, markSeen, parsePreferences, savePreferences, unreadCount } from './notifications.js';
 
@@ -143,7 +144,7 @@ merchantRouter.get('/kuotear', async (req, res) => {
       },
       collect: {
         enabled: true,
-        fee_pct: 1.0
+        fee_pct: config.feeBps / 100
       },
       simulate: {
         enabled: true

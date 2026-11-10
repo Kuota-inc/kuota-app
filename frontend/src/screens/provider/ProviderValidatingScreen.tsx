@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { FEE_PCT } from '../../config/fee';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../../api/client';
 import {
@@ -358,7 +359,7 @@ export const ProviderValidatingScreen: React.FC<ProviderValidatingScreenProps> =
                       <Sparkles size={13} className="shrink-0 text-amber-500" /> Cobranzas Habilitadas
                     </span>
                     <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-black whitespace-nowrap shrink-0 shadow-xs">
-                      Tarifa 1.00%
+                      Tarifa {FEE_PCT}%
                     </span>
                   </div>
 

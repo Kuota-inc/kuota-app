@@ -76,6 +76,8 @@ const DEV_ORIGINS = ['http://localhost:5173', 'http://127.0.0.1:5173', 'http://l
 
 export const config = {
   isProd,
+  /** Comisión por cobro en puntos básicos (100 = 1 %). Configurable con KUOTA_FEE_BPS hasta cerrar el tarifario con 360pay. */
+  feeBps: Math.min(intEnv('KUOTA_FEE_BPS', 100), 1000),
   /** Simulador de 360pay (pago del cliente): solo fuera de producción. */
   // En producción solo con KUOTA_SANDBOX=1 explícito (fase de pruebas sin pasarela real):
   // mientras esté activo, cualquiera con el código de un link puede marcarlo como pagado.

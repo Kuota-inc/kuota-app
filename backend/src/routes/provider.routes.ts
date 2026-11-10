@@ -163,8 +163,8 @@ providerRouter.post('/businesses/confirm', async (req, res) => {
     INSERT INTO provider_profiles (
       id, session_id, ruc, legal_name, legal_rep_dni, whatsapp, category,
       seniority_range, kyc_status, fee_bps, access_token_hash
-    ) VALUES (?, ?, ?, ?, ?, ?, 'TEXTILES', '1Y_3Y', 'IN_REVIEW', 100, ?)
-  `).run(provId, session_id, d.ruc, d.razon_social, legal_rep_dni || '', whatsapp || '', sha256(providerToken));
+    ) VALUES (?, ?, ?, ?, ?, ?, 'TEXTILES', '1Y_3Y', 'IN_REVIEW', ?, ?)
+  `).run(provId, session_id, d.ruc, d.razon_social, legal_rep_dni || '', whatsapp || '', config.feeBps, sha256(providerToken));
 
   // 5. Create KYC request with PRV- public id
   const requestId = 'req_' + uuidv4().substring(0, 10);
@@ -669,8 +669,8 @@ providerRouter.post('/activate', async (req, res) => {
   res.json({
     status: kycStatus,
     provider_verified: verified,
-    fee_bps: 100,
-    fee_pct: 1.0,
+    fee_bps: config.feeBps,
+    fee_pct: config.feeBps / 100,
     message: '¡Tu cuenta de Proveedor está lista! Ya puedes generar enlaces de cobro y emitir facturas.'
   });
 });
