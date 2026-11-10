@@ -8,7 +8,7 @@ export interface ProfileAccess {
   ruc_masked: string | null;
   payments_active: boolean;
   can_sell: boolean;
-  next_step: 'ADD_RUC' | 'PAYWALL' | 'SELL';
+  next_step: 'ADD_RUC' | 'RUC_IN_REVIEW' | 'PAYWALL' | 'SELL';
   can_have_provider: boolean;
   provider: { id: string; business_name: string | null; kyc_status: string | null } | null;
 }
@@ -65,7 +65,7 @@ export function applyLoginProfiles(res: { profiles?: ProfileKind[]; provider?: {
 export const profilesApi = {
   access: () => apiRequest<ProfileAccess>('/merchants/me/profile-access'),
   lookupRuc: (ruc: string) => apiRequest<{ ruc: string; razon_social: string; direccion: string | null }>(`/merchants/me/ruc/lookup/${encodeURIComponent(ruc)}`),
-  addRuc: (ruc: string) => apiRequest<{ ruc_verified: boolean; ruc_masked: string; business_name: string }>('/merchants/me/ruc', { method: 'POST', body: JSON.stringify({ ruc }) }),
+  addRuc: (ruc: string) => apiRequest<{ ruc_verified: boolean; ruc_masked: string; business_name: string; review?: 'PENDING'; message?: string }>('/merchants/me/ruc', { method: 'POST', body: JSON.stringify({ ruc }) }),
   activateSales: (plan: 'BASIC' | 'PRO' = 'BASIC') =>
     apiRequest<{ payments_active: boolean }>('/merchants/me/sales/activate', { method: 'POST', body: JSON.stringify({ plan }) }),
   createProvider: () =>

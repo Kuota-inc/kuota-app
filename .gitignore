@@ -52,3 +52,6 @@ google-services.json
 
 # Material comercial interno (no publicar)
 docs/gtm/
+
+# Informes locales del pentest
+security-tests/reports/

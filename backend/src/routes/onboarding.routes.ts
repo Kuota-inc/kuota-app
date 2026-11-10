@@ -8,6 +8,7 @@ import { clientIp, headerString } from '../security/http.js';
 import { getKycByPublicId, refreshFromProvider, startVerification } from '../services/kyc.service.js';
 import { DiditError, diditEnabled } from '../integrations/didit.js';
 import { config } from '../security/config.js';
+import { RUC_NOT_YOURS, rucOwnership } from '../security/rucOwnership.js';
 
 // El id de solicitud (MER-12345-PE) es adivinable: estas rutas solo devuelven datos enmascarados.
 const maskTail = (v: unknown, keep: number) => (typeof v === 'string' && v.length > keep ? '•'.repeat(v.length - keep) + v.slice(-keep) : v ?? null);
@@ -119,6 +120,14 @@ onboardingRouter.post('/sessions/:id/merchant-identity', async (req, res) => {
       return res.status(404).json({ error: { code: 'RUC_NOT_FOUND', message: sunatRes.error || 'No se pudo verificar la empresa en SUNAT.' } });
     }
     businessData = sunatRes.data;
+    // Titularidad: el RUC 10 debe llevar el DNI del titular; uno de empresa queda en revisión (no se verifica solo).
+    if (rucOwnership(ruc, dni) === 'MISMATCH') {
+      return res.status(403).json({ error: { code: 'RUC_NOT_YOURS', message: RUC_NOT_YOURS } });
+    }
+    const taken = await db.prepare('SELECT id FROM merchant_profiles WHERE ruc = ? AND ruc_verified = TRUE AND session_id <> ?').get(ruc, sessionId);
+    if (taken) {
+      return res.status(409).json({ error: { code: 'RUC_ALREADY_REGISTERED', message: 'Este RUC ya está registrado con otro teléfono. Recupera el acceso a tu cuenta original.' } });
+    }
 
     // Registrar o actualizar en la tabla businesses (KYB)
     const existingBiz = await db.prepare('SELECT id FROM businesses WHERE ruc = ?').get(ruc) as any;
@@ -162,20 +171,22 @@ onboardingRouter.post('/sessions/:id/merchant-identity', async (req, res) => {
   const bRuc = businessData ? businessData.ruc : null;
   const bAddress = businessData ? businessData.direccion_fiscal : null;
   const bDistrict = businessData ? businessData.distrito : null;
+  const rucAutoVerified = bRuc !== null && rucOwnership(bRuc, dni) === 'MATCH';
+  const rucReview = bRuc !== null && !rucAutoVerified ? 'PENDING' : rucAutoVerified ? 'APPROVED' : null;
 
   if (existing) {
     await db.prepare(`
       UPDATE merchant_profiles
-      SET dni = ?, full_name = ?, phone = ?, ruc_verified = (ruc_verified OR ? IS NOT NULL), ruc = coalesce(?, ruc), business_name = coalesce(?, business_name),
+      SET dni = ?, full_name = ?, phone = ?, ruc_verified = (ruc_verified OR ?), ruc_review_status = coalesce(?, ruc_review_status), ruc = coalesce(?, ruc), business_name = coalesce(?, business_name),
           address = coalesce(?, address), district = coalesce(?, district), kyc_status = 'IN_PROGRESS', updated_at = utc_now_text()
       WHERE session_id = ?
-    `).run(dni, full_name.trim().toUpperCase(), cleanPhone, bRuc, bRuc, bName, bAddress, bDistrict, sessionId);
+    `).run(dni, full_name.trim().toUpperCase(), cleanPhone, rucAutoVerified, rucReview, bRuc, bName, bAddress, bDistrict, sessionId);
   } else {
     merchantId = 'mer_' + uuidv4().substring(0, 10);
     await db.prepare(`
-      INSERT INTO merchant_profiles (id, session_id, dni, full_name, phone, ruc, business_name, address, district, kyc_status, ruc_verified, payments_active)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'IN_PROGRESS', ?, FALSE)
-    `).run(merchantId, sessionId, dni, full_name.trim().toUpperCase(), cleanPhone, bRuc, bName, bAddress, bDistrict, bRuc !== null);
+      INSERT INTO merchant_profiles (id, session_id, dni, full_name, phone, ruc, business_name, address, district, kyc_status, ruc_verified, payments_active, ruc_review_status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'IN_PROGRESS', ?, FALSE, ?)
+    `).run(merchantId, sessionId, dni, full_name.trim().toUpperCase(), cleanPhone, bRuc, bName, bAddress, bDistrict, rucAutoVerified, rucReview);
   }
 
   // Generar ID público de solicitud: BIZ-XXXXX-PE si es Business, MER-XXXXX-PE si es Personal

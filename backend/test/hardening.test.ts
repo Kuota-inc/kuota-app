@@ -485,7 +485,18 @@ describe('Perfiles: RUC, paywall de Kuota Payments y perfil Provider', () => {
     const look = await call('GET', '/merchants/me/ruc/lookup/20392817263', undefined, hdr);
     assert.equal(look.status, 200);
     assert.ok(look.body.razon_social, 'muestra la razón social para confirmar');
-    assert.equal((await call('POST', '/merchants/me/ruc', { ruc: '20392817263' }, hdr)).status, 200);
+    // RUC de empresa: no se verifica solo por existir en SUNAT; queda en revisión (KYB) hasta que operaciones apruebe.
+    const added = await call('POST', '/merchants/me/ruc', { ruc: '20392817263' }, hdr);
+    assert.equal(added.status, 202);
+    assert.equal(added.body.review, 'PENDING');
+    const pending = await call('GET', '/merchants/me/profile-access', undefined, hdr);
+    assert.equal(pending.body.next_step, 'RUC_IN_REVIEW');
+    assert.equal((await call('POST', '/merchants/me/sales/activate', { plan: 'BASIC' }, hdr)).body.error.code, 'RUC_REQUIRED', 'en revisión no se vende');
+    const { secrets } = await import('../src/security/config.js');
+    const adminH = { Authorization: `Bearer ${secrets.adminToken}` };
+    const queue = await call('GET', '/internal/ruc-reviews', undefined, adminH);
+    assert.ok(queue.body.data.some((r: Json) => r.id === login.body.merchant_id), 'aparece en la cola de revisión');
+    assert.equal((await call('POST', `/internal/ruc-reviews/${login.body.merchant_id}/approve`, {}, adminH)).status, 200);
 
     const a1 = await call('GET', '/merchants/me/profile-access', undefined, hdr);
     assert.equal(a1.body.ruc_verified, true);

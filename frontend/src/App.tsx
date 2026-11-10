@@ -159,6 +159,7 @@ function AppShell() {
     try {
       const a = await profilesApi.access();
       if (a.next_step === 'ADD_RUC') { setSellFlow('add_ruc'); return; }
+      if (a.next_step === 'RUC_IN_REVIEW') { appToast.info('Tu RUC está en revisión. Te avisaremos cuando puedas vender.'); return; }
       if (a.next_step === 'PAYWALL') { setSellFlow('paywall'); return; }
     } catch {
       /* si no se puede consultar, el servidor igual bloquea la venta */

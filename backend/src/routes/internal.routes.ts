@@ -196,6 +196,32 @@ internalRouter.get('/kyc', async (req, res) => {
   res.json({ data: rows.map(({ decision_summary_json, ...r }: any) => ({ ...r, summary: decision_summary_json ? JSON.parse(decision_summary_json) : null })) });
 });
 
+// ------------------------------------------------- titularidad del RUC (KYB manual)
+internalRouter.get('/ruc-reviews', async (_req, res) => {
+  const rows = await coreDb.all(
+    `SELECT id, business_name, ruc, dni, full_name, ruc_review_status, ruc_review_at
+     FROM merchant_profiles WHERE ruc_review_status = 'PENDING' ORDER BY ruc_review_at ASC LIMIT 100`
+  );
+  res.json({ data: rows });
+});
+
+internalRouter.post('/ruc-reviews/:merchantId/:decision', async (req, res) => {
+  const decision = req.params.decision === 'approve' ? 'APPROVED' : req.params.decision === 'reject' ? 'REJECTED' : null;
+  if (!decision) return fail(res, 422, 'DECISION_INVALID', 'Usa approve o reject.');
+  const m = (await coreDb.get("SELECT id, ruc FROM merchant_profiles WHERE id = ? AND ruc_review_status = 'PENDING'", req.params.merchantId)) as { id: string; ruc: string } | undefined;
+  if (!m) return fail(res, 404, 'REVIEW_NOT_FOUND', 'No hay revisión pendiente para ese comercio.');
+  if (decision === 'APPROVED') {
+    const taken = await coreDb.get('SELECT id FROM merchant_profiles WHERE ruc = ? AND ruc_verified = TRUE AND id <> ?', m.ruc, m.id);
+    if (taken) return fail(res, 409, 'RUC_ALREADY_REGISTERED', 'Otro comercio ya tiene ese RUC verificado.');
+  }
+  await coreDb.run(
+    'UPDATE merchant_profiles SET ruc_verified = ?, ruc_review_status = ?, ruc_review_at = ?, ruc = CASE WHEN ? THEN ruc ELSE NULL END WHERE id = ?',
+    decision === 'APPROVED', decision, nowIso(), decision === 'APPROVED', m.id
+  );
+  await audit({ actorType: 'ADMIN', actorId: actor(req), action: 'RUC_REVIEW', target: m.id, result: 'OK', ip: clientIp(req), details: { decision } });
+  res.json({ merchant_id: m.id, ruc_review_status: decision });
+});
+
 // ------------------------------------------------------- respuesta a incidentes
 internalRouter.post('/sessions/revoke', async (req, res) => {
   const merchantId = req.body?.merchant_id;

@@ -12,6 +12,7 @@ export const AddRucSheet: React.FC<{ reason: 'sell' | 'profile'; onClose: () => 
   const [found, setFound] = useState<{ razon_social: string; direccion: string | null } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [pending, setPending] = useState<string | null>(null);
 
   const lookup = async () => {
     setError(null);
@@ -30,8 +31,10 @@ export const AddRucSheet: React.FC<{ reason: 'sell' | 'profile'; onClose: () => 
     setError(null);
     setBusy(true);
     try {
-      await profilesApi.addRuc(ruc);
-      onDone();
+      const r = await profilesApi.addRuc(ruc);
+      // RUC de empresa: queda en revisión de titularidad; se avisa y no se habilita vender todavía.
+      if (r.review === 'PENDING') setPending(r.message ?? 'Recibimos tu RUC. Lo verificamos y te avisamos para que puedas vender.');
+      else onDone();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'No pudimos guardar el RUC. Inténtalo de nuevo.');
     } finally {
@@ -80,6 +83,13 @@ export const AddRucSheet: React.FC<{ reason: 'sell' | 'profile'; onClose: () => 
           </div>
         )}
         {error && <p role="alert" className="text-xs font-bold text-red-700">{error}</p>}
+        {pending && (
+          <div role="status" className="rounded-2xl bg-amber-50 border border-amber-200 p-3 space-y-2">
+            <p className="text-sm font-bold text-amber-900">RUC en revisión</p>
+            <p className="text-xs text-amber-900 leading-snug">{pending}</p>
+            <button type="button" onClick={onClose} className="w-full py-2.5 rounded-xl bg-[#1a3bb0] text-white text-sm font-black cursor-pointer">Entendido</button>
+          </div>
+        )}
 
         {found ? (
           <button type="button" disabled={busy} onClick={() => void confirm()} className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-[#00248b] to-[#1a3bb0] text-white font-black text-sm cursor-pointer disabled:opacity-60">

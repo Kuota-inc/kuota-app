@@ -72,6 +72,12 @@ function intEnv(name: string, fallback: number): number {
   return Number.isInteger(n) && n > 0 ? n : fallback;
 }
 
+/** 360pay de producción: API key presente y URL que no es el sandbox ni un simulador local. */
+function liveGateway(): boolean {
+  const url = process.env.KUOTA_360PAY_BASE_URL || 'https://sandbox.api.360pay.pe/v1';
+  return !!process.env.KUOTA_360PAY_API_KEY && !/sandbox|localhost|127\.0\.0\.1/i.test(url);
+}
+
 const DEV_ORIGINS = ['http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost', 'capacitor://localhost'];
 
 export const config = {
@@ -81,11 +87,13 @@ export const config = {
   /** Simulador de 360pay (pago del cliente): solo fuera de producción. */
   // En producción solo con KUOTA_SANDBOX=1 explícito (fase de pruebas sin pasarela real):
   // mientras esté activo, cualquiera con el código de un link puede marcarlo como pagado.
-  sandboxEnabled: isProd ? process.env.KUOTA_SANDBOX === '1' : process.env.KUOTA_SANDBOX !== '0',
+  // Nunca con la pasarela de 360pay de producción conectada: el simulador permitiría marcar cobros reales como pagados.
+  sandboxEnabled: isProd ? process.env.KUOTA_SANDBOX === '1' && !liveGateway() : process.env.KUOTA_SANDBOX !== '0',
   /** Base pública de la página de pago a la que apunta el link y el QR. */
   payBaseUrl: (process.env.KUOTA_PAY_BASE_URL || 'http://localhost:5173/pay').replace(/\/+$/, ''),
-  corsOrigins: (process.env.KUOTA_CORS_ORIGINS || DEV_ORIGINS.join(','))
-    .split(',')
+  // El APK carga la app desde https://localhost (WebView con esquema https): ese origen siempre se acepta,
+  // un sitio web externo no puede usarlo.
+  corsOrigins: [...new Set([...(process.env.KUOTA_CORS_ORIGINS || DEV_ORIGINS.join(',')).split(','), 'https://localhost'])]
     .map((s) => s.trim())
     .filter(Boolean),
   /** Ventana anti-repetición de webhooks (igual que el sandbox de 360pay). */

@@ -5,6 +5,7 @@ import crypto from 'node:crypto';
 import { config } from '../security/config.js';
 import { sunatService } from '../services/sunat.service.js';
 import { PLANS, planOf, withIgv } from '../security/pricing.js';
+import { RUC_IN_REVIEW, RUC_NOT_YOURS, rucOwnership } from '../security/rucOwnership.js';
 import { getMerchantProfile } from '../security/merchantContext.js';
 import { getNotificationState, markSeen, parsePreferences, savePreferences, unreadCount } from './notifications.js';
 
@@ -56,7 +57,7 @@ merchantRouter.get('/profile-access', async (req, res) => {
     ruc_masked: rucVerified ? maskRuc(m.ruc) : null,
     payments_active: m.payments_active !== false,
     can_sell: rucVerified && m.payments_active !== false,
-    next_step: !rucVerified ? 'ADD_RUC' : m.payments_active === false ? 'PAYWALL' : 'SELL',
+    next_step: !rucVerified ? (m.ruc_review_status === 'PENDING' ? 'RUC_IN_REVIEW' : 'ADD_RUC') : m.payments_active === false ? 'PAYWALL' : 'SELL',
     can_have_provider: rucVerified,
     provider: prov ? { id: prov.id, business_name: prov.legal_name, kyc_status: prov.kyc_status } : null
   });
@@ -91,7 +92,16 @@ merchantRouter.post('/ruc', async (req, res) => {
   if (dup) {
     return res.status(409).json({ error: { code: 'RUC_ALREADY_REGISTERED', message: 'Este RUC ya está registrado con otro teléfono. Recupera el acceso a tu cuenta original.' } });
   }
-  await db.prepare('UPDATE merchant_profiles SET ruc = ?, ruc_verified = TRUE, business_name = ?, updated_at = utc_now_text() WHERE id = ?').run(ruc, r.data.razon_social, m.id);
+  const ownership = rucOwnership(ruc, m.dni);
+  if (ownership === 'MISMATCH') {
+    return res.status(403).json({ error: { code: 'RUC_NOT_YOURS', message: RUC_NOT_YOURS } });
+  }
+  if (ownership === 'NEEDS_REVIEW') {
+    // Empresa: se guarda el RUC pero no se habilita vender hasta la revisión KYB (no se muestra su nombre en cobros).
+    await db.prepare("UPDATE merchant_profiles SET ruc = ?, ruc_verified = FALSE, ruc_review_status = 'PENDING', ruc_review_at = ?, updated_at = utc_now_text() WHERE id = ?").run(ruc, new Date().toISOString(), m.id);
+    return res.status(202).json({ ruc_verified: false, review: 'PENDING', ruc_masked: maskRuc(ruc), business_name: r.data.razon_social, message: RUC_IN_REVIEW });
+  }
+  await db.prepare("UPDATE merchant_profiles SET ruc = ?, ruc_verified = TRUE, ruc_review_status = 'APPROVED', business_name = ?, updated_at = utc_now_text() WHERE id = ?").run(ruc, r.data.razon_social, m.id);
   res.json({ ruc_verified: true, ruc_masked: maskRuc(ruc), business_name: r.data.razon_social });
 });
 

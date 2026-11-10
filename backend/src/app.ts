@@ -21,7 +21,9 @@ export async function createApp() {
   const app = express();
   app.disable('x-powered-by');
   // Detrás de un proxy/API Gateway, confiar solo en el primer salto para req.ip.
-  if (process.env.KUOTA_TRUST_PROXY === '1') app.set('trust proxy', 1);
+  // En Railway siempre hay un proxy delante: sin esto todas las peticiones comparten la IP del proxy
+  // (los límites por IP se agotan para todos los usuarios a la vez y la bitácora registra IPs falsas).
+  if (process.env.KUOTA_TRUST_PROXY === '1' || (process.env.RAILWAY_ENVIRONMENT && process.env.KUOTA_TRUST_PROXY !== '0')) app.set('trust proxy', 1);
 
   app.use((_req, res, next) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
