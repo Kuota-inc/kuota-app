@@ -564,3 +564,25 @@ describe('Identidad: DNI o carnet de extranjería', () => {
     assert.equal(rec.status, 201, JSON.stringify(rec.body));
   });
 });
+
+describe('Proveedor: representante legal con carnet de extranjería', () => {
+  test('se registra con CE, se valida el formato y recupera el PIN con el carnet', async () => {
+    resetRateLimits();
+    const sid = 'ses_provider_ce_' + Date.now();
+    const bad = await call('POST', '/businesses/confirm', { session_id: sid, ruc: '20481920381', legal_rep_doc_type: 'CE', legal_rep_dni: '12AB', whatsapp: '984000222' });
+    assert.equal(bad.status, 422);
+    assert.equal(bad.body.error.code, 'CE_INVALID');
+    assert.equal((await call('POST', '/businesses/confirm', { session_id: sid, ruc: '20481920381', legal_rep_dni: '', whatsapp: '984000222' })).body.error.code, 'DNI_INVALID', 'sin documento no se registra');
+    const conf = await call('POST', '/businesses/confirm', { session_id: sid, ruc: '20481920381', legal_rep_doc_type: 'CE', legal_rep_dni: 'x0012-3456-7', whatsapp: '984000222' });
+    assert.equal(conf.status, 201, JSON.stringify(conf.body));
+    assert.equal((await call('POST', `/onboarding/sessions/${sid}/security-pin`, { pin: '739164' })).status, 200);
+
+    resetRateLimits();
+    const wrong = await call('POST', '/auth/pin/recover', { phone: '+51984000222', dni: 'X001234568', new_pin: '582941', device_id: 'prov_ce_device_00001' });
+    assert.notEqual(wrong.status, 201);
+    resetRateLimits();
+    const rec = await call('POST', '/auth/pin/recover', { phone: '+51984000222', dni: 'x001-234-567', new_pin: '582941', device_id: 'prov_ce_device_00001' });
+    assert.equal(rec.status, 201, JSON.stringify(rec.body));
+    assert.equal(rec.body.role, 'PROVIDER');
+  });
+});

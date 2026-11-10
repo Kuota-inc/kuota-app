@@ -24,6 +24,8 @@ interface ProviderFiscalScreenProps {
 export const ProviderFiscalScreen: React.FC<ProviderFiscalScreenProps> = ({ sessionId, onNext }) => {
   const toast = useToast();
   const [ruc, setRuc] = useState<string>('');
+  // Documento del representante legal: DNI peruano o carnet de extranjería.
+  const [repDocType, setRepDocType] = useState<'DNI' | 'CE'>('DNI');
   const [dni, setDni] = useState<string>('');
   const [repName, setRepName] = useState<string>('');
   const [verifyingRepDni, setVerifyingRepDni] = useState<boolean>(false);
@@ -97,8 +99,13 @@ export const ProviderFiscalScreen: React.FC<ProviderFiscalScreenProps> = ({ sess
       setErrorMessage('Primero consulta y valida un RUC de 11 dígitos.');
       return;
     }
-    if (dni.length !== 8) {
-      toast.error('Ingresa el DNI de 8 dígitos del representante legal.');
+    const repDocOk = repDocType === 'CE' ? /^[0-9A-Z]{9,12}$/.test(dni) : /^\d{8}$/.test(dni);
+    if (!repDocOk) {
+      toast.error(
+        repDocType === 'CE'
+          ? 'Ingresa el carnet de extranjería del representante legal (9 a 12 caracteres).'
+          : 'Ingresa el DNI de 8 dígitos del representante legal.'
+      );
       return;
     }
     if (whatsapp.length !== 9) {
@@ -111,6 +118,7 @@ export const ProviderFiscalScreen: React.FC<ProviderFiscalScreenProps> = ({ sess
       const res = await api.confirmBusinessRegistration({
         session_id: sessionId,
         ruc: businessData.ruc,
+        legal_rep_doc_type: repDocType,
         legal_rep_dni: dni,
         whatsapp
       });
@@ -380,20 +388,54 @@ export const ProviderFiscalScreen: React.FC<ProviderFiscalScreenProps> = ({ sess
             ) : null}
           </div>
 
+          <div role="radiogroup" aria-label="Documento del representante legal" className="grid grid-cols-2 gap-1.5 p-1 bg-[#eff3ff] rounded-xl">
+            {([
+              ['DNI', 'DNI'],
+              ['CE', 'Carnet de extranjería']
+            ] as const).map(([k, label]) => (
+              <button
+                key={k}
+                type="button"
+                role="radio"
+                aria-checked={repDocType === k}
+                onClick={() => {
+                  if (repDocType === k) return;
+                  setRepDocType(k);
+                  setDni('');
+                  setRepName('');
+                }}
+                className={`py-1.5 rounded-lg text-[11px] font-black cursor-pointer transition ${
+                  repDocType === k ? 'bg-white text-[#00248b] shadow-sm ring-1 ring-[#1a3bb0]' : 'text-[#0b2545] hover:bg-white/60'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1">
-              <label htmlFor="provider-fiscal-field-2" className="text-[11px] font-bold text-[#0b2545]">DNI Rep. Legal</label>
+              <label htmlFor="provider-fiscal-field-2" className="text-[11px] font-bold text-[#0b2545]">
+                {repDocType === 'CE' ? 'Carnet Rep. Legal' : 'DNI Rep. Legal'}
+              </label>
               <input
               id="provider-fiscal-field-2"
                 type="text"
-                maxLength={8}
+                inputMode={repDocType === 'CE' ? 'text' : 'numeric'}
+                autoCapitalize="characters"
+                autoComplete="off"
+                maxLength={repDocType === 'CE' ? 12 : 8}
                 value={dni}
                 onChange={(e) => {
+                  if (repDocType === 'CE') {
+                    setDni(e.target.value.toUpperCase().replace(/[^0-9A-Z]/g, '').slice(0, 12));
+                    return;
+                  }
                   const val = e.target.value.replace(/\D/g, '').slice(0, 8);
                   setDni(val);
                   if (val.length === 8) handleDniLookup(val);
                 }}
-                placeholder="Ej. 74839201"
+                placeholder={repDocType === 'CE' ? 'Ej. 001234567' : 'Ej. 74839201'}
                 className="w-full px-3 py-2 rounded-xl bg-white border border-[#c5c5d6] text-xs font-mono font-bold text-[#0b2545] focus:outline-none focus:border-[#1a3bb0]"
               />
             </div>

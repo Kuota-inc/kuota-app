@@ -13,6 +13,7 @@ import { internalRouter } from './routes/internal.routes.js';
 import { payPageRouter } from './routes/payPage.routes.js';
 import { devRouter } from './routes/dev.routes.js';
 import { legalRouter } from './routes/legal.routes.js';
+import { providerPaymentsRouter } from './routes/providerPayments.routes.js';
 import { config, isAllowedOrigin } from './security/config.js';
 import { rateLimit } from './security/guards.js';
 
@@ -68,6 +69,7 @@ export async function createApp() {
   app.use('/api/v1/webhooks', webhookRouter);
   app.use('/api/v1/sandbox', sandboxRouter);
   app.use('/api/v1/internal', internalRouter);
+  app.use('/api/v1/providers/payments', providerPaymentsRouter);
   app.use('/api/v1/providers', providerRouter);
   app.use('/api/v1/businesses', providerRouter);
   app.use('/api/v1/kyc', providerRouter);

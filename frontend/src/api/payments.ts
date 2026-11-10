@@ -2,7 +2,7 @@
 // confirmación con PIN cuando el backend la pide (STEP_UP_REQUIRED) e
 // idempotencia en la creación de cobros.
 import { Capacitor } from '@capacitor/core';
-import { ApiError, apiRequest, setMerchantToken } from './client';
+import { ApiError, apiRequest, getMerchantId, setMerchantId, setMerchantToken } from './client';
 
 // ------------------------------------------------------------- dispositivo
 const DEVICE_KEY = 'kuota.device_id';
@@ -96,6 +96,29 @@ function openSession(summary = 'Para cobrar con Kuota confirmamos que eres tú.'
     opening = null;
   });
   return opening;
+}
+
+/**
+ * Perfil Provider: Kuota Payments es de la persona. Si este dispositivo aún no tiene la cuenta de
+ * cobros (proveedor registrado solo como proveedor), se abre con su PIN: el servidor la crea con su
+ * mismo RUC, teléfono y clave, y deja abierta la sesión de cobros. Después vende igual que el Emprendedor.
+ */
+export function ensurePaymentsAccountForProvider(): Promise<void> {
+  if (getMerchantId()) return Promise.resolve();
+  return askPin({
+    title: 'Ingresa tu PIN',
+    kind: 'session',
+    summary: 'Para vender con Kuota Payments confirmamos que eres tú.',
+    verify: async (pin) => {
+      const r = await apiRequest<{ merchant_id: string; access_token: string; expires_at: string; identity_token: string }>(
+        '/providers/payments/session',
+        { method: 'POST', body: JSON.stringify({ pin, device_id: deviceId(), device_label: deviceLabel() }) }
+      );
+      setMerchantId(r.merchant_id);
+      setMerchantToken(r.identity_token);
+      session = { token: r.access_token, expiresAt: Date.parse(r.expires_at) };
+    }
+  });
 }
 
 /** Descarta la sesión de cobros en memoria: la próxima operación con dinero vuelve a pedir el PIN. */

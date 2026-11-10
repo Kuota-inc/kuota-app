@@ -22,7 +22,7 @@ import { KuotearModal } from './screens/dashboard/KuotearModal';
 import { NotificationsSheet } from './screens/dashboard/NotificationsSheet';
 import { ToastProvider, ToastViewport } from './components/Toast';
 import { PinPromptHost, PinPromptProvider } from './components/PinPrompt';
-import { forgetSession, logout as logoutPayments, unlockWithPin } from './api/payments';
+import { ensurePaymentsAccountForProvider, forgetSession, isCancelled, logout as logoutPayments, unlockWithPin } from './api/payments';
 import { RotateCcw, Store, Building2, KeyRound, UserCircle } from 'lucide-react';
 
 // Pantallas que no son la inicial se cargan bajo demanda (bundle inicial más liviano).
@@ -409,7 +409,22 @@ function AppShell() {
         return <WelcomeScreen onSelectRole={handleSelectRole} onLogin={() => setCurrentScreen('login')} onSessionResolved={setSessionId} />;
 
       case 'provider_home':
-        return <ProviderHomeScreen onLogout={handleLogout} />;
+        return (
+          <ProviderHomeScreen
+            onLogout={handleLogout}
+            onSell={async () => {
+              // Kuota Payments es de la persona: mismo flujo de venta que el Emprendedor.
+              try {
+                await ensurePaymentsAccountForProvider();
+              } catch (e) {
+                if (!isCancelled(e)) appToast.error((e as Error)?.message || 'No pudimos abrir Kuota Payments.');
+                return;
+              }
+              setActiveProfile('PROVIDER');
+              void requestSell();
+            }}
+          />
+        );
 
       case 'login':
         return (
@@ -580,6 +595,12 @@ function AppShell() {
           return (
             <PaymentLinkScreen
               onBack={() => {
+                // Si se vendió desde el perfil Provider, se vuelve a su panel.
+                if (getActiveProfile() === 'PROVIDER') {
+                  setActiveTab('inicio');
+                  setCurrentScreen('provider_home');
+                  return;
+                }
                 setCurrentScreen('dashboard');
                 setActiveTab('inicio');
               }}
@@ -942,7 +963,7 @@ function AppShell() {
                 currentScreen === 'onboarding_provider_fiscal' ? 'bg-emerald-600 text-white font-bold' : 'bg-slate-700/60 hover:bg-slate-700 text-slate-300'
               }`}
             >
-              <span>11 · Reconocimiento RUC</span>
+              <span>11 · Reconocimiento RUC (DNI o CE)</span>
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
             </button>
             <button

@@ -1,6 +1,7 @@
 // Sesión del comercio (PIN + dispositivo), confirmación con PIN, cambio de PIN,
 // dispositivos vinculados, límites de cobro y alertas de seguridad.
 import { Router, type Request, type Response } from 'express';
+import { normalizeDoc } from '../security/identityDoc.js';
 import { paymentsDb as db, db as coreDb } from '../db/client.js';
 import { config } from '../security/config.js';
 import { hashPin, pinProblem, randomToken, sha256Hex, verifyPin } from '../security/crypto.js';
@@ -114,7 +115,7 @@ authRouter.post('/pin/recover', authLimiter, async (req, res) => {
   }
 
   // Misma respuesta si la cuenta no existe o el DNI no coincide: no revela qué teléfonos están registrados.
-  const mismatch = () => fail(res, 403, 'DNI_MISMATCH', 'Los datos no coinciden. Verifica tu número y tu DNI.');
+  const mismatch = () => fail(res, 403, 'DNI_MISMATCH', 'Los datos no coinciden. Verifica tu número y tu documento (DNI o carnet de extranjería).');
   if (!profile) {
     // ¿Es un proveedor? Se recupera con el DNI del representante legal registrado.
     const prov = await coreDb.get<{ id: string; legal_rep_dni: string | null }>(
@@ -124,7 +125,7 @@ authRouter.post('/pin/recover', authLimiter, async (req, res) => {
     );
     if (!prov) return mismatch();
     if (recoverLocked(prov.id)) return fail(res, 429, 'RECOVERY_LOCKED', 'Demasiados intentos. Inténtalo de nuevo en 15 minutos.');
-    if (!prov.legal_rep_dni || prov.legal_rep_dni.replace(/[^0-9]/g, '') !== dni.replace(/[^0-9]/g, '')) {
+    if (!prov.legal_rep_dni || normalizeDoc(prov.legal_rep_dni) !== normalizeDoc(dni)) {
       recoverFailed(prov.id);
       await audit({ actorType: 'MERCHANT', actorId: prov.id, action: 'PIN_RESET', result: 'DENIED', ip, deviceId, details: { reason: 'DNI_MISMATCH', role: 'PROVIDER' } });
       return mismatch();
@@ -146,8 +147,7 @@ authRouter.post('/pin/recover', authLimiter, async (req, res) => {
     return fail(res, 429, 'RECOVERY_LOCKED', 'Demasiados intentos. Inténtalo de nuevo en 15 minutos.');
   }
   // DNI o carnet de extranjería: se compara el documento normalizado (mayúsculas, solo letras y dígitos).
-  const normDoc = (v: string) => v.toUpperCase().replace(/[^0-9A-Z]/g, '');
-  if (!profile.dni || normDoc(profile.dni) !== normDoc(dni)) {
+  if (!profile.dni || normalizeDoc(profile.dni) !== normalizeDoc(dni)) {
     recoverFailed(profile.id);
     await audit({ actorType: 'MERCHANT', actorId: profile.id, action: 'PIN_RESET', result: 'DENIED', ip, deviceId, details: { reason: 'DNI_MISMATCH' } });
     return mismatch();

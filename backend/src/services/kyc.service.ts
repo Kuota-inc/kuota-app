@@ -34,12 +34,17 @@ export async function startVerification(publicId: string) {
     return { provider: 'DIDIT' as const, url: kyc.verification_url, status: kyc.status };
   }
   const merchant = await db.get<{ dni: string | null; full_name: string | null }>('SELECT dni, full_name FROM merchant_profiles WHERE session_id = ?', kyc.session_id);
+  // Proveedor: el documento esperado es el del representante legal (DNI o carnet de extranjería).
+  const rep = merchant
+    ? undefined
+    : await db.get<{ legal_rep_dni: string | null }>('SELECT legal_rep_dni FROM provider_profiles WHERE session_id = ?', kyc.session_id);
+  const expectedNumber = merchant?.dni ?? rep?.legal_rep_dni ?? null;
   const session = await didit.createSession({
     vendor_data: publicId,
     callback: process.env.DIDIT_CALLBACK_URL || undefined,
     language: 'es',
     // Didit compara lo leído del documento con lo declarado.
-    expected_details: { id_country: 'PER', ...(merchant?.dni ? { identification_number: merchant.dni } : {}) }
+    expected_details: { id_country: 'PER', ...(expectedNumber ? { identification_number: expectedNumber } : {}) }
   });
   await db.run(
     "UPDATE kyc_requests SET provider = 'DIDIT', provider_session_id = ?, verification_url = ?, status = 'IN_PROGRESS', updated_at = utc_now_text() WHERE id = ?",
@@ -77,12 +82,23 @@ export async function applyDecision(sessionId: string, status: string, decision:
   const kyc = await db.get<KycRow>('SELECT * FROM kyc_requests WHERE provider_session_id = ?', sessionId);
   if (!kyc) return null;
   const merchant = await db.get<{ id: string; dni: string | null }>('SELECT id, dni FROM merchant_profiles WHERE session_id = ?', kyc.session_id);
+  // Proveedor: el documento esperado es el del representante legal.
+  const provider = merchant
+    ? undefined
+    : await db.get<{ id: string; legal_rep_dni: string | null }>('SELECT id, legal_rep_dni FROM provider_profiles WHERE session_id = ?', kyc.session_id);
+  // DNI o carnet de extranjería: se comparan en mayúsculas y solo letras y dígitos (un CE puede tener letras).
+  const normDoc = (v: unknown) => String(v ?? '').toUpperCase().replace(/[^0-9A-Z]/g, '');
+  const expectedDoc = normDoc(merchant?.dni ?? provider?.legal_rep_dni ?? '');
 
   let outcome = outcomeOf(status);
   let reason: string | null = outcome === 'REJECTED' ? `DIDIT_${norm(status).replace(/\s+/g, '_')}` : null;
   const doc = first(decision?.id_verifications);
-  const docNumber = String(doc?.personal_number ?? doc?.document_number ?? '').replace(/\D/g, '');
-  if (outcome === 'APPROVED' && merchant?.dni && docNumber && docNumber !== merchant.dni) {
+  // En el DNI el número personal y el del documento coinciden; en el carnet de extranjería Didit puede
+  // devolver el número del carnet en document_number. Vale cualquiera de los dos.
+  const readNumbers = [normDoc(doc?.personal_number), normDoc(doc?.document_number)].filter(Boolean);
+  const docNumber = readNumbers[0] ?? '';
+  const numberMatches = expectedDoc ? readNumbers.includes(expectedDoc) : null;
+  if (outcome === 'APPROVED' && expectedDoc && readNumbers.length && !numberMatches) {
     outcome = 'REJECTED';
     reason = 'DNI_MISMATCH';
   }
@@ -94,7 +110,7 @@ export async function applyDecision(sessionId: string, status: string, decision:
   // Solo el resumen: estados y puntajes, sin imágenes ni datos biométricos.
   const summary = {
     provider_status: status,
-    document: doc ? { status: doc.status, number_matches: merchant?.dni ? docNumber === merchant.dni : null, document_type: doc.document_type ?? null } : null,
+    document: doc ? { status: doc.status, number_matches: numberMatches, document_type: doc.document_type ?? null } : null,
     liveness: first(decision?.liveness_checks) ? { status: first(decision?.liveness_checks)!.status, score: first(decision?.liveness_checks)!.score ?? null } : null,
     face_match: first(decision?.face_matches) ? { status: first(decision?.face_matches)!.status, score: first(decision?.face_matches)!.score ?? null } : null
   };

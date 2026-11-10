@@ -316,7 +316,7 @@ export const api = {
 
   // Provider & Business RUC Recognition (SUNAT)
   lookupBusinessByRuc: (ruc: string) => apiRequest(`/kyc/business-lookup/${ruc}`),
-  confirmBusinessRegistration: (data: { session_id?: string; ruc: string; legal_rep_dni?: string; whatsapp?: string }) =>
+  confirmBusinessRegistration: (data: { session_id?: string; ruc: string; legal_rep_doc_type?: 'DNI' | 'CE'; legal_rep_dni?: string; whatsapp?: string }) =>
     apiRequest('/businesses/confirm', {
       method: 'POST',
       body: JSON.stringify(data)

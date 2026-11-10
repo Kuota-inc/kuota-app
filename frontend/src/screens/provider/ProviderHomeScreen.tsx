@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Building2, CheckCircle2, Clock, Landmark, LogOut, ShieldCheck } from 'lucide-react';
+import { Building2, CheckCircle2, Clock, Landmark, LogOut, QrCode, ShieldCheck } from 'lucide-react';
 import { apiRequest } from '../../api/client';
 import { ProfileSwitcher } from '../../components/ProfileSwitcher';
 
@@ -30,7 +30,7 @@ const STATUS: Record<string, { label: string; tone: string; icon: React.ReactNod
   }
 };
 
-export const ProviderHomeScreen: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
+export const ProviderHomeScreen: React.FC<{ onLogout: () => void; onSell: () => void }> = ({ onLogout, onSell }) => {
   const [profile, setProfile] = useState<ProviderProfile | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -67,12 +67,21 @@ export const ProviderHomeScreen: React.FC<{ onLogout: () => void }> = ({ onLogou
       <div className="px-4.5 -mt-4 space-y-3 pb-6">
         {error && <div className="p-3 rounded-2xl bg-red-50 border border-red-200 text-xs text-red-700">{error}</div>}
 
+        {/* Kuota Payments: el mismo flujo de venta que en el perfil Emprendedor. */}
+        <button
+          type="button"
+          onClick={onSell}
+          className="w-full py-4 rounded-2xl bg-gradient-to-r from-[#00248b] to-[#1a3bb0] text-white font-black text-sm flex items-center justify-center gap-2 shadow-lg shadow-blue-900/20 cursor-pointer active:scale-[0.99]"
+        >
+          <QrCode size={18} /> Vender con Kuota Payments
+        </button>
+
         <section className="bg-white rounded-3xl p-4 shadow-sm border border-[#e1e8f8] space-y-3">
           <h2 className="text-xs font-black text-[#151c27] uppercase tracking-wider">Datos de la empresa</h2>
           <Row label="RUC" value={profile?.ruc_masked} />
           <Row label="Rubro" value={profile?.category} />
           <Row label="WhatsApp" value={profile?.whatsapp_masked} />
-          <Row label="Tarifa" value={profile?.fee_bps != null ? `${(profile.fee_bps / 100).toFixed(2)} %` : null} />
+          <Row label="Tarifa por cobro" value={profile?.fee_bps != null ? `${profile.fee_bps / 100} % + IGV (mín. S/ 4.50)` : null} />
         </section>
 
         <section className="bg-white rounded-3xl p-4 shadow-sm border border-[#e1e8f8] space-y-3">
@@ -88,7 +97,7 @@ export const ProviderHomeScreen: React.FC<{ onLogout: () => void }> = ({ onLogou
 
         <div className="p-3 rounded-2xl bg-[#eff3ff] border border-[#d8e2ff] flex items-start gap-2 text-[11px] text-[#2b3f66] leading-snug">
           <ShieldCheck size={16} className="shrink-0 mt-0.5 text-[#1a3bb0]" />
-          <span>Tu cuenta solo puede estar abierta en un equipo a la vez. Pronto verás aquí tus pedidos y tus abonos.</span>
+          <span>Tu cuenta solo puede estar abierta en un equipo a la vez. Vendes con la misma clave en tus dos perfiles.</span>
         </div>
 
         <button

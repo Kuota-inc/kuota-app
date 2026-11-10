@@ -77,10 +77,10 @@ const decision = (status: string, dni: string) => ({
   face_matches: [{ status, score: 0.93 }]
 });
 
-async function newRequest(dni: string, phone: string) {
+async function newRequest(dni: string, phone: string, docType: 'DNI' | 'CE' = 'DNI') {
   const s = await call('POST', '/onboarding/sessions', { role: 'MERCHANT', device_id: 't', accepted_terms_version: '2026.1', accepted_privacy_version: '2026.1' });
   const sid = s.body.id ?? s.body.session_id;
-  const r = await call('POST', `/onboarding/sessions/${sid}/merchant-identity`, { account_type: 'PERSONAL', dni, full_name: 'ANA TORRES RUIZ', phone, whatsapp_opt_in: true });
+  const r = await call('POST', `/onboarding/sessions/${sid}/merchant-identity`, { account_type: 'PERSONAL', doc_type: docType, dni, full_name: 'ANA TORRES RUIZ', phone, whatsapp_opt_in: true });
   return r.body.request_id as string;
 }
 
@@ -140,6 +140,27 @@ describe('KYC con Didit', () => {
     assert.equal(r.body.outcome, 'REJECTED');
     const st = await call('GET', `/onboarding/merchant-kyc/${rid}`);
     assert.equal(st.body.reason, 'DNI_MISMATCH');
+  });
+
+  test('carnet de extranjería con letras: Didit lo aprueba con el número del carnet; otro carnet se rechaza', async () => {
+    const ce = (status: string, num: string) => ({
+      status,
+      id_verifications: [{ status, document_type: 'Residence Permit', document_number: num }],
+      liveness_checks: [{ status, score: 0.97 }],
+      face_matches: [{ status, score: 0.93 }]
+    });
+    const rid = await newRequest('A12345678', '955111222', 'CE');
+    assert.ok(rid, 'el registro con carnet crea la solicitud');
+    await call('POST', `/onboarding/merchant-kyc/${rid}/verification`);
+    const sid = sessions.at(-1)!.id;
+    const ok = signed({ event_id: 'evt-ce-1', webhook_type: 'status.updated', session_id: sid, status: 'Approved', decision: ce('Approved', 'a1234-5678') });
+    assert.equal((await call('POST', '/webhooks/didit', ok.raw, ok.headers)).body.outcome, 'APPROVED', 'las letras del carnet no deben provocar un rechazo');
+
+    const rid2 = await newRequest('B98765432', '955111333', 'CE');
+    await call('POST', `/onboarding/merchant-kyc/${rid2}/verification`);
+    const sid2 = sessions.at(-1)!.id;
+    const bad = signed({ event_id: 'evt-ce-2', webhook_type: 'status.updated', session_id: sid2, status: 'Approved', decision: ce('Approved', 'B98765431') });
+    assert.equal((await call('POST', '/webhooks/didit', bad.raw, bad.headers)).body.outcome, 'REJECTED');
   });
 
   test('declinado y en revisión se reflejan tal cual', async () => {

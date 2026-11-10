@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { db } from '../db/database.js';
 import { sunatService } from '../services/sunat.service.js';
+import { docError, isValidDoc, normalizeDoc, parseDocType } from '../security/identityDoc.js';
 import { startVerification } from '../services/kyc.service.js';
 import crypto from 'node:crypto';
 import type { Request, Response } from 'express';
@@ -88,10 +89,16 @@ providerRouter.get('/kyc/ruc/:ruc', async (req, res) => {
 
 // PRD: Confirmar y guardar negocio identificado en la entidad Business
 providerRouter.post('/businesses/confirm', async (req, res) => {
-  const { session_id, ruc, legal_rep_dni, whatsapp, user_id } = req.body;
+  const { session_id, ruc, whatsapp, user_id } = req.body;
+  // Representante legal: DNI o carnet de extranjería.
+  const repDocType = parseDocType(req.body?.legal_rep_doc_type);
+  const legal_rep_dni = normalizeDoc(req.body?.legal_rep_dni);
 
   if (!ruc || ruc.length !== 11) {
     return res.status(422).json({ error: { code: 'RUC_INVALID', message: 'Ingresa un RUC válido de 11 dígitos.' } });
+  }
+  if (!isValidDoc(repDocType, legal_rep_dni)) {
+    return res.status(422).json({ error: docError(repDocType, ' del representante legal') });
   }
 
   // 1. Check if business already exists in KUOTA
@@ -161,10 +168,10 @@ providerRouter.post('/businesses/confirm', async (req, res) => {
   const providerToken = crypto.randomBytes(32).toString('base64url');
   await db.prepare(`
     INSERT INTO provider_profiles (
-      id, session_id, ruc, legal_name, legal_rep_dni, whatsapp, category,
+      id, session_id, ruc, legal_name, legal_rep_dni, legal_rep_doc_type, whatsapp, category,
       seniority_range, kyc_status, fee_bps, access_token_hash
-    ) VALUES (?, ?, ?, ?, ?, ?, 'TEXTILES', '1Y_3Y', 'IN_REVIEW', ?, ?)
-  `).run(provId, session_id, d.ruc, d.razon_social, legal_rep_dni || '', whatsapp || '', config.feeBps, sha256(providerToken));
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, 'TEXTILES', '1Y_3Y', 'IN_REVIEW', ?, ?)
+  `).run(provId, session_id, d.ruc, d.razon_social, legal_rep_dni, repDocType, whatsapp || '', config.feeBps, sha256(providerToken));
 
   // 5. Create KYC request with PRV- public id
   const requestId = 'req_' + uuidv4().substring(0, 10);
@@ -191,13 +198,15 @@ providerRouter.post('/businesses/confirm', async (req, res) => {
 
 // PRD 11: Iniciar solicitud KYC (actualizado)
 providerRouter.post('/kyc/requests', async (req, res) => {
-  const { session_id, ruc, legal_rep_dni, whatsapp } = req.body;
+  const { session_id, ruc, whatsapp } = req.body;
+  const repDocType = parseDocType(req.body?.legal_rep_doc_type);
+  const legal_rep_dni = normalizeDoc(req.body?.legal_rep_dni);
 
   if (!ruc || ruc.length !== 11) {
     return res.status(422).json({ error: { code: 'RUC_INVALID', message: 'El RUC debe tener 11 dígitos.' } });
   }
-  if (!legal_rep_dni || legal_rep_dni.length !== 8) {
-    return res.status(422).json({ error: { code: 'DNI_INVALID', message: 'El DNI debe tener 8 dígitos.' } });
+  if (!isValidDoc(repDocType, legal_rep_dni)) {
+    return res.status(422).json({ error: docError(repDocType, ' del representante legal') });
   }
   if (!whatsapp || whatsapp.length < 9) {
     return res.status(422).json({ error: { code: 'PHONE_INVALID', message: 'Ingresa un celular de 9 dígitos.' } });
@@ -225,9 +234,9 @@ providerRouter.post('/kyc/requests', async (req, res) => {
   if (!prov) {
     const provId = 'prov_' + uuidv4().substring(0, 10);
     await db.prepare(`
-      INSERT INTO provider_profiles (id, session_id, ruc, legal_name, legal_rep_dni, whatsapp, kyc_status)
-      VALUES (?, ?, ?, 'DISTRIBUIDORA ANDINA DEL SUR S.A.C.', ?, ?, 'IN_REVIEW')
-    `).run(provId, session_id, ruc, legal_rep_dni, whatsapp);
+      INSERT INTO provider_profiles (id, session_id, ruc, legal_name, legal_rep_dni, legal_rep_doc_type, whatsapp, kyc_status)
+      VALUES (?, ?, ?, 'DISTRIBUIDORA ANDINA DEL SUR S.A.C.', ?, ?, ?, 'IN_REVIEW')
+    `).run(provId, session_id, ruc, legal_rep_dni, repDocType, whatsapp);
   }
 
   res.status(201).json({
