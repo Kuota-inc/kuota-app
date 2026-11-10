@@ -1,9 +1,9 @@
 // Sesión del comercio (PIN + dispositivo), confirmación con PIN, cambio de PIN,
 // dispositivos vinculados, límites de cobro y alertas de seguridad.
-import { Router } from 'express';
-import { paymentsDb as db } from '../db/client.js';
+import { Router, type Request, type Response } from 'express';
+import { paymentsDb as db, db as coreDb } from '../db/client.js';
 import { config } from '../security/config.js';
-import { hashPin, pinProblem, verifyPin } from '../security/crypto.js';
+import { hashPin, pinProblem, randomToken, sha256Hex, verifyPin } from '../security/crypto.js';
 import { audit } from '../security/audit.js';
 import {
   checkPin,
@@ -29,7 +29,7 @@ import { alertMerchant, recentAlerts } from '../security/events.js';
 import { rateLimit } from '../security/guards.js';
 import { clientIp, fail, headerString } from '../security/http.js';
 import { effectiveLimits, usageToday, validLimitValues, type LimitValues } from '../security/limits.js';
-import { addHours, formatLimaDateTime, formatSoles, nowIso } from '../security/time.js';
+import { addHours, addMinutes, formatLimaDateTime, formatSoles, nowIso } from '../security/time.js';
 
 export const authRouter = Router();
 export const paymentSecurityRouter = Router();
@@ -115,7 +115,31 @@ authRouter.post('/pin/recover', authLimiter, async (req, res) => {
 
   // Misma respuesta si la cuenta no existe o el DNI no coincide: no revela qué teléfonos están registrados.
   const mismatch = () => fail(res, 403, 'DNI_MISMATCH', 'Los datos no coinciden. Verifica tu número y tu DNI.');
-  if (!profile) return mismatch();
+  if (!profile) {
+    // ¿Es un proveedor? Se recupera con el DNI del representante legal registrado.
+    const prov = await coreDb.get<{ id: string; legal_rep_dni: string | null }>(
+      `SELECT id, legal_rep_dni FROM provider_profiles
+       WHERE right(regexp_replace(coalesce(whatsapp, ''), '[^0-9]', '', 'g'), 9) = ? ORDER BY created_at DESC LIMIT 1`,
+      phone.slice(-9)
+    );
+    if (!prov) return mismatch();
+    if (recoverLocked(prov.id)) return fail(res, 429, 'RECOVERY_LOCKED', 'Demasiados intentos. Inténtalo de nuevo en 15 minutos.');
+    if (!prov.legal_rep_dni || prov.legal_rep_dni.replace(/[^0-9]/g, '') !== dni.replace(/[^0-9]/g, '')) {
+      recoverFailed(prov.id);
+      await audit({ actorType: 'MERCHANT', actorId: prov.id, action: 'PIN_RESET', result: 'DENIED', ip, deviceId, details: { reason: 'DNI_MISMATCH', role: 'PROVIDER' } });
+      return mismatch();
+    }
+    const token = randomToken(32);
+    await coreDb.run(
+      'UPDATE provider_profiles SET pin_hash = ?, access_token_hash = ?, pin_failed_attempts = 0, pin_locked_until = NULL WHERE id = ?',
+      hashPin(newPin),
+      sha256Hex(token),
+      prov.id
+    );
+    recoverFailures.delete(prov.id);
+    await audit({ actorType: 'MERCHANT', actorId: prov.id, action: 'PIN_RESET', result: 'OK', ip, deviceId, details: { method: 'DNI_RECOVERY', role: 'PROVIDER' } });
+    return res.status(201).json({ role: 'PROVIDER', provider_id: prov.id, provider_token: token });
+  }
 
   if (recoverLocked(profile.id)) {
     await audit({ actorType: 'MERCHANT', actorId: profile.id, action: 'PIN_RESET', result: 'DENIED', ip, deviceId, details: { reason: 'RECOVERY_LOCKED' } });
@@ -166,9 +190,69 @@ authRouter.post('/pin/recover', authLimiter, async (req, res) => {
 });
 
 // Abrir sesión: PIN + dispositivo. Sesión corta (15 min) ligada al dispositivo.
+// Login de proveedores: mismo teléfono + PIN. Devuelve el id y un token NUEVO (el anterior deja de valer:
+// una sola sesión por cuenta). Responde por sí mismo y devuelve true si el teléfono es de un proveedor.
+async function providerLogin(req: Request, res: Response): Promise<boolean> {
+  const phone = typeof req.body?.phone === 'string' ? req.body.phone.replace(/[^0-9]/g, '').slice(-9) : '';
+  if (phone.length !== 9) return false;
+  const prov = await coreDb.get<{
+    id: string; legal_name: string | null; kyc_status: string | null; pin_hash: string | null;
+    pin_failed_attempts: number; pin_locked_until: string | null;
+  }>(
+    `SELECT id, legal_name, kyc_status, pin_hash, pin_failed_attempts, pin_locked_until FROM provider_profiles
+     WHERE right(regexp_replace(coalesce(whatsapp, ''), '[^0-9]', '', 'g'), 9) = ? ORDER BY created_at DESC LIMIT 1`,
+    phone
+  );
+  if (!prov) return false;
+  const ip = clientIp(req);
+  const now = new Date();
+  if (prov.pin_locked_until && new Date(prov.pin_locked_until) > now) {
+    const minutes = Math.ceil((new Date(prov.pin_locked_until).getTime() - now.getTime()) / 60_000);
+    fail(res, 423, 'PIN_LOCKED', `Bloqueamos el PIN por varios intentos fallidos. Inténtalo en ${minutes} min.`, { locked_until: prov.pin_locked_until });
+    return true;
+  }
+  if (!prov.pin_hash) {
+    fail(res, 409, 'PIN_NOT_CONFIGURED', 'Tu registro no terminó: no llegaste a crear tu PIN. Regístrate de nuevo o escríbenos por WhatsApp.');
+    return true;
+  }
+  const pin = req.body?.pin;
+  if (typeof pin !== 'string' || !/^\d{6}$/.test(pin) || !verifyPin(pin, prov.pin_hash)) {
+    const attempts = prov.pin_failed_attempts + 1;
+    if (attempts >= config.pinMaxAttempts) {
+      const lockedUntil = addMinutes(now, config.pinLockMinutes).toISOString();
+      await coreDb.run('UPDATE provider_profiles SET pin_failed_attempts = 0, pin_locked_until = ? WHERE id = ?', lockedUntil, prov.id);
+      await audit({ actorType: 'MERCHANT', actorId: prov.id, action: 'PIN_LOCKED', result: 'DENIED', ip, details: { role: 'PROVIDER' } });
+      fail(res, 423, 'PIN_LOCKED', `Bloqueamos el PIN por ${config.pinLockMinutes} min por varios intentos fallidos.`, { locked_until: lockedUntil });
+      return true;
+    }
+    await coreDb.run('UPDATE provider_profiles SET pin_failed_attempts = ? WHERE id = ?', attempts, prov.id);
+    const left = config.pinMaxAttempts - attempts;
+    fail(res, 401, 'PIN_INVALID', `PIN incorrecto. Te queda${left === 1 ? '' : 'n'} ${left} intento${left === 1 ? '' : 's'}.`, { attempts_left: left });
+    return true;
+  }
+  const token = randomToken(32);
+  await coreDb.run(
+    'UPDATE provider_profiles SET access_token_hash = ?, pin_failed_attempts = 0, pin_locked_until = NULL WHERE id = ?',
+    sha256Hex(token),
+    prov.id
+  );
+  await audit({ actorType: 'MERCHANT', actorId: prov.id, action: 'SESSION_OPEN', result: 'OK', ip, details: { role: 'PROVIDER' } });
+  res.status(201).json({
+    role: 'PROVIDER',
+    provider_id: prov.id,
+    provider_token: token,
+    business_name: prov.legal_name,
+    kyc_status: prov.kyc_status
+  });
+  return true;
+}
+
 authRouter.post('/sessions', authLimiter, async (req, res) => {
   const merchant = await resolveClaimedMerchant(req);
-  if (!merchant) return fail(res, 404, 'MERCHANT_NOT_FOUND', 'Comercio no encontrado.');
+  if (!merchant) {
+    if (await providerLogin(req, res)) return;
+    return fail(res, 404, 'MERCHANT_NOT_FOUND', 'No encontramos una cuenta con ese número.');
+  }
   const { device_id: deviceId } = req.body ?? {};
   if (!isValidDeviceId(deviceId)) return fail(res, 422, 'DEVICE_ID_INVALID', 'Identificador de dispositivo inválido.');
   const label = typeof req.body?.device_label === 'string' ? req.body.device_label.replace(/[\u0000-\u001f<>]/g, '').slice(0, 60) : null;
@@ -186,7 +270,10 @@ authRouter.post('/sessions', authLimiter, async (req, res) => {
   if (device.revoked) return fail(res, 403, 'DEVICE_REVOKED', 'Este dispositivo fue desvinculado de tu cuenta.');
   const session = await issueSession(merchant.id, deviceId);
   const identityToken = await issueIdentityToken(merchant.id, deviceId);
-  await audit({ actorType: 'MERCHANT', actorId: merchant.id, action: 'SESSION_OPEN', target: session.sessionId, result: 'OK', ip, deviceId, details: { new_device: device.isNew } });
+  // Una sola sesión por cuenta: entrar aquí cierra las sesiones y los tokens de cualquier otro dispositivo.
+  const closedElsewhere = await revokeSessions(merchant.id, { exceptDeviceId: deviceId });
+  await revokeIdentityTokens(merchant.id, deviceId);
+  await audit({ actorType: 'MERCHANT', actorId: merchant.id, action: 'SESSION_OPEN', target: session.sessionId, result: 'OK', ip, deviceId, details: { new_device: device.isNew, sessions_closed_elsewhere: closedElsewhere } });
   res.status(201).json({
     access_token: session.accessToken,
     token_type: 'Bearer',
@@ -195,6 +282,15 @@ authRouter.post('/sessions', authLimiter, async (req, res) => {
     identity_token: identityToken,
     device: { new_device: device.isNew, cooldown_until: device.cooldownUntil ?? null }
   });
+});
+
+// Cierra la sesión en todos los demás dispositivos (la de este sigue activa).
+authRouter.post('/sessions/others/close', requireMerchant, async (req, res) => {
+  const auth = req.auth!;
+  const closed = await revokeSessions(auth.merchantId, { exceptDeviceId: auth.deviceId });
+  await revokeIdentityTokens(auth.merchantId, auth.deviceId);
+  await audit({ actorType: 'MERCHANT', actorId: auth.merchantId, action: 'SESSIONS_CLOSED_ELSEWHERE', result: 'OK', ip: clientIp(req), deviceId: auth.deviceId, details: { sessions_closed: closed } });
+  res.json({ success: true, sessions_closed: closed });
 });
 
 authRouter.delete('/sessions/current', requireMerchant, async (req, res) => {

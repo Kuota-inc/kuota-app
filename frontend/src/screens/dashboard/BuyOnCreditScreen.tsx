@@ -193,7 +193,7 @@ export const BuyOnCreditScreen: React.FC<BuyOnCreditScreenProps> = ({ onBack }) 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <span className="text-xs font-black text-[#0b2545] leading-tight">{prov.name}</span>
-                    <span className="text-[9px] font-bold uppercase bg-blue-50 text-[#1a3bb0] px-1.5 py-0.5 rounded">
+                    <span className="text-[10px] font-bold uppercase bg-blue-50 text-[#1a3bb0] px-1.5 py-0.5 rounded">
                       {prov.badge}
                     </span>
                   </div>
@@ -201,7 +201,7 @@ export const BuyOnCreditScreen: React.FC<BuyOnCreditScreenProps> = ({ onBack }) 
                   <div className="flex items-center gap-1 mt-1 text-[10px] text-[#4a5f7e]">
                     <MapPin size={10} className="text-[#1a3bb0] shrink-0" />
                     <span className="truncate">{prov.zone}</span>
-                    <span className="ml-auto flex items-center gap-0.5 text-amber-600 font-bold shrink-0">
+                    <span className="ml-auto flex items-center gap-0.5 text-amber-700 font-bold shrink-0">
                       <Star size={10} fill="currentColor" />
                       {prov.rating}
                     </span>
@@ -279,12 +279,12 @@ export const BuyOnCreditScreen: React.FC<BuyOnCreditScreenProps> = ({ onBack }) 
               <div className="p-2 bg-blue-50/50 rounded-xl">
                 <span className="text-[10px] text-[#4a5f7e]">Cuota inicial (50%)</span>
                 <div className="font-extrabold text-[#0b2545]">S/ {(simulation.down_payment_cents / 100).toFixed(2)}</div>
-                <span className="text-[9px] text-amber-700 font-bold">Pago al confirmar</span>
+                <span className="text-[10px] text-amber-700 font-bold">Pago al confirmar</span>
               </div>
               <div className="p-2 bg-blue-50/50 rounded-xl">
                 <span className="text-[10px] text-[#4a5f7e]">Saldo financiado</span>
                 <div className="font-extrabold text-[#1a3bb0]">S/ {(simulation.financed_cents / 100).toFixed(2)}</div>
-                <span className="text-[9px] text-[#4a5f7e]">en 3 cuotas quincenales</span>
+                <span className="text-[10px] text-[#4a5f7e]">en 3 cuotas quincenales</span>
               </div>
             </div>
             <div className="grid grid-cols-3 gap-2 text-xs">
@@ -423,7 +423,7 @@ export const BuyOnCreditScreen: React.FC<BuyOnCreditScreenProps> = ({ onBack }) 
         </div>
 
         <div className="p-3 bg-amber-50 rounded-2xl border border-amber-200 flex items-start gap-2 text-[11px] text-amber-900">
-          <AlertCircle size={15} className="text-amber-600 shrink-0 mt-0.5" />
+          <AlertCircle size={15} className="text-amber-700 shrink-0 mt-0.5" />
           <div>
             <strong>Regla 3.2:</strong> Al confirmar, esta será tu única compra activa hasta saldar las 3 cuotas.
             El proveedor recibirá el pago completo de S/ {(simulation.purchase_cents / 100).toFixed(2)} desde Kuota.
@@ -454,7 +454,7 @@ export const BuyOnCreditScreen: React.FC<BuyOnCreditScreenProps> = ({ onBack }) 
     return (
       <div className="flex-1 p-6 flex flex-col items-center justify-center space-y-5 bg-[#f9f9ff]">
         <div className="w-20 h-20 rounded-full bg-emerald-100 flex items-center justify-center">
-          <CheckCircle2 size={40} className="text-emerald-600" />
+          <CheckCircle2 size={40} className="text-emerald-700" />
         </div>
         <div className="text-center space-y-2">
           <h2 className="text-xl font-black text-[#0b2545]">¡Compra realizada!</h2>
@@ -567,7 +567,7 @@ export const BuyOnCreditScreen: React.FC<BuyOnCreditScreenProps> = ({ onBack }) 
                 <div className="font-extrabold text-[#0b2545]">
                   S/ {(((data?.down_payment_cents ?? 11800)) / 100).toFixed(2)}
                 </div>
-                <span className="text-[9px] text-emerald-700 font-bold">✓ Pagada al inicio</span>
+                <span className="text-[10px] text-emerald-700 font-bold">✓ Pagada al inicio</span>
               </div>
 
               <div className="p-2.5 bg-blue-50/50 rounded-xl">
@@ -575,7 +575,7 @@ export const BuyOnCreditScreen: React.FC<BuyOnCreditScreenProps> = ({ onBack }) 
                 <div className="font-extrabold text-[#1a3bb0]">
                   S/ {(((data?.financed_cents ?? 11800)) / 100).toFixed(2)}
                 </div>
-                <span className="text-[9px] text-[#4a5f7e]">en {data?.installments_count ?? 3} cuotas</span>
+                <span className="text-[10px] text-[#4a5f7e]">en {data?.installments_count ?? 3} cuotas</span>
               </div>
             </div>
           </div>
@@ -617,7 +617,7 @@ export const BuyOnCreditScreen: React.FC<BuyOnCreditScreenProps> = ({ onBack }) 
           </div>
 
           <div className="p-3 bg-amber-50 rounded-2xl border border-amber-200 flex items-start gap-2.5 text-[11px] text-amber-900">
-            <AlertCircle size={16} className="text-amber-600 shrink-0 mt-0.5" />
+            <AlertCircle size={16} className="text-amber-700 shrink-0 mt-0.5" />
             <div>
               <strong>Regla 3.2 de Crédito Responsable:</strong> Solo puedes mantener 1 compra activa a la vez. Al saldar tus cuotas, tu cupo de hasta S/ 1,400 se libera inmediatamente.
             </div>

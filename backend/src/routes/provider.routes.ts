@@ -619,6 +619,38 @@ providerRouter.put('/settlement-account', async (req, res) => {
   });
 });
 
+// Panel del proveedor: su perfil (datos sensibles enmascarados). Exige X-Provider-Id + X-Provider-Token.
+providerRouter.get('/me', async (req, res) => {
+  const id = await authProvider(req, res);
+  if (id === undefined) return;
+  if (!id) return res.status(401).json({ error: { code: 'PROVIDER_AUTH_REQUIRED', message: 'Inicia sesión para continuar.' } });
+  const p = (await db.prepare(
+    'SELECT id, legal_name, ruc, category, kyc_status, fee_bps, approved_limit_cents, settlement_bank, settlement_cci, whatsapp, created_at FROM provider_profiles WHERE id = ?'
+  ).get(id)) as Record<string, any> | undefined;
+  if (!p) return res.status(404).json({ error: { code: 'PROVIDER_NOT_FOUND', message: 'Proveedor no encontrado.' } });
+  const mask = (v: unknown, keep: number) => (typeof v === 'string' && v.length > keep ? '•'.repeat(v.length - keep) + v.slice(-keep) : v ?? null);
+  res.json({
+    id: p.id,
+    business_name: p.legal_name,
+    ruc_masked: mask(p.ruc, 3),
+    category: p.category,
+    kyc_status: p.kyc_status,
+    fee_bps: p.fee_bps,
+    approved_limit_cents: p.approved_limit_cents,
+    settlement: p.settlement_cci ? { bank: p.settlement_bank, account_masked: mask(p.settlement_cci, 4) } : null,
+    whatsapp_masked: mask(p.whatsapp, 3),
+    created_at: p.created_at
+  });
+});
+
+// Cierra la sesión del proveedor (el token deja de valer en todos los dispositivos).
+providerRouter.post('/logout', async (req, res) => {
+  const id = await authProvider(req, res);
+  if (id === undefined) return;
+  if (id) await db.prepare('UPDATE provider_profiles SET access_token_hash = NULL WHERE id = ?').run(id);
+  res.status(204).end();
+});
+
 // PRD 16: Activación definitiva
 providerRouter.post('/activate', async (req, res) => {
   const providerId = await authProvider(req, res);

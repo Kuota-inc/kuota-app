@@ -83,3 +83,40 @@ body {
   background: #cbd5e1;
   border-radius: 4px;
 }
+
+/* Estados de interacción coherentes en toda la app (normal, hover, presionado, enfocado, deshabilitado, cargando). */
+button,
+[role='button'],
+[role='switch'],
+a[href] {
+  transition: transform 0.08s ease, box-shadow 0.15s ease, filter 0.15s ease, opacity 0.15s ease, background-color 0.15s ease;
+}
+button:not(:disabled):active,
+[role='switch']:not(:disabled):active {
+  transform: scale(0.97);
+}
+@media (hover: hover) {
+  button:not(:disabled):hover,
+  a[href]:hover {
+    filter: brightness(0.96);
+  }
+}
+button:focus-visible,
+[role='switch']:focus-visible,
+a[href]:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid rgba(26, 59, 176, 0.5);
+  outline-offset: 2px;
+}
+button:disabled,
+[aria-disabled='true'] {
+  opacity: 0.55;
+  cursor: not-allowed;
+  filter: grayscale(0.2);
+}
+button[aria-busy='true'] {
+  cursor: progress;
+  opacity: 0.75;
+}

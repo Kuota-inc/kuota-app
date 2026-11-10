@@ -78,10 +78,10 @@ export const PhoneSimulator: React.FC<PhoneSimulatorProps> = ({
         <div aria-hidden="true" className="pt-2 px-5 pb-1 flex justify-between items-center text-[11px] font-semibold select-none text-slate-800 z-40 bg-transparent">
           <span className="font-bold tracking-tight">12:30</span>
           <div className="flex items-center gap-1.5 text-slate-700">
-            <span className="text-[9px] font-black tracking-tighter bg-slate-200/90 px-1 py-0.2 rounded text-slate-800">5G</span>
+            <span className="text-[10px] font-black tracking-tighter bg-slate-200/90 px-1 py-0.2 rounded text-slate-800">5G</span>
             <Wifi size={12} strokeWidth={2.5} />
             <div className="flex items-center gap-0.5">
-              <span className="text-[9px] font-bold">98%</span>
+              <span className="text-[10px] font-bold">98%</span>
               <Battery size={13} strokeWidth={2.5} />
             </div>
           </div>
@@ -116,7 +116,7 @@ export const PhoneSimulator: React.FC<PhoneSimulatorProps> = ({
         </div>
 
         {/* Bottom Navigation Bar for Dashboard (5 components: Home, Mis ventas, Botón azul Comprar/Vender, Crédito, Mi cuenta) */}
-        {showBottomNav && !isOnboarding && currentScreenKey !== 'welcome' && currentScreenKey !== 'login' && (
+        {showBottomNav && !isOnboarding && currentScreenKey !== 'welcome' && currentScreenKey !== 'login' && currentScreenKey !== 'provider_home' && (
           <nav aria-label="Navegación principal" className="bg-white border-t border-[#e1e8f8] px-2 py-1.5 flex items-center justify-around z-40 shadow-lg">
             {/* 1. Home */}
             <button
@@ -161,7 +161,7 @@ export const PhoneSimulator: React.FC<PhoneSimulatorProps> = ({
                   swap_vert
                 </span>
               </div>
-              <span className="text-[9px] font-black text-[#1a3bb0] -mt-0.5 tracking-tight">
+              <span className="text-[10px] font-black text-[#1a3bb0] -mt-0.5 tracking-tight">
                 Comprar / Vender
               </span>
             </button>

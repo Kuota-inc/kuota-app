@@ -204,14 +204,14 @@ export const MerchantWelcomeSummaryScreen: React.FC<MerchantWelcomeSummaryScreen
               whileHover={{ x: 2 }}
               className="p-2.5 bg-white rounded-xl border border-blue-100 flex items-center gap-2 shadow-xs"
             >
-              <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+              <CheckCircle2 size={16} className="text-emerald-700 shrink-0" />
               <span>Compras de mercadería hasta en 3 cuotas flexibles.</span>
             </motion.div>
             <motion.div
               whileHover={{ x: 2 }}
               className="p-2.5 bg-white rounded-xl border border-blue-100 flex items-center gap-2 shadow-xs"
             >
-              <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+              <CheckCircle2 size={16} className="text-emerald-700 shrink-0" />
               <span>Cobros con link y QR a comisión fija del 1.00%.</span>
             </motion.div>
             <motion.div

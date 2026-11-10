@@ -178,7 +178,7 @@ export const ProviderValidatingScreen: React.FC<ProviderValidatingScreenProps> =
         {/* PHASE: STARTING */}
         {phase === 'starting' && (
           <div className="flex items-center justify-center py-8">
-            <RefreshCw size={28} className="animate-spin text-emerald-600" />
+            <RefreshCw size={28} className="animate-spin text-emerald-700" />
           </div>
         )}
 
@@ -192,7 +192,7 @@ export const ProviderValidatingScreen: React.FC<ProviderValidatingScreenProps> =
             <div className="p-5 bg-white rounded-3xl border border-[#e1e8f8] shadow-sm space-y-4">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 rounded-2xl bg-emerald-50 flex items-center justify-center shrink-0">
-                  <ScanFace size={26} className="text-emerald-600" />
+                  <ScanFace size={26} className="text-emerald-700" />
                 </div>
                 <div>
                   <p className="text-xs font-black text-[#0b2545]">Verificación biométrica requerida</p>
@@ -277,7 +277,7 @@ export const ProviderValidatingScreen: React.FC<ProviderValidatingScreenProps> =
                       <span className="text-xl font-black text-[#0b2545] tracking-tight">
                         {progress}%
                       </span>
-                      <span className="text-[8px] text-[#4a5f7e] font-bold uppercase tracking-wider">
+                      <span className="text-[10px] text-[#4a5f7e] font-bold uppercase tracking-wider">
                         Validando
                       </span>
                     </>
@@ -313,7 +313,7 @@ export const ProviderValidatingScreen: React.FC<ProviderValidatingScreenProps> =
                           ? 'bg-emerald-500 text-white'
                           : isCurrent
                           ? 'bg-emerald-600 text-white animate-pulse'
-                          : 'bg-slate-100 text-slate-400'
+                          : 'bg-slate-100 text-slate-500'
                       }`}
                     >
                       {isDone ? (
@@ -331,12 +331,12 @@ export const ProviderValidatingScreen: React.FC<ProviderValidatingScreenProps> =
                           {st.title}
                         </span>
                         {isDone && (
-                          <span className="text-[9px] text-emerald-700 font-bold shrink-0">
+                          <span className="text-[10px] text-emerald-700 font-bold shrink-0">
                             Completado
                           </span>
                         )}
                       </div>
-                      <p className="text-[9px] text-[#4a5f7e] mt-0.5 leading-tight truncate">
+                      <p className="text-[10px] text-[#4a5f7e] mt-0.5 leading-tight truncate">
                         {st.subtitle}
                       </p>
                     </div>
@@ -367,13 +367,13 @@ export const ProviderValidatingScreen: React.FC<ProviderValidatingScreenProps> =
                       <div className="text-2xl font-black text-[#0b2545] tracking-tight">
                         S/ {providerData.approved_limit.toLocaleString('es-PE', { minimumFractionDigits: 2 })}
                       </div>
-                      <div className="text-[9px] text-[#4a5f7e] mt-0.5 font-medium">
+                      <div className="text-[10px] text-[#4a5f7e] mt-0.5 font-medium">
                         Límite autorizado para recaudación y liquidación inmediata
                       </div>
                     </div>
                     <div className="text-right">
                       <span className="text-xs font-black text-emerald-700 block">71% Ahorro</span>
-                      <span className="text-[9px] text-slate-500">vs POS 3.45%</span>
+                      <span className="text-[10px] text-slate-500">vs POS 3.45%</span>
                     </div>
                   </div>
 

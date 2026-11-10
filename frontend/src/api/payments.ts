@@ -241,6 +241,8 @@ export const paymentsApi = {
   cancelLink: (id: string) => secureRequest<PaymentLink>(`/payment-links/${id}/cancel`, { method: 'POST' }),
   getLink: (id: string) => secureRequest<PaymentLink>(`/payment-links/${id}`),
   /** Consulta de fondo del estado: nunca abre el pedido de PIN. */
+  /** Lista de links del comercio; solo con sesión de cobros abierta (no pide el PIN). */
+  listLinks: () => secureRequest<{ data: PaymentLink[] }>('/payment-links', { silent: true }),
   pollLink: (id: string) => secureRequest<PaymentLink>(`/payment-links/${id}`, { silent: true }),
 
   getLimits: () => secureRequest<PaymentLimits>('/merchants/me/payments/limits'),
@@ -248,6 +250,8 @@ export const paymentsApi = {
     secureRequest<PaymentLimits>('/merchants/me/payments/limits', { method: 'PUT', body: JSON.stringify(values) }),
   cancelPendingLimits: () => secureRequest<PaymentLimits>('/merchants/me/payments/limits/pending', { method: 'DELETE' }),
   getDevices: () => secureRequest<{ data: LinkedDevice[] }>('/merchants/me/payments/devices'),
+  /** Una sola sesión por cuenta: cierra la sesión en todos los demás dispositivos. */
+  closeOtherSessions: () => secureRequest<{ success: boolean; sessions_closed: number }>('/auth/sessions/others/close', { method: 'POST' }),
   revokeDevice: (ref: string) => secureRequest<{ success: boolean }>(`/merchants/me/payments/devices/${encodeURIComponent(ref)}`, { method: 'DELETE' }),
   getAlerts: () => secureRequest<{ data: SecurityAlert[] }>('/merchants/me/payments/alerts'),
   changePin: (current_pin: string, new_pin: string) =>

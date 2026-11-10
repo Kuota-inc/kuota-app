@@ -282,7 +282,7 @@ export const ProviderGpsScreen: React.FC<ProviderGpsScreenProps> = ({ onNext }) 
               exit={{ opacity: 0 }}
               className="p-3 bg-emerald-50 rounded-2xl border border-emerald-200 text-xs text-emerald-900 font-bold flex items-center gap-2 shadow-sm"
             >
-              <CheckCircle2 size={18} className="text-emerald-600 shrink-0" />
+              <CheckCircle2 size={18} className="text-emerald-700 shrink-0" />
               <div className="flex-1">
                 <span>¡Ubicación detectada exitosamente!</span>
                 <p className="text-[11px] text-emerald-700 font-normal mt-0.5">
@@ -299,7 +299,7 @@ export const ProviderGpsScreen: React.FC<ProviderGpsScreenProps> = ({ onNext }) 
               exit={{ opacity: 0 }}
               className="p-3.5 bg-amber-50 rounded-2xl border border-amber-300 text-xs text-amber-900 flex items-start gap-2"
             >
-              <AlertCircle size={18} className="text-amber-600 shrink-0 mt-0.5" />
+              <AlertCircle size={18} className="text-amber-700 shrink-0 mt-0.5" />
               <div className="flex-1 text-[11px] leading-relaxed space-y-2">
                 <div>{geoError}</div>
                 <div>

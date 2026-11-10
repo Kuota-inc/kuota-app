@@ -159,7 +159,7 @@ export const MerchantIdentityScreen: React.FC<MerchantIdentityScreenProps> = ({ 
                 animate={{ scale: 1 }}
                 className="text-[10px] text-emerald-700 font-bold flex items-center gap-1 bg-emerald-50 border border-emerald-200/80 px-2.5 py-0.5 rounded-full shadow-xs"
               >
-                <CheckCircle2 size={11} className="text-emerald-600" />
+                <CheckCircle2 size={11} className="text-emerald-700" />
                 <span>Nombre sugerido</span>
               </motion.span>
             ) : (
@@ -222,7 +222,7 @@ export const MerchantIdentityScreen: React.FC<MerchantIdentityScreenProps> = ({ 
 
           <div className="flex items-center justify-between text-[10px] text-emerald-800 bg-emerald-50/80 px-2.5 py-1 rounded-xl border border-emerald-200/60">
             <span className="flex items-center gap-1 font-semibold">
-              <CheckCircle2 size={12} className="text-emerald-600 shrink-0" />
+              <CheckCircle2 size={12} className="text-emerald-700 shrink-0" />
               <span>Lo comprobamos con la foto de tu DNI en el siguiente paso</span>
             </span>
           </div>
@@ -275,7 +275,7 @@ export const MerchantIdentityScreen: React.FC<MerchantIdentityScreenProps> = ({ 
           className="p-3 rounded-3xl bg-white border border-[#e1e8f8] shadow-sm flex items-center justify-between gap-3 cursor-pointer hover:border-emerald-300 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#b8c3ff]"
         >
           <div className="flex items-start gap-3 min-w-0">
-            <div className="w-8 h-8 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0 mt-0.5">
+            <div className="w-8 h-8 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 mt-0.5">
               <MessageSquare size={17} />
             </div>
             <div className="min-w-0">

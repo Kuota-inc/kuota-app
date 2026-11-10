@@ -182,7 +182,7 @@ const PinSheet: React.FC<{ request: PinRequestState; onCancel: () => void }> = (
 
           <div className="min-h-[18px] text-center" role="alert">
             {ok ? (
-              <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-600">
+              <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700">
                 <ShieldCheck size={14} aria-hidden="true" /> PIN correcto
               </span>
             ) : busy ? (

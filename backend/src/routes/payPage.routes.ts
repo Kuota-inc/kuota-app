@@ -3,10 +3,11 @@
 // Nota: el script va dentro de una plantilla de TypeScript; no usar comillas invertidas,
 // "${" ni barras invertidas dentro de él.
 import { Router } from 'express';
+import { config } from '../security/config.js';
 
 export const payPageRouter = Router();
 
-function payHtml(): string {
+function payHtml(sandbox: boolean): string {
   return `<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -77,6 +78,20 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;c
 .receipt div:last-child{border:0}
 .receipt span{color:var(--mut)}
 .receipt b{font-weight:700;text-align:right;word-break:break-word}
+.sim{display:flex;gap:8px;align-items:flex-start;background:#fff4dc;border:1px solid #f1d08a;color:#6b4200;border-radius:14px;padding:10px 12px;font-size:12.5px;line-height:1.45}
+.sim b{color:#4d2f00}
+.code{margin-top:16px;border:1px dashed #c5cfe8;border-radius:14px;padding:12px 14px;background:#fafbff}
+.code .lbl{font-size:11.5px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.5px}
+.code .row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:6px}
+.code .val{font:700 15px Consolas,monospace;word-break:break-all;color:var(--ink)}
+.copy{flex:none;border:1.5px solid var(--brand2);background:#fff;color:var(--brand2);border-radius:10px;padding:7px 12px;font:inherit;font-size:13px;font-weight:700;cursor:pointer}
+.copy.done{background:var(--ok);border-color:var(--ok);color:#fff}
+.steps{margin-top:16px;padding:0;list-style:none;counter-reset:s}
+.steps li{counter-increment:s;display:flex;gap:10px;align-items:flex-start;font-size:13.5px;color:#24324f;padding:5px 0}
+.steps li:before{content:counter(s);flex:none;width:22px;height:22px;border-radius:50%;background:#e8edff;color:var(--brand);font-weight:800;font-size:12px;display:flex;align-items:center;justify-content:center}
+.live{display:flex;align-items:center;gap:7px;justify-content:center;margin-top:12px;font-size:12px;color:var(--mut)}
+.live i{width:8px;height:8px;border-radius:50%;background:#f5a524;animation:pulse 1.4s infinite}
+@keyframes pulse{50%{opacity:.35}}
 .skel{padding:22px}
 .sk{border-radius:12px;background:linear-gradient(90deg,#eef2ff 25%,#f8faff 50%,#eef2ff 75%);background-size:200% 100%;animation:sh 1.2s infinite}
 @keyframes sh{to{background-position:-200% 0}}
@@ -88,6 +103,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;c
     <div class="brand"><i>K</i>Kuota</div>
     <div class="secure"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Pago seguro</div>
   </div>
+  ${sandbox ? '<div class="sim"><span>🧪</span><span><b>Modo de prueba · simulado.</b> Este pago no mueve dinero real: el banco aún no está conectado.</span></div>' : ''}
   <div class="card" id="card">
     <div class="skel">
       <div class="sk" style="height:56px;margin-bottom:18px"></div>
@@ -102,6 +118,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;c
 (function(){
 var code=location.pathname.split("/").filter(Boolean).pop();
 var method="YAPE";
+var SANDBOX=${sandbox ? "true" : "false"};
+var poll=null;
 var link=null;
 var ICONS={
   YAPE:'<svg viewBox="0 0 24 24" fill="none" stroke="#7a1fd1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg>',
@@ -128,12 +146,13 @@ function showState(kind,title,msg){
 }
 
 function showPaid(l,paymentId){
+  stopPolling();
   var rows='<div><span>Comercio</span><b>'+esc((l.merchant&&l.merchant.name)||"Comercio Kuota")+'</b></div>'+
     '<div><span>Monto pagado</span><b>S/ '+money(l.amount_cents)+'</b></div>'+
     (l.concept?'<div><span>Concepto</span><b>'+esc(l.concept)+'</b></div>':"")+
     '<div><span>Fecha</span><b>'+lima(new Date().toISOString(),{day:"numeric",month:"long",year:"numeric",hour:"numeric",minute:"2-digit"})+'</b></div>'+
     (paymentId?'<div><span>Operación</span><b>'+esc(String(paymentId).slice(-10).toUpperCase())+'</b></div>':"");
-  card('<div class="center"><div class="bigico ok">'+CHECK+'</div><h2>¡Pago completado!</h2><p>Tu pago fue recibido. El comercio ya fue notificado.</p><div class="receipt">'+rows+'</div><p style="margin-top:16px;font-size:12.5px">Ya puedes cerrar esta página.</p></div>');
+  card('<div class="center"><div class="bigico ok">'+CHECK+'</div><h2>¡Pago completado!</h2><p>Tu pago fue recibido. El comercio ya fue notificado.</p><div class="receipt">'+rows+'</div>'+(SANDBOX?'<p style="margin-top:14px;font-size:12.5px;color:#8a5300"><b>Pago simulado:</b> no se movió dinero real.</p>':'')+'<p style="margin-top:16px;font-size:12.5px">Ya puedes cerrar esta página.</p></div>');
 }
 
 function methodHtml(m){
@@ -157,8 +176,15 @@ function showReady(l){
     '<div class="sec-label">Elige cómo pagar</div>'+
     '<div class="methods" id="methods">'+methodHtml("YAPE")+methodHtml("PLIN")+methodHtml("CARD")+'</div>'+
     '<div class="err" id="err"></div>'+
-    '<button type="button" class="pay" id="pay-btn">'+LOCK+'<span id="pay-txt">Pagar S/ '+money(l.amount_cents)+'</span></button>'+
+    '<button type="button" class="pay" id="pay-btn">'+LOCK+'<span id="pay-txt">Pagar S/ '+money(l.amount_cents)+(SANDBOX?' (simulado)':'')+'</span></button>'+
     '<div class="meta"><span>Válido hasta '+lima(l.expires_at,{day:"numeric",month:"short",hour:"numeric",minute:"2-digit"})+'</span><span>Pago único</span></div>'+
+    '<div class="code"><div class="lbl">'+(l.payment_code?'Código de pago':'Código de este cobro')+'</div><div class="row"><span class="val" id="code-val">'+esc(l.payment_code||code)+'</span><button type="button" class="copy" id="copy-btn">Copiar</button></div></div>'+
+    '<ol class="steps">'+
+      (l.payment_code
+        ?'<li>Abre la app de tu banco o billetera.</li><li>Entra a <b>Pagar servicios</b> y busca <b>Kuota</b>.</li><li>Pega el código de pago y confirma con tu cuenta o tarjeta.</li>'
+        :'<li>Elige cómo quieres pagar.</li><li>Toca <b>Pagar</b> y confirma.</li><li>Esta página te avisará cuando el pago se confirme.</li>')+
+    '</ol>'+
+    '<div class="live"><i></i>Esperando confirmación del pago…</div>'+
     '</div>';
   card(html);
   var list=document.querySelectorAll(".method");
@@ -169,13 +195,34 @@ function showReady(l){
     });
   });
   document.getElementById("pay-btn").addEventListener("click",doPay);
+  var cb=document.getElementById("copy-btn");
+  if(cb)cb.addEventListener("click",function(){copyText(document.getElementById("code-val").textContent,cb)});
+  startPolling();
+}
+
+function copyText(text,btn){
+  function done(){btn.textContent="¡Copiado!";btn.className="copy done";setTimeout(function(){btn.textContent="Copiar";btn.className="copy"},1800)}
+  if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(text).then(done,function(){fallback()});return}
+  fallback();
+  function fallback(){var t=document.createElement("textarea");t.value=text;t.style.position="fixed";t.style.opacity="0";document.body.appendChild(t);t.select();try{document.execCommand("copy")}catch(e){}document.body.removeChild(t);done()}
+}
+
+function stopPolling(){if(poll){clearInterval(poll);poll=null}}
+function startPolling(){
+  stopPolling();
+  poll=setInterval(function(){
+    fetch("/api/v1/payment-links/public/"+code).then(function(r){
+      if(r.status===409){stopPolling();showPaid(link,null);return}
+      if(r.status===404||r.status===410){stopPolling();showState("wait","Link no disponible","Este link venció o fue cancelado. Pide al comercio que genere uno nuevo.")}
+    }).catch(function(){})
+  },5000);
 }
 
 function setBusy(on){
   var b=document.getElementById("pay-btn");
   if(!b||!link)return;
   b.disabled=on;
-  b.innerHTML=on?'<span class="spin"></span><span>Procesando pago…</span>':LOCK+'<span id="pay-txt">Pagar S/ '+money(link.amount_cents)+'</span>';
+  b.innerHTML=on?'<span class="spin"></span><span>Procesando pago…</span>':LOCK+'<span id="pay-txt">Pagar S/ '+money(link.amount_cents)+(SANDBOX?' (simulado)':'')+'</span>';
 }
 function showErr(msg){
   var e=document.getElementById("err");
@@ -237,5 +284,5 @@ payPageRouter.get('/:code', (_req, res) => {
   );
   res.removeHeader('Cache-Control');
   res.setHeader('Cache-Control', 'no-store');
-  res.type('html').send(payHtml());
+  res.type('html').send(payHtml(config.sandboxEnabled));
 });

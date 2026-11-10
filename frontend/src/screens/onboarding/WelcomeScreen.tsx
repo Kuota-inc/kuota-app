@@ -6,9 +6,11 @@ import { CheckCircle2, ShieldCheck, Sparkles, Building2, Store, KeyRound } from 
 interface WelcomeScreenProps {
   onSelectRole: (role: 'MERCHANT' | 'PROVIDER', sessionId: string) => void;
   onLogin: () => void;
+  /** El servidor devuelve el id real de la sesión de registro: la app debe usar ese, no el provisional. */
+  onSessionResolved?: (sessionId: string) => void;
 }
 
-export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onSelectRole, onLogin }) => {
+export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onSelectRole, onLogin, onSessionResolved }) => {
   const [stats, setStats] = useState({ active_businesses: 18500 });
 
   useEffect(() => {
@@ -21,9 +23,14 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onSelectRole, onLo
     onSelectRole(role, optimisticSessionId);
 
     // Sync session creation in background
-    api.createSession(role).catch((err) => {
-      console.warn('Session background sync note:', err);
-    });
+    api
+      .createSession(role)
+      .then((res: any) => {
+        if (res?.session_id) onSessionResolved?.(res.session_id);
+      })
+      .catch((err) => {
+        console.warn('Session background sync note:', err);
+      });
   };
 
   return (
@@ -65,7 +72,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onSelectRole, onLo
             </div>
           </div>
           <div className="p-2.5 bg-white/70 rounded-2xl border border-blue-100 flex items-center gap-2 shadow-xs">
-            <CheckCircle2 size={18} className="text-emerald-600 shrink-0" />
+            <CheckCircle2 size={18} className="text-emerald-700 shrink-0" />
             <div className="text-[10px] font-semibold text-[#0b2545] leading-tight">
               Cero aval · 100% digital
             </div>

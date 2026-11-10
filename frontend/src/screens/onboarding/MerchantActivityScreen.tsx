@@ -284,7 +284,7 @@ export const MerchantActivityScreen: React.FC<MerchantActivityScreenProps> = ({ 
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-black text-[#0b2545]">{sen.label}</span>
                         {sen.badge && (
-                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md ${
+                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${
                             selected ? 'bg-[#1a3bb0] text-white' : 'bg-slate-100 text-slate-600'
                           }`}>
                             {sen.badge}

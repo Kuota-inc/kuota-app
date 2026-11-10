@@ -162,7 +162,7 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestInit
     // Solo fallas inesperadas (red o servidor); los 4xx son flujos que maneja la interfaz
     // (PIN, límites, confirmaciones). Sin el cuerpo: puede traer datos del comercio.
     // El token de identidad venció o fue revocado: volver al inicio de sesión.
-    if (err instanceof ApiError && err.code === 'MERCHANT_AUTH_REQUIRED') {
+    if (err instanceof ApiError && endpoint !== '/providers/logout' && (err.code === 'MERCHANT_AUTH_REQUIRED' || err.code === 'PROVIDER_AUTH_REQUIRED')) {
       window.dispatchEvent(new Event('kuota:logout'));
     }
     if (!(err instanceof ApiError) || err.status >= 500) {

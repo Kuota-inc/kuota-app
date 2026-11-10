@@ -147,7 +147,7 @@ export const KuotearModal: React.FC<KuotearModalProps> = ({ isOpen, onClose, onN
                         <span className="text-xs font-black text-[#0b2545] tracking-tight">
                           Comprar mercadería al crédito
                         </span>
-                        <span className="text-[9px] font-black uppercase bg-blue-100 text-[#1a3bb0] px-1.5 py-0.2 rounded">
+                        <span className="text-[10px] font-black uppercase bg-blue-100 text-[#1a3bb0] px-1.5 py-0.2 rounded">
                           Plan 3X
                         </span>
                       </div>
@@ -180,7 +180,7 @@ export const KuotearModal: React.FC<KuotearModalProps> = ({ isOpen, onClose, onN
                         <span className="text-xs font-black text-[#0b2545] tracking-tight">
                           Vender y cobrar a clientes
                         </span>
-                        <span className="text-[9px] font-black uppercase bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded">
+                        <span className="text-[10px] font-black uppercase bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded">
                           Tarifa 1%
                         </span>
                       </div>
@@ -203,7 +203,7 @@ export const KuotearModal: React.FC<KuotearModalProps> = ({ isOpen, onClose, onN
                   }}
                   className="w-full py-2.5 px-3 bg-slate-100 hover:bg-slate-200/80 rounded-xl text-center text-xs font-bold text-[#4a5f7e] hover:text-[#0b2545] flex items-center justify-center gap-2 transition cursor-pointer"
                 >
-                  <Calculator size={15} className="text-amber-600" />
+                  <Calculator size={15} className="text-amber-700" />
                   <span>¿Deseas simular tus 3 cuotas antes de comprar?</span>
                 </motion.button>
               </div>

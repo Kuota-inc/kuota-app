@@ -240,7 +240,7 @@ export const ProviderFiscalScreen: React.FC<ProviderFiscalScreenProps> = ({ sess
               animate={{ opacity: 1, y: 0 }}
               className="p-3 bg-amber-50 rounded-2xl border border-amber-300 flex items-center gap-2 text-xs text-amber-900 font-bold"
             >
-              <AlertTriangle size={18} className="text-amber-600 shrink-0" />
+              <AlertTriangle size={18} className="text-amber-700 shrink-0" />
               <span>Este comercio ya se encuentra registrado en KUOTA.</span>
             </motion.div>
           )}
@@ -250,7 +250,7 @@ export const ProviderFiscalScreen: React.FC<ProviderFiscalScreenProps> = ({ sess
               animate={{ opacity: 1, y: 0 }}
               className="p-3 bg-amber-50 rounded-2xl border border-amber-200 flex items-start gap-2 text-[11px] text-amber-900"
             >
-              <AlertTriangle size={16} className="text-amber-600 shrink-0 mt-0.5" />
+              <AlertTriangle size={16} className="text-amber-700 shrink-0 mt-0.5" />
               <div>
                 <strong>Revisión requerida:</strong> {warningMessage}
               </div>
@@ -355,7 +355,7 @@ export const ProviderFiscalScreen: React.FC<ProviderFiscalScreenProps> = ({ sess
               </div>
 
               {/* Source attribution and notice */}
-              <div className="flex items-center justify-between text-[9px] text-[#4a5f7e] pt-1">
+              <div className="flex items-center justify-between text-[10px] text-[#4a5f7e] pt-1">
                 <span>Fuente: Padrón Oficial SUNAT (Actualizado)</span>
                 <span>Datos verificados</span>
               </div>

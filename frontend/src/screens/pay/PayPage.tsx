@@ -78,7 +78,7 @@ export const PayPage: React.FC<{ code: string }> = ({ code }) => {
 
         {state.kind === 'error' && (
           <section className="p-6 bg-white rounded-3xl border border-[#e1e8f8] shadow-sm text-center space-y-2" role="alert">
-            <AlertTriangle size={32} className="mx-auto text-amber-600" aria-hidden="true" />
+            <AlertTriangle size={32} className="mx-auto text-amber-700" aria-hidden="true" />
             <h1 className="text-base font-black">{state.title}</h1>
             <p className="text-xs text-[#4a5f7e]">{state.message}</p>
           </section>
@@ -166,7 +166,7 @@ export const PayPage: React.FC<{ code: string }> = ({ code }) => {
 
         {state.kind === 'paid' && (
           <section className="p-6 bg-white rounded-3xl border border-emerald-200 shadow-sm text-center space-y-2" role="status">
-            <CheckCircle2 size={40} className="mx-auto text-emerald-600" aria-hidden="true" />
+            <CheckCircle2 size={40} className="mx-auto text-emerald-700" aria-hidden="true" />
             <h1 className="text-base font-black">¡Pago realizado!</h1>
             <p className="text-xs text-[#4a5f7e]">
               {state.link.merchant.name} ya recibió la confirmación de tu pago de {formatSoles(state.link.amount_cents)}.

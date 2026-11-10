@@ -249,7 +249,7 @@ export const MerchantValidatingScreen: React.FC<MerchantValidatingScreenProps> =
                   ) : (
                     <>
                       <span className="text-xl font-black text-[#0b2545] tracking-tight">{progress}%</span>
-                      <span className="text-[8px] text-[#4a5f7e] font-bold uppercase tracking-wider">Validando</span>
+                      <span className="text-[10px] text-[#4a5f7e] font-bold uppercase tracking-wider">Validando</span>
                     </>
                   )}
                 </div>
@@ -283,7 +283,7 @@ export const MerchantValidatingScreen: React.FC<MerchantValidatingScreenProps> =
                           ? 'bg-emerald-500 text-white'
                           : isCurrent
                           ? 'bg-[#1a3bb0] text-white animate-pulse'
-                          : 'bg-slate-100 text-slate-400'
+                          : 'bg-slate-100 text-slate-500'
                       }`}
                     >
                       {isDone ? (
@@ -301,10 +301,10 @@ export const MerchantValidatingScreen: React.FC<MerchantValidatingScreenProps> =
                           {st.title}
                         </span>
                         {isDone && (
-                          <span className="text-[9px] text-emerald-700 font-bold shrink-0">Completado</span>
+                          <span className="text-[10px] text-emerald-700 font-bold shrink-0">Completado</span>
                         )}
                       </div>
-                      <p className="text-[9px] text-[#4a5f7e] mt-0.5 leading-tight truncate">{st.subtitle}</p>
+                      <p className="text-[10px] text-[#4a5f7e] mt-0.5 leading-tight truncate">{st.subtitle}</p>
                     </div>
                   </motion.div>
                 );
@@ -333,13 +333,13 @@ export const MerchantValidatingScreen: React.FC<MerchantValidatingScreenProps> =
                       <div className="text-2xl font-black text-[#0b2545] tracking-tight">
                         S/ {merchantData.approved_limit.toLocaleString('es-PE', { minimumFractionDigits: 2 })}
                       </div>
-                      <div className="text-[9px] text-[#4a5f7e] mt-0.5 font-medium">
+                      <div className="text-[10px] text-[#4a5f7e] mt-0.5 font-medium">
                         Línea disponible para compras a crédito (Plan 3X)
                       </div>
                     </div>
                     <div className="text-right">
-                      <span className="text-xs font-black text-emerald-600 block">0% Interés</span>
-                      <span className="text-[9px] text-slate-500">Lanzamiento</span>
+                      <span className="text-xs font-black text-emerald-700 block">0% Interés</span>
+                      <span className="text-[10px] text-slate-500">Lanzamiento</span>
                     </div>
                   </div>
 

@@ -207,7 +207,7 @@ export const PaymentLinkScreen: React.FC<PaymentLinkScreenProps> = ({ onBack, on
             </button>
             <div>
               <h1 className="text-base font-black text-[#0b2545] tracking-tight">Vender y Cobrar</h1>
-              <p className="text-[10px] text-[#4a5f7e]">Genera links de cobro · Tarifa 1%</p>
+              <p className="text-[10px] text-[#4a5f7e]">Genera links de cobro · Tarifa 1% · <b className="text-amber-800">Simulado</b>, sin banco real aún</p>
             </div>
           </div>
           <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200">
@@ -341,7 +341,7 @@ export const PaymentLinkScreen: React.FC<PaymentLinkScreenProps> = ({ onBack, on
 
                 <div className="flex items-center justify-center gap-3 text-[10px] text-[#4a5f7e]">
                   <span className="inline-flex items-center gap-1">
-                    <ShieldCheck size={12} className="text-emerald-600" aria-hidden="true" /> Monto fijo · un solo pago
+                    <ShieldCheck size={12} className="text-emerald-700" aria-hidden="true" /> Monto fijo · un solo pago
                   </span>
                   <span className="inline-flex items-center gap-1">
                     <Clock size={12} aria-hidden="true" /> Vence {formatWhen(link.expires_at)}

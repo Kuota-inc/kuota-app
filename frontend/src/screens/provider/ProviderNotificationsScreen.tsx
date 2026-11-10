@@ -93,17 +93,17 @@ export const ProviderNotificationsScreen: React.FC<ProviderNotificationsScreenPr
           <div className="p-2 bg-white rounded-xl border border-slate-100 shadow-sm">
             <Zap size={16} className="text-amber-500 mx-auto mb-1" />
             <div className="font-bold text-[#0b2545] text-[11px]">Alertas 0s</div>
-            <div className="text-[9px] text-[#4a5f7e]">En tiempo real</div>
+            <div className="text-[10px] text-[#4a5f7e]">En tiempo real</div>
           </div>
           <div className="p-2 bg-white rounded-xl border border-slate-100 shadow-sm">
             <ShieldCheck size={16} className="text-[#1a3bb0] mx-auto mb-1" />
             <div className="font-bold text-[#0b2545] text-[11px]">100% Seguro</div>
-            <div className="text-[9px] text-[#4a5f7e]">Datos cifrados</div>
+            <div className="text-[10px] text-[#4a5f7e]">Datos cifrados</div>
           </div>
           <div className="p-2 bg-white rounded-xl border border-slate-100 shadow-sm">
-            <Bell size={16} className="text-emerald-600 mx-auto mb-1" />
+            <Bell size={16} className="text-emerald-700 mx-auto mb-1" />
             <div className="font-bold text-[#0b2545] text-[11px]">Cero Spam</div>
-            <div className="text-[9px] text-[#4a5f7e]">Solo operaciones</div>
+            <div className="text-[10px] text-[#4a5f7e]">Solo operaciones</div>
           </div>
         </div>
       </div>

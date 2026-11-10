@@ -4,9 +4,10 @@ import { App as NativeApp } from '@capacitor/app';
 import { KuotaBiometric } from './plugins/kuotaBiometric';
 import { useSecureScreen } from './plugins/kuotaSecure';
 import { useToast } from './components/toast-context';
+import { HelpFab } from './components/HelpFab';
 import { isBiometricEnabled, resetSettings } from './services/appSettings';
 import { refreshListener, setCaptureHandler } from './services/paymentListener';
-import { api, apiRequest, getMerchantId, setMerchantId, setProviderId } from './api/client';
+import { api, apiRequest, getMerchantId, getProviderId, setMerchantId, setProviderId } from './api/client';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { useDeviceMode } from './hooks/useDeviceMode';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -20,6 +21,8 @@ import { forgetSession, logout as logoutPayments, unlockWithPin } from './api/pa
 import { RotateCcw, Store, Building2, KeyRound, UserCircle } from 'lucide-react';
 
 // Pantallas que no son la inicial se cargan bajo demanda (bundle inicial más liviano).
+const ProviderHomeScreen = lazy(() => import('./screens/provider/ProviderHomeScreen').then((m) => ({ default: m.ProviderHomeScreen })));
+const CalendarScreen = lazy(() => import('./screens/dashboard/CalendarScreen').then((m) => ({ default: m.CalendarScreen })));
 const WelcomeScreen = lazy(() => import('./screens/onboarding/WelcomeScreen').then((m) => ({ default: m.WelcomeScreen })));
 const MerchantIdentityScreen = lazy(() => import('./screens/onboarding/MerchantIdentityScreen').then((m) => ({ default: m.MerchantIdentityScreen })));
 const MerchantValidatingScreen = lazy(() => import('./screens/onboarding/MerchantValidatingScreen').then((m) => ({ default: m.MerchantValidatingScreen })));
@@ -49,6 +52,15 @@ function ScreenFallback() {
 }
 
 const ONBOARDED_KEY = 'kuota.onboarded';
+// Pantallas principales con botón flotante de ayuda (nombre que viaja en el mensaje a soporte).
+const HELP_TABS = new Map<string, string>([
+  ['inicio', 'Inicio'],
+  ['cobros', 'Nuevo cobro'],
+  ['ventas', 'Mis ventas'],
+  ['credito', 'Crédito'],
+  ['linea', 'Crédito'],
+  ['calendario', 'Calendario']
+]);
 // Pantallas con PIN, DNI/RUC, cuentas de abono o datos del perfil.
 const SENSITIVE_SCREENS = new Set([
   'login',
@@ -78,9 +90,11 @@ function writeFlag(key: string, on: boolean) {
 
 function AppShell() {
   // En el celular (APK) la primera vez se empieza por el registro; luego, por el Inicio.
-  const [currentScreen, setCurrentScreen] = useState<string>(() =>
-    Capacitor.isNativePlatform() && !readFlag(ONBOARDED_KEY) ? 'welcome' : 'dashboard'
-  );
+  const [currentScreen, setCurrentScreen] = useState<string>(() => {
+    if (!Capacitor.isNativePlatform()) return 'dashboard';
+    if (!readFlag(ONBOARDED_KEY)) return 'welcome';
+    return !getMerchantId() && getProviderId() ? 'provider_home' : 'dashboard';
+  });
   // Bloqueo por seguridad: al abrir la app (y al volver tras un rato en segundo plano) se pide el PIN.
   const [locked, setLocked] = useState<boolean>(
     () => Capacitor.isNativePlatform() && !!getMerchantId() && readFlag(ONBOARDED_KEY)
@@ -118,6 +132,7 @@ function AppShell() {
   // Cerrar sesión: revoca la sesión de cobros (PIN) en el servidor y vuelve al registro.
   const handleLogout = () => {
     void logoutPayments().catch(() => {});
+    if (getProviderId()) void apiRequest('/providers/logout', { method: 'POST' }).catch(() => {});
     setMerchantId(null);
     setProviderId(null);
     resetSettings();
@@ -129,21 +144,38 @@ function AppShell() {
 
   // Al arrancar en dashboard (sesión previa), valida que el merchant_id siga existiendo.
   // Si fue reseteado (DB borrada), redirige a bienvenida automáticamente.
+  // Una sola sesión por cuenta: si se inició sesión en otro equipo, este se entera al abrir, al volver a la app
+  // y cada 45 s con la app abierta (el servidor responde 401 y se vuelve al inicio de sesión).
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
-    const merchantId = getMerchantId();
-    if (!merchantId) { handleLogout(); return; }
-    apiRequest('/auth/me').catch((err: any) => {
-      if (err?.status === 404 || err?.status === 401 || err?.code === 'SESSION_EXPIRED' || err?.code === 'NOT_AUTHENTICATED') {
-        handleLogout();
-      }
+    const check = () => {
+      const merchantId = getMerchantId();
+      const providerId = getProviderId();
+      if (!merchantId && !providerId) { handleLogout(); return; }
+      apiRequest(merchantId ? '/auth/me' : '/providers/me').catch((err: any) => {
+        if (err?.status === 404 || err?.status === 401 || err?.code === 'SESSION_EXPIRED' || err?.code === 'NOT_AUTHENTICATED') {
+          handleLogout();
+        }
+      });
+    };
+    check();
+    const timer = window.setInterval(check, 45_000);
+    const sub = NativeApp.addListener('appStateChange', ({ isActive }) => {
+      if (isActive) check();
     });
+    return () => {
+      window.clearInterval(timer);
+      sub.then((h) => h.remove());
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // El token de identidad dejó de valer (venció o se revocó): volver al inicio de sesión.
   useEffect(() => {
-    const onLogout = () => handleLogout();
+    const onLogout = () => {
+      handleLogout();
+      toastRef.current.error('Tu sesión se cerró: iniciaste sesión en otro equipo o venció. Vuelve a ingresar con tu PIN.');
+    };
     window.addEventListener('kuota:logout', onLogout);
     return () => window.removeEventListener('kuota:logout', onLogout);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -331,14 +363,17 @@ function AppShell() {
   const renderScreen = () => {
     switch (currentScreen) {
       case 'welcome':
-        return <WelcomeScreen onSelectRole={handleSelectRole} onLogin={() => setCurrentScreen('login')} />;
+        return <WelcomeScreen onSelectRole={handleSelectRole} onLogin={() => setCurrentScreen('login')} onSessionResolved={setSessionId} />;
+
+      case 'provider_home':
+        return <ProviderHomeScreen onLogout={handleLogout} />;
 
       case 'login':
         return (
           <LoginScreen
-            onSuccess={() => {
+            onSuccess={(role) => {
               writeFlag(ONBOARDED_KEY, true);
-              setCurrentScreen('dashboard');
+              setCurrentScreen(role === 'PROVIDER' ? 'provider_home' : 'dashboard');
             }}
             onBack={() => setCurrentScreen('welcome')}
           />
@@ -507,8 +542,11 @@ function AppShell() {
         if (activeTab === 'ventas') {
           return <SalesScreen />;
         }
+        if (activeTab === 'calendario') {
+          return <CalendarScreen onBack={() => setActiveTab('inicio')} />;
+        }
         if (activeTab === 'credito' || activeTab === 'linea') {
-          return <CreditLineScreen onViewInstallments={() => setActiveTab('comprar_credito')} />;
+          return <CreditLineScreen onViewInstallments={() => setActiveTab('comprar_credito')} onOpenCalendar={() => setActiveTab('calendario')} />;
         }
         if (activeTab === 'perfil' || currentScreen === 'profile') {
           return (
@@ -640,6 +678,9 @@ function AppShell() {
                 Cerrar sesión
               </button>
             </div>
+          )}
+          {!locked && !isKuotearOpen && currentScreen.startsWith('dashboard') && HELP_TABS.has(activeTab) && (
+            <HelpFab screenName={HELP_TABS.get(activeTab)!} />
           )}
           <PinPromptHost />
           <ToastViewport />

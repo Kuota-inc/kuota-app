@@ -67,7 +67,8 @@ export async function resolveClaimedMerchant(req: Request): Promise<MerchantRow 
 
   // En producción mer_carlos no existe (seed.ts es solo para dev).
   // Si no se encontró el comercio por teléfono, devolver null → 404 en el caller.
-  if (config.isProd) return null;
+  // Un login con teléfono debe coincidir con ese teléfono: el comercio demo solo responde a peticiones sin teléfono.
+  if (config.isProd || phone) return null;
   return getMerchant('mer_carlos');
 }
 
@@ -287,8 +288,13 @@ export async function issueSession(merchantId: string, deviceId: string) {
   return { sessionId: sid, accessToken: token, expiresAt: expires.toISOString() };
 }
 
-export async function revokeSessions(merchantId: string, opts: { exceptSessionId?: string; deviceId?: string } = {}) {
+export async function revokeSessions(merchantId: string, opts: { exceptSessionId?: string; exceptDeviceId?: string; deviceId?: string } = {}) {
   const now = nowIso();
+  if (opts.exceptDeviceId) {
+    return (await db
+      .prepare('UPDATE merchant_sessions SET revoked_at = ? WHERE merchant_id = ? AND device_id <> ? AND revoked_at IS NULL')
+      .run(now, merchantId, opts.exceptDeviceId)).changes;
+  }
   if (opts.deviceId) {
     return (await db
       .prepare('UPDATE merchant_sessions SET revoked_at = ? WHERE merchant_id = ? AND device_id = ? AND revoked_at IS NULL')

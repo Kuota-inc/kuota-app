@@ -251,6 +251,13 @@ El id del comercio (`X-Merchant-Id`) **no es un secreto**; lo que prueba la iden
 
 ---
 
+### 13.6 Sesión única por cuenta y acceso de proveedores
+
+- **Un solo dispositivo por cuenta:** al iniciar sesión se revocan las sesiones y los tokens de identidad de cualquier otro dispositivo. El dispositivo desplazado recibe un aviso al volver a la app. Desde Perfil > Seguridad se puede cerrar manualmente las demás sesiones.
+- **Login de proveedor:** el PIN del proveedor se guarda con scrypt + pepper en `provider_profiles.pin_hash` (migración 0012), con bloqueo por intentos fallidos. El token de proveedor se rota en cada ingreso y solo se guarda su hash.
+- **Recuperación de PIN de proveedor:** mediante el DNI del representante legal.
+- **Modo simulado:** la API expone `sandbox` en `/api/v1/health` y la página pública `/pay` y la app muestran la etiqueta "Simulado" mientras no haya banco real.
+
 ## 14. Riesgos residuales y plan de mejora (leer antes de operar con dinero real)
 
 | # | Riesgo | Severidad | Estado | Mitigación recomendada |

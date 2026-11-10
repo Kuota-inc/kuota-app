@@ -385,3 +385,80 @@ describe('Correo por SMTP', () => {
     }
   });
 });
+
+describe('PRD BUG-01 y BUG-02: acceso', () => {
+  test('BUG-01: un proveedor crea su PIN con el id de sesión del celular, inicia sesión y ve su panel', async () => {
+    resetRateLimits();
+    const sid = 'ses_provider_' + Date.now(); // id inventado por la app: el servidor no lo conoce
+    const conf = await call('POST', '/businesses/confirm', { session_id: sid, ruc: '20100190797', legal_rep_dni: '47891234', whatsapp: '984000111' });
+    assert.equal(conf.status, 201);
+    const pinStep = await call('POST', `/onboarding/sessions/${sid}/security-pin`, { pin: '739164' });
+    assert.equal(pinStep.status, 200, 'antes respondía "Sesión de registro no encontrada"');
+    assert.equal((await call('POST', `/onboarding/sessions/${sid}/security-pin`, { pin: '861953' })).status, 409, 'no se pisa el PIN');
+
+    const login = await call('POST', '/auth/sessions', { pin: '739164', phone: '+51984000111', device_id: 'provider_device_000001' });
+    assert.equal(login.status, 201);
+    assert.equal(login.body.role, 'PROVIDER');
+    assert.equal(login.body.provider_id, conf.body.provider_id);
+    const mine = { 'X-Provider-Id': login.body.provider_id, 'X-Provider-Token': login.body.provider_token };
+    const me = await call('GET', '/providers/me', undefined, mine);
+    assert.equal(me.status, 200);
+    assert.ok(!JSON.stringify(me.body).includes('20100190797'), 'RUC enmascarado');
+    // Sesión única: el token del registro dejó de valer al iniciar sesión.
+    const old = { 'X-Provider-Id': conf.body.provider_id, 'X-Provider-Token': conf.body.provider_token };
+    assert.equal((await call('GET', '/providers/me', undefined, old)).status, 401);
+
+    const bad = await call('POST', '/auth/sessions', { pin: '000111', phone: '+51984000111', device_id: 'provider_device_000001' });
+    assert.equal(bad.status, 401);
+    assert.equal((await call('POST', '/providers/logout', undefined, mine)).status, 204);
+    assert.equal((await call('GET', '/providers/me', undefined, mine)).status, 401, 'tras cerrar sesión el token no sirve');
+  });
+
+  test('BUG-02: iniciar sesión en un equipo cierra la sesión y el token del otro', async () => {
+    resetRateLimits();
+    await register('930000020', '73000020', '739164');
+    const A = 'single_session_device_A1';
+    const B = 'single_session_device_B1';
+    const la = await call('POST', '/auth/sessions', { pin: '739164', phone: '+51930000020', device_id: A });
+    assert.equal(la.status, 201);
+    const hdrA = { Authorization: `Bearer ${la.body.access_token}`, 'X-Device-Id': A };
+    assert.equal((await call('GET', '/merchants/me/payments/limits', undefined, hdrA)).status, 200);
+
+    const lb = await call('POST', '/auth/sessions', { pin: '739164', phone: '+51930000020', device_id: B });
+    assert.equal(lb.status, 201);
+    assert.equal((await call('GET', '/merchants/me/payments/limits', undefined, hdrA)).status, 401, 'la sesión del equipo A se cerró');
+    process.env.KUOTA_REQUIRE_MERCHANT_TOKEN = '1';
+    try {
+      const idA = { 'X-Merchant-Id': lb.body.merchant_id, 'X-Merchant-Token': la.body.identity_token, 'X-Device-Id': A };
+      assert.equal((await call('GET', '/auth/me', undefined, idA)).status, 401, 'el token de A ya no sirve');
+      const idB = { 'X-Merchant-Id': lb.body.merchant_id, 'X-Merchant-Token': lb.body.identity_token, 'X-Device-Id': B };
+      assert.equal((await call('GET', '/auth/me', undefined, idB)).status, 200);
+    } finally {
+      delete process.env.KUOTA_REQUIRE_MERCHANT_TOKEN;
+    }
+
+    // "Cerrar sesión en otros dispositivos" desde B no afecta a B.
+    resetRateLimits();
+    const hdrB = { Authorization: `Bearer ${lb.body.access_token}`, 'X-Device-Id': B };
+    const closed = await call('POST', '/auth/sessions/others/close', undefined, hdrB);
+    assert.equal(closed.status, 200);
+    assert.equal((await call('GET', '/merchants/me/payments/limits', undefined, hdrB)).status, 200);
+  });
+});
+
+describe('Proveedor: recuperar el PIN', () => {
+  test('con el DNI del representante se restablece el PIN y se inicia sesión', async () => {
+    resetRateLimits();
+    const sid = 'ses_provider_rec_' + Date.now();
+    const conf = await call('POST', '/businesses/confirm', { session_id: sid, ruc: '20100047218', legal_rep_dni: '47891777', whatsapp: '984000222' });
+    assert.equal(conf.status, 201);
+    assert.equal((await call('POST', `/onboarding/sessions/${sid}/security-pin`, { pin: '739164' })).status, 200);
+    const bad = await call('POST', '/auth/pin/recover', { phone: '+51984000222', dni: '11111111', new_pin: '861953', device_id: 'provider_device_000002' });
+    assert.equal(bad.status, 403);
+    const ok = await call('POST', '/auth/pin/recover', { phone: '+51984000222', dni: '47891777', new_pin: '861953', device_id: 'provider_device_000002' });
+    assert.equal(ok.status, 201);
+    assert.equal(ok.body.role, 'PROVIDER');
+    assert.equal((await call('POST', '/auth/sessions', { pin: '739164', phone: '+51984000222', device_id: 'provider_device_000002' })).status, 401, 'el PIN viejo ya no sirve');
+    assert.equal((await call('POST', '/auth/sessions', { pin: '861953', phone: '+51984000222', device_id: 'provider_device_000002' })).status, 201);
+  });
+});

@@ -119,15 +119,15 @@ export const ProviderSavingsScreen: React.FC<ProviderSavingsScreenProps> = ({ on
         {/* Benefits List (PRD 16) */}
         <div className="space-y-1.5 text-xs text-[#0b2545]">
           <motion.div whileHover={{ x: 2 }} className="p-2.5 bg-white rounded-xl border border-blue-100 flex items-center gap-2 shadow-xs">
-            <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+            <CheckCircle2 size={16} className="text-emerald-700 shrink-0" />
             <span>Comisión fija de 1.00% garantizada por contrato.</span>
           </motion.div>
           <motion.div whileHover={{ x: 2 }} className="p-2.5 bg-white rounded-xl border border-blue-100 flex items-center gap-2 shadow-xs">
-            <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+            <CheckCircle2 size={16} className="text-emerald-700 shrink-0" />
             <span>Abono inmediato a tu cuenta bancaria sin retenciones de fin de semana.</span>
           </motion.div>
           <motion.div whileHover={{ x: 2 }} className="p-2.5 bg-white rounded-xl border border-blue-100 flex items-center gap-2 shadow-xs">
-            <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+            <CheckCircle2 size={16} className="text-emerald-700 shrink-0" />
             <span>Cero costos fijos, sin mensualidades ni costo por terminal POS.</span>
           </motion.div>
         </div>

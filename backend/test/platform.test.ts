@@ -63,11 +63,11 @@ describe('Migraciones', () => {
     const before = await db.all<{ version: string }>('SELECT version FROM public.schema_migrations ORDER BY version');
     assert.deepEqual(
       before.map((r) => r.version),
-      ['0001_core.sql', '0002_payments.sql', '0003_roles.sql', '0004_pay360_coupons.sql', '0005_kyc_didit.sql', '0006_provider_settlement.sql', '0007_openpay.sql', '0008_scoring_level1.sql', '0009_provider_access.sql', '0010_identity_token.sql', '0011_complaints.sql']
+      ['0001_core.sql', '0002_payments.sql', '0003_roles.sql', '0004_pay360_coupons.sql', '0005_kyc_didit.sql', '0006_provider_settlement.sql', '0007_openpay.sql', '0008_scoring_level1.sql', '0009_provider_access.sql', '0010_identity_token.sql', '0011_complaints.sql', '0012_provider_login.sql']
     );
     await migrate(db);
     const again = await db.get<{ n: number }>('SELECT COUNT(*) AS n FROM public.schema_migrations');
-    assert.equal(again!.n, 11);
+    assert.equal(again!.n, 12);
   });
 
   test('las tablas de dinero viven en el esquema payments', async () => {

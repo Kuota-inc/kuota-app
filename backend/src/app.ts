@@ -75,7 +75,7 @@ export async function createApp() {
   if (!config.isProd) app.use('/api/v1/dev', devRouter);
 
   app.get('/api/v1/health', (_req: Request, res: Response) => {
-    res.json({ status: 'ok', app: 'Kuota Backend API', version: '1.1.0', currency: 'PEN', timestamp: new Date().toISOString() });
+    res.json({ status: 'ok', app: 'Kuota Backend API', version: '1.1.0', currency: 'PEN', sandbox: config.sandboxEnabled, timestamp: new Date().toISOString() });
   });
 
   // Página de cobro para clientes (sin sesión, HTML)

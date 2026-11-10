@@ -39,9 +39,11 @@ const DEFAULT_LEVELS = [
 interface CreditLineScreenProps {
   /** Abre el detalle de la compra y sus cuotas. */
   onViewInstallments?: () => void;
+  /** Calendario de pagos y cobros. */
+  onOpenCalendar?: () => void;
 }
 
-export const CreditLineScreen: React.FC<CreditLineScreenProps> = ({ onViewInstallments }) => {
+export const CreditLineScreen: React.FC<CreditLineScreenProps> = ({ onViewInstallments, onOpenCalendar }) => {
   const toast = useToast();
   const [lineData, setLineData] = useState<any>(DEFAULT_LINE_DATA);
   const [levels, setLevels] = useState<any[]>(DEFAULT_LEVELS);
@@ -135,22 +137,35 @@ export const CreditLineScreen: React.FC<CreditLineScreenProps> = ({ onViewInstal
         </button>
       </div>
 
+      {onOpenCalendar && (
+        <button
+          type="button"
+          onClick={onOpenCalendar}
+          className="w-full p-3 rounded-2xl bg-white border-2 border-[#1a3bb0]/25 text-[#00248b] font-black text-sm flex items-center justify-center gap-2 cursor-pointer"
+        >
+          <span className="material-symbols-outlined text-xl">calendar_month</span>
+          Calendario de pagos y cobros
+        </button>
+      )}
+
       {/* Cuotas Pendientes Section */}
       {activePurchase?.next_installment && (
         <div className="space-y-2">
           <div className="flex justify-between items-center text-xs font-bold text-[#0b2545]">
             <span>
-              Cuotas pendientes ({pendingCount} {pendingCount === 1 ? 'activa' : 'activas'})
+              Mis pagos pendientes ({pendingCount} {pendingCount === 1 ? 'activo' : 'activos'})
             </span>
-            {onViewInstallments && (
-              <button
-                type="button"
-                onClick={onViewInstallments}
-                className="text-[10px] text-[#1a3bb0] hover:underline rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-[#b8c3ff]"
-              >
-                Ver todas
-              </button>
-            )}
+            <span className="flex items-center gap-3">
+              {onViewInstallments && (
+                <button
+                  type="button"
+                  onClick={onViewInstallments}
+                  className="text-[11px] text-[#1a3bb0] font-bold underline rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-[#b8c3ff]"
+                >
+                  Ver todas
+                </button>
+              )}
+            </span>
           </div>
 
           <div className="p-3.5 bg-white rounded-2xl border border-blue-100 shadow-sm flex items-center justify-between">
@@ -182,7 +197,7 @@ export const CreditLineScreen: React.FC<CreditLineScreenProps> = ({ onViewInstal
       {/* Bloque 3: Banner listener de pagos */}
       {Capacitor.isNativePlatform() && listenerGranted === false && (
         <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-2xl flex items-start gap-3">
-          <span className="material-symbols-outlined text-amber-600 text-xl mt-0.5 shrink-0">notifications_active</span>
+          <span className="material-symbols-outlined text-amber-700 text-xl mt-0.5 shrink-0">notifications_active</span>
           <div className="flex-1 min-w-0 space-y-2">
             <div className="text-xs font-bold text-amber-900">Detecta pagos Yape/Plin automáticamente</div>
             <p className="text-[10px] text-amber-800 leading-snug">
@@ -234,7 +249,7 @@ export const CreditLineScreen: React.FC<CreditLineScreenProps> = ({ onViewInstal
                     <div className="text-xs font-bold text-[#0b2545] flex items-center gap-1.5">
                       <span>{lvl.name}</span>
                       {isCurrent && (
-                        <span className="text-[9px] bg-[#1a3bb0] text-white px-1.5 py-0.2 rounded font-bold">
+                        <span className="text-[10px] bg-[#1a3bb0] text-white px-1.5 py-0.2 rounded font-bold">
                           Tu nivel actual
                         </span>
                       )}

@@ -676,18 +676,25 @@ onboardingRouter.post('/sessions/:id/security-pin', async (req, res) => {
     return res.status(422).json({ error: { code: 'WEAK_PIN', message: problem } });
   }
 
-  const session = await db.prepare('SELECT id, user_id FROM onboarding_sessions WHERE id = ?').get(sessionId) as any;
-  if (!session) {
-    return res.status(404).json({ error: { code: 'SESSION_NOT_FOUND', message: 'Sesión de registro no encontrada.' } });
-  }
+  // La app puede conocer solo su propio id de sesión (no el del servidor): si no existe, se crea ahora con
+  // el rol que corresponde (proveedor si ya hay un perfil de proveedor con ese id de sesión).
+  const providerOwner = (await db.prepare('SELECT id, pin_hash FROM provider_profiles WHERE session_id = ?').get(sessionId)) as { id: string; pin_hash: string | null } | undefined;
+  const session = (await ensureSession(sessionId, providerOwner ? 'PROVIDER' : 'MERCHANT', true)) as any;
   // Con el id de sesión (que no es secreto) no se puede sobrescribir el PIN de una cuenta ya
   // protegida: para eso están /auth/pin/change y /auth/pin/recover.
   const owner = await db.prepare('SELECT id FROM merchant_profiles WHERE session_id = ?').get(sessionId) as { id: string } | undefined;
   if (owner && (await credentialFor(owner.id))) {
     return res.status(409).json({ error: { code: 'PIN_ALREADY_SET', message: 'Esta cuenta ya tiene un PIN. Usa "¿Olvidé mi PIN?" si no lo recuerdas.' } });
   }
+  if (providerOwner?.pin_hash) {
+    return res.status(409).json({ error: { code: 'PIN_ALREADY_SET', message: 'Esta cuenta ya tiene un PIN. Inicia sesión con tu PIN.' } });
+  }
   // El PIN nunca se guarda en texto plano: scrypt con pimienta (ver security/crypto.ts).
   const pinHash = hashPin(pin);
+  if (providerOwner) {
+    // Credencial del proveedor: con ella inicia sesión después (teléfono + PIN).
+    await db.prepare('UPDATE provider_profiles SET pin_hash = ?, pin_failed_attempts = 0, pin_locked_until = NULL WHERE id = ?').run(pinHash, providerOwner.id);
+  }
   const merchant = await db.transaction(async () => {
     await db.prepare('UPDATE onboarding_sessions SET security_pin = ?, current_step = ? WHERE id = ?').run(pinHash, 'PIN_CONFIGURED', sessionId);
     if (session.user_id) {

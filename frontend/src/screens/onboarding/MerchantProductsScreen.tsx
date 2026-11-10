@@ -112,7 +112,7 @@ export const MerchantProductsScreen: React.FC<MerchantProductsScreenProps> = ({ 
                   aria-label={`Nombre del producto ${idx + 1}`}
                   maxLength={60}
                   placeholder="Ej. Blusa lino, Saco arroz 50kg"
-                  className="w-full text-xs font-bold text-[#0b2545] placeholder:text-slate-400 focus:outline-none"
+                  className="w-full text-xs font-bold text-[#0b2545] placeholder:text-slate-500 focus:outline-none"
                 />
                 <div className="flex items-center gap-1 text-xs text-[#1a3bb0] font-extrabold">
                   <span>S/</span>
@@ -138,7 +138,7 @@ export const MerchantProductsScreen: React.FC<MerchantProductsScreenProps> = ({ 
                 aria-label={`Marcar producto ${idx + 1} como frecuente`}
                 aria-pressed={!!row.is_frequent}
                 className={`p-1.5 rounded-lg text-xs font-semibold transition ${
-                  row.is_frequent ? 'bg-amber-100 text-amber-800' : 'text-slate-400 hover:bg-slate-100'
+                  row.is_frequent ? 'bg-amber-100 text-amber-800' : 'text-slate-500 hover:bg-slate-100'
                 }`}
               >
                 ★
@@ -150,7 +150,7 @@ export const MerchantProductsScreen: React.FC<MerchantProductsScreenProps> = ({ 
                 onClick={() => removeRow(idx)}
                 aria-label={`Eliminar producto ${idx + 1}`}
                 title="Eliminar producto"
-                className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition"
+                className="p-1.5 text-slate-500 hover:text-red-500 hover:bg-red-50 rounded-lg transition"
               >
                 <Trash2 size={15} aria-hidden="true" />
               </button>

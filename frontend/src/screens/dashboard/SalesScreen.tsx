@@ -180,7 +180,7 @@ export const SalesScreen: React.FC = () => {
             aria-label="Buscar ventas por concepto o número de operación"
             placeholder="Buscar por concepto u operación"
             maxLength={60}
-            className="w-full pl-8 pr-8 py-2 bg-white rounded-xl border border-[#e1e8f8] text-xs font-semibold text-[#0b2545] placeholder:text-slate-400 focus:outline-none focus:border-[#1a3bb0] [&::-webkit-search-cancel-button]:hidden"
+            className="w-full pl-8 pr-8 py-2 bg-white rounded-xl border border-[#e1e8f8] text-xs font-semibold text-[#0b2545] placeholder:text-slate-500 focus:outline-none focus:border-[#1a3bb0] [&::-webkit-search-cancel-button]:hidden"
           />
           {search && (
             <button
@@ -261,7 +261,7 @@ export const SalesScreen: React.FC = () => {
                     S/ {(sale.amount_cents / 100).toFixed(2)}
                   </div>
                   <span
-                    className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
+                    className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
                       sale.verified ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-600'
                     }`}
                   >

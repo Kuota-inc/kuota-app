@@ -157,7 +157,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateTab, onOpenKuo
           >
             <div className="text-[10px] font-semibold text-[#4a5f7e] group-hover:text-[#1a3bb0] transition-colors flex items-center gap-1">
               <span>{data?.greeting_prefix || 'Buenas noches'}</span>
-              <span className="text-[9px] bg-blue-100 text-[#00248b] px-1 py-0.2 rounded font-bold">Perfil</span>
+              <span className="text-[10px] bg-blue-100 text-[#00248b] px-1 py-0.2 rounded font-bold">Perfil</span>
             </div>
             <div className="text-lg font-black text-[#0b2545] tracking-tight group-hover:text-[#00248b] transition-colors">
               {data?.greeting_name || ''}
@@ -257,13 +257,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateTab, onOpenKuo
             </span>
             Crédito rotativo activo
           </span>
-          <motion.button
-            whileHover={{ x: 2 }}
-            onClick={() => onNavigateTab('linea')}
-            className="font-bold text-white hover:underline flex items-center gap-0.5"
-          >
-            Aumentar límite <ChevronRight size={12} />
-          </motion.button>
         </div>
       </motion.div>
 
@@ -285,6 +278,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateTab, onOpenKuo
               <div className="text-[11px] text-[#4a5f7e]">
                 Vence el <strong>{nextInst.due_date}</strong>
               </div>
+              <button
+                type="button"
+                onClick={() => onNavigateTab('calendario')}
+                className="text-[11px] font-bold text-[#1a3bb0] underline cursor-pointer"
+              >
+                Ver calendario
+              </button>
             </div>
             <div className="text-right flex flex-col items-end gap-1.5">
               <div className="text-sm font-black text-[#0b2545]">
@@ -292,10 +292,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateTab, onOpenKuo
               </div>
               <motion.button
                 whileTap={{ scale: 0.92 }}
-                whileHover={{ scale: 1.05 }}
                 onClick={() => handlePayInstallment(nextInst.installment_id)}
                 disabled={paying}
-                className="px-3 py-1 bg-gradient-to-r from-[#1a3bb0] to-[#00248b] text-white rounded-xl text-xs font-bold shadow-md shadow-blue-900/15 transition cursor-pointer"
+                className="px-3.5 py-1.5 bg-white border-2 border-[#1a3bb0] text-[#00248b] rounded-xl text-xs font-black transition cursor-pointer"
               >
                 {paying ? '...' : 'Pagar ahora'}
               </motion.button>
@@ -304,54 +303,15 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateTab, onOpenKuo
         )}
       </AnimatePresence>
 
-      {/* Quick Action Buttons (4 grid with micro-interactions) */}
-      <motion.div variants={itemVariants} className="grid grid-cols-4 gap-2 text-center">
+      {/* Acción principal: un solo botón primario por pantalla. Comprar a crédito vive en el botón central de la barra. */}
+      <motion.div variants={itemVariants}>
         <motion.button
-          whileTap={{ scale: 0.9 }}
-          whileHover={{ y: -3, scale: 1.02 }}
-          onClick={onOpenKuotear}
-          className="p-2.5 bg-white rounded-2xl border border-[#e1e8f8] hover:border-[#1a3bb0] transition flex flex-col items-center gap-1 group shadow-sm cursor-pointer"
-        >
-          <div className="w-10 h-10 rounded-xl bg-blue-50 text-[#1a3bb0] group-hover:bg-[#1a3bb0] group-hover:text-white transition flex items-center justify-center shadow-inner">
-            <span className="material-symbols-outlined text-xl">shopping_cart_checkout</span>
-          </div>
-          <span className="text-[10px] font-bold text-[#0b2545]">Kuotear</span>
-        </motion.button>
-
-        <motion.button
-          whileTap={{ scale: 0.9 }}
-          whileHover={{ y: -3, scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
           onClick={() => onNavigateTab('cobros')}
-          className="p-2.5 bg-white rounded-2xl border border-[#e1e8f8] hover:border-[#1a3bb0] transition flex flex-col items-center gap-1 group shadow-sm cursor-pointer"
+          className="w-full py-4 rounded-2xl bg-gradient-to-r from-[#00248b] to-[#1a3bb0] text-white font-black text-base shadow-lg shadow-blue-900/25 flex items-center justify-center gap-2.5 cursor-pointer"
         >
-          <div className="w-10 h-10 rounded-xl bg-blue-50 text-[#1a3bb0] group-hover:bg-[#1a3bb0] group-hover:text-white transition flex items-center justify-center shadow-inner">
-            <span className="material-symbols-outlined text-xl">qr_code_2</span>
-          </div>
-          <span className="text-[10px] font-bold text-[#0b2545]">Cobrar (1%)</span>
-        </motion.button>
-
-        <motion.button
-          whileTap={{ scale: 0.9 }}
-          whileHover={{ y: -3, scale: 1.02 }}
-          onClick={() => onNavigateTab('linea')}
-          className="p-2.5 bg-white rounded-2xl border border-[#e1e8f8] hover:border-[#1a3bb0] transition flex flex-col items-center gap-1 group shadow-sm cursor-pointer"
-        >
-          <div className="w-10 h-10 rounded-xl bg-blue-50 text-[#1a3bb0] group-hover:bg-[#1a3bb0] group-hover:text-white transition flex items-center justify-center shadow-inner">
-            <span className="material-symbols-outlined text-xl">calendar_month</span>
-          </div>
-          <span className="text-[10px] font-bold text-[#0b2545]">Mis cuotas</span>
-        </motion.button>
-
-        <motion.button
-          whileTap={{ scale: 0.9 }}
-          whileHover={{ y: -3, scale: 1.02 }}
-          onClick={() => onNavigateTab('ventas')}
-          className="p-2.5 bg-white rounded-2xl border border-[#e1e8f8] hover:border-[#1a3bb0] transition flex flex-col items-center gap-1 group shadow-sm cursor-pointer"
-        >
-          <div className="w-10 h-10 rounded-xl bg-blue-50 text-[#1a3bb0] group-hover:bg-[#1a3bb0] group-hover:text-white transition flex items-center justify-center shadow-inner">
-            <span className="material-symbols-outlined text-xl">analytics</span>
-          </div>
-          <span className="text-[10px] font-bold text-[#0b2545]">Mi Score</span>
+          <span className="material-symbols-outlined text-2xl">qr_code_2</span>
+          Nuevo cobro
         </motion.button>
       </motion.div>
 
@@ -397,7 +357,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateTab, onOpenKuo
             </div>
             <div className="flex items-center gap-1.5">
               {scoreData.scoring_level >= 1 && (
-                <span className="text-[9px] font-bold bg-teal-50 text-teal-700 border border-teal-200 px-1.5 py-0.5 rounded-full">
+                <span className="text-[10px] font-bold bg-teal-50 text-teal-700 border border-teal-200 px-1.5 py-0.5 rounded-full">
                   SUNAT ✓
                 </span>
               )}
@@ -406,14 +366,32 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateTab, onOpenKuo
               </span>
             </div>
           </div>
-          <div className="h-1.5 w-full bg-[#e1e8f8] rounded-full overflow-hidden">
-            <motion.div
-              initial={{ width: 0 }}
-              animate={{ width: `${Math.round(((scoreData.total - 300) / 600) * 100)}%` }}
-              transition={{ duration: 0.8, ease: 'easeOut' }}
-              className="h-full bg-gradient-to-r from-[#1a3bb0] to-teal-400 rounded-full"
-            />
-          </div>
+          {(() => {
+            const LEVELS = [{ at: 450, name: 'Básico' }, { at: 600, name: 'Intermedio' }, { at: 750, name: 'Avanzado' }];
+            const total = scoreData.total as number;
+            const next = LEVELS.find((l) => l.at > total);
+            const start = [...LEVELS].reverse().find((l) => l.at <= total)?.at ?? 300;
+            const pct = next ? Math.max(4, Math.round(((total - start) / (next.at - start)) * 100)) : 100;
+            return (
+              <div className="space-y-1">
+                <div className="h-2.5 w-full bg-[#e1e8f8] rounded-full overflow-hidden" role="progressbar" aria-valuemin={start} aria-valuemax={next?.at ?? total} aria-valuenow={total}>
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${pct}%` }}
+                    transition={{ duration: 0.9, ease: 'easeOut' }}
+                    className="h-full bg-gradient-to-r from-[#1a3bb0] to-teal-500 rounded-full"
+                  />
+                </div>
+                <p className="text-[11px] font-bold text-[#0b2545]">
+                  {next ? (
+                    <>Te faltan <span className="text-[#1a3bb0]">{next.at - total} pts</span> para el nivel {next.name} · mejor límite de crédito</>
+                  ) : (
+                    <>¡Llegaste al nivel más alto! Sigue pagando a tiempo para mantenerlo.</>
+                  )}
+                </p>
+              </div>
+            );
+          })()}
           {/* Level 0 dimensions */}
           <div className="grid grid-cols-3 gap-1 pt-0.5">
             {[
@@ -422,7 +400,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateTab, onOpenKuo
               { label: 'Clientes', val: scoreData.payer_diversity, max: 100 },
             ].map(({ label, val, max }) => (
               <div key={label} className="text-center">
-                <div className="text-[9px] text-[#4a5f7e] font-medium">{label}</div>
+                <div className="text-[10px] text-[#4a5f7e] font-medium">{label}</div>
                 <div className="text-[10px] font-bold text-[#0b2545]">{val}/{max}</div>
               </div>
             ))}
@@ -436,7 +414,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateTab, onOpenKuo
                 { label: 'Yape/Plin', val: scoreData.captura_pagos, max: 50 },
               ].map(({ label, val, max }) => (
                 <div key={label} className="text-center">
-                  <div className="text-[9px] text-teal-600 font-medium">{label}</div>
+                  <div className="text-[10px] text-teal-600 font-medium">{label}</div>
                   <div className="text-[10px] font-bold text-teal-800">{val}/{max}</div>
                 </div>
               ))}
@@ -449,13 +427,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateTab, onOpenKuo
       <motion.div variants={itemVariants} className="space-y-2 pb-2">
         <div className="flex items-center justify-between text-xs font-bold text-[#0b2545]">
           <span>Beneficios y Promociones</span>
-          <button
-            type="button"
-            onClick={() => onNavigateTab('linea')}
-            className="text-[10px] text-[#1a3bb0] font-semibold cursor-pointer hover:underline rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-[#b8c3ff]"
-          >
-            Ver escala
-          </button>
         </div>
 
         {/* Featured Flyer Banner with interactive hover */}
@@ -487,7 +458,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateTab, onOpenKuo
               className="p-3 bg-white rounded-2xl border border-[#e1e8f8] shadow-sm flex items-center justify-between hover:border-blue-200 transition"
             >
               <div>
-                <span className="text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-blue-50 text-[#1a3bb0]">
+                <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-blue-50 text-[#1a3bb0]">
                   {promo.tag}
                 </span>
                 <div className="text-xs font-bold text-[#0b2545] mt-1">{promo.headline}</div>

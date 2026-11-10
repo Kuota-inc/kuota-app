@@ -463,7 +463,7 @@ export const OcrScannerModal: React.FC<OcrScannerModalProps> = ({
               type="button"
               aria-label="Cerrar escáner"
               onClick={closeScanner}
-              className="p-1.5 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition cursor-pointer"
+              className="p-1.5 rounded-full text-slate-500 hover:text-slate-700 hover:bg-slate-200/60 transition cursor-pointer"
             >
               <X size={18} />
             </button>
@@ -577,7 +577,7 @@ export const OcrScannerModal: React.FC<OcrScannerModalProps> = ({
               <div className="space-y-3">
                 {cameraError ? (
                   <div className="p-4 bg-amber-50 rounded-2xl border border-amber-200 text-center space-y-2">
-                    <AlertCircle size={24} className="text-amber-600 mx-auto" />
+                    <AlertCircle size={24} className="text-amber-700 mx-auto" />
                     <p className="text-xs text-amber-900 font-semibold">{cameraError}</p>
                     <button
                       onClick={handleOpenNativeCamera}
@@ -682,7 +682,7 @@ export const OcrScannerModal: React.FC<OcrScannerModalProps> = ({
               <div className="space-y-3.5">
                 {/* Success Banner */}
                 <div className="p-3 bg-emerald-50 rounded-2xl border border-emerald-200 flex items-center gap-2 text-emerald-900">
-                  <CheckCircle2 size={18} className="text-emerald-600 shrink-0" />
+                  <CheckCircle2 size={18} className="text-emerald-700 shrink-0" />
                   <div className="text-xs">
                     <span className="font-extrabold">¡Comprobante Verificado! </span>
                     <span className="text-[11px] text-emerald-700">

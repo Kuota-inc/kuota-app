@@ -114,7 +114,7 @@ export const ChangePinPanel: React.FC<{ onClose: () => void }> = ({ onClose }) =
       <PinField id="pin-nuevo" label="Nuevo PIN (6 dígitos)" value={next} onChange={setNext} />
       <PinField id="pin-confirmar" label="Confirma el nuevo PIN" value={confirm} onChange={setConfirm} />
       {confirm.length === 6 && (
-        <p className={`text-[11px] font-semibold flex items-center gap-1 ${next === confirm ? 'text-emerald-600' : 'text-red-600'}`}>
+        <p className={`text-[11px] font-semibold flex items-center gap-1 ${next === confirm ? 'text-emerald-700' : 'text-red-600'}`}>
           {next === confirm ? '✓ Los PINs coinciden' : '✗ Los PINs no coinciden'}
         </p>
       )}
@@ -141,6 +141,20 @@ export const ChangePinPanel: React.FC<{ onClose: () => void }> = ({ onClose }) =
 export const DevicesPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const { data, error, reload, toast } = useSecureLoad(() => paymentsApi.getDevices(), onClose);
   const [busyRef, setBusyRef] = useState<string | null>(null);
+  const [closingOthers, setClosingOthers] = useState(false);
+
+  const closeOthers = async () => {
+    setClosingOthers(true);
+    try {
+      const r = await paymentsApi.closeOtherSessions();
+      toast.success(r.sessions_closed ? 'Cerramos tu sesión en los demás dispositivos.' : 'No había otras sesiones abiertas.');
+      reload();
+    } catch (e) {
+      if (!isCancelled(e)) toast.error(e instanceof Error ? e.message : 'No pudimos cerrar las otras sesiones.');
+    } finally {
+      setClosingOthers(false);
+    }
+  };
 
   const revoke = async (d: LinkedDevice) => {
     setBusyRef(d.ref);
@@ -158,6 +172,17 @@ export const DevicesPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => 
   return (
     <div className="space-y-4">
       <Header title="Dispositivos vinculados" onClose={onClose} />
+      <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200 text-[11px] text-amber-900 leading-snug">
+        Tu cuenta solo puede estar abierta en <b>un equipo a la vez</b>: al iniciar sesión en otro, este se cierra solo.
+      </div>
+      <button
+        type="button"
+        disabled={closingOthers}
+        onClick={closeOthers}
+        className="w-full py-2.5 rounded-xl border border-[#c5c5d6] bg-white text-xs font-bold text-[#00248b] disabled:opacity-50 cursor-pointer active:scale-[0.99]"
+      >
+        {closingOthers ? 'Cerrando…' : 'Cerrar sesión en otros dispositivos'}
+      </button>
       {error && <ErrorNote message={error} />}
       {!data && !error && <Loading />}
       {data && (

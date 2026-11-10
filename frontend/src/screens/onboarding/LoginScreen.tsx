@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { apiRequest, setMerchantId, setMerchantToken } from '../../api/client';
+import { apiRequest, setMerchantId, setMerchantToken, setProviderId, setProviderToken } from '../../api/client';
 import { deviceId } from '../../api/payments';
 import { Capacitor } from '@capacitor/core';
 import {
@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 
 interface LoginScreenProps {
-  onSuccess: () => void;
+  onSuccess: (role?: 'PROVIDER') => void;
   onBack: () => void;
 }
 
@@ -93,7 +93,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, onBack }) =
     setError(null);
     setMerchantId(null);
     try {
-      const res = await apiRequest<{ access_token: string; merchant_id: string; identity_token?: string; expires_at: string }>(
+      const res = await apiRequest<{ access_token: string; merchant_id: string; identity_token?: string; expires_at: string; role?: 'PROVIDER'; provider_id?: string; provider_token?: string }>(
         '/auth/sessions',
         {
           method: 'POST',
@@ -105,6 +105,14 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, onBack }) =
           }),
         }
       );
+      if (res.role === 'PROVIDER' && res.provider_id) {
+        // Cuenta de proveedor: guarda su id y su token (reemplaza al anterior: una sola sesión).
+        setMerchantId(null);
+        setProviderId(res.provider_id);
+        if (res.provider_token) setProviderToken(res.provider_token);
+        onSuccess('PROVIDER');
+        return;
+      }
       if (res.merchant_id) setMerchantId(res.merchant_id);
       if (res.identity_token) setMerchantToken(res.identity_token);
       onSuccess();
@@ -129,7 +137,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, onBack }) =
     setError(null);
     setMerchantId(null);
     try {
-      const res = await apiRequest<{ access_token: string; merchant_id: string; identity_token?: string; expires_at: string }>(
+      const res = await apiRequest<{ access_token: string; merchant_id: string; identity_token?: string; expires_at: string; role?: 'PROVIDER'; provider_id?: string; provider_token?: string }>(
         '/auth/pin/recover',
         {
           method: 'POST',
@@ -142,6 +150,14 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, onBack }) =
           }),
         }
       );
+      if (res.role === 'PROVIDER' && res.provider_id) {
+        // Cuenta de proveedor: guarda su id y su token (reemplaza al anterior: una sola sesión).
+        setMerchantId(null);
+        setProviderId(res.provider_id);
+        if (res.provider_token) setProviderToken(res.provider_token);
+        onSuccess('PROVIDER');
+        return;
+      }
       if (res.merchant_id) setMerchantId(res.merchant_id);
       if (res.identity_token) setMerchantToken(res.identity_token);
       onSuccess();

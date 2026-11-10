@@ -342,7 +342,7 @@ export const SecurityPinScreen: React.FC<SecurityPinScreenProps> = ({
                 animate={{ opacity: 1, scale: 1 }}
                 className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold"
               >
-                <CheckCircle2 size={14} className="text-emerald-600" />
+                <CheckCircle2 size={14} className="text-emerald-700" />
                 <span>¡Los 6 dígitos coinciden perfectamente!</span>
               </motion.div>
             ) : null}
@@ -390,11 +390,11 @@ export const SecurityPinScreen: React.FC<SecurityPinScreenProps> = ({
           >
             <span className="text-xl font-black text-[#0b2545] leading-none">{k.num}</span>
             {k.letters ? (
-              <span className="text-[9px] text-[#4a5f7e] font-bold tracking-widest mt-0.5">
+              <span className="text-[10px] text-[#4a5f7e] font-bold tracking-widest mt-0.5">
                 {k.letters}
               </span>
             ) : (
-              <span className="text-[9px] opacity-0 mt-0.5">•</span>
+              <span className="text-[10px] opacity-0 mt-0.5">•</span>
             )}
           </motion.button>
         ))}
@@ -408,7 +408,7 @@ export const SecurityPinScreen: React.FC<SecurityPinScreenProps> = ({
             aria-label="Biometría"
           >
             <Fingerprint size={24} />
-            <span className="text-[8px] font-bold uppercase tracking-wider mt-0.5 text-slate-400">
+            <span className="text-[10px] font-bold uppercase tracking-wider mt-0.5 text-slate-500">
               Biometría
             </span>
           </motion.button>
@@ -429,7 +429,7 @@ export const SecurityPinScreen: React.FC<SecurityPinScreenProps> = ({
           className="w-20 h-14 sm:w-22 sm:h-15 rounded-2xl bg-white border border-[#e1e8f8] shadow-xs hover:border-[#b6ccfd] active:bg-[#eff3ff] flex flex-col items-center justify-center transition-all cursor-pointer"
         >
           <span className="text-xl font-black text-[#0b2545] leading-none">0</span>
-          <span className="text-[9px] text-[#4a5f7e] font-bold mt-0.5">+</span>
+          <span className="text-[10px] text-[#4a5f7e] font-bold mt-0.5">+</span>
         </motion.button>
 
         {/* Backspace Key */}

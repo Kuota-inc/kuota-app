@@ -28,6 +28,7 @@ import {
   LogOut
 } from 'lucide-react';
 import { API_ORIGIN, api } from '../../api/client';
+import { supportDisplay, whatsappLink } from '../../config/support';
 import { KuotaBiometric, biometricReasonText } from '../../plugins/kuotaBiometric';
 import { isBiometricEnabled, setBiometricEnabled } from '../../services/appSettings';
 import { disableListener, enableListener, listenerStatus, onListenerChange, refreshListener, type ListenerStatus } from '../../services/paymentListener';
@@ -373,13 +374,13 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onLogout }
           <div className="p-3 rounded-2xl bg-[#eff3ff] flex items-center justify-between gap-3 border border-transparent hover:border-blue-200">
             <div className="flex items-start gap-3 min-w-0">
               <div className="w-8 h-8 rounded-xl bg-[#d8e2ff] text-[#00248b] flex items-center justify-center shrink-0 mt-0.5">
-                <Radio size={18} className={isListenerActive ? 'animate-pulse text-[#00248b]' : 'text-slate-400'} />
+                <Radio size={18} className={isListenerActive ? 'animate-pulse text-[#00248b]' : 'text-slate-500'} />
               </div>
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5">
                   <p className="text-xs font-bold text-[#151c27]">Listener Yape &amp; Plin</p>
                   <span
-                    className={`px-1.5 py-0.2 rounded text-[9px] font-black uppercase ${
+                    className={`px-1.5 py-0.2 rounded text-[10px] font-black uppercase ${
                       isListenerActive ? 'bg-[#00248b]/10 text-[#00248b]' : 'bg-slate-200 text-slate-600'
                     }`}
                   >
@@ -556,7 +557,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onLogout }
 
           {/* WhatsApp Oficial CTA */}
           <a
-            href="https://wa.me/51987654321?text=Hola%20Kuota,%20necesito%20ayuda%20con%20mi%20cuenta"
+            href={whatsappLink('Hola Kuota, necesito ayuda con mi cuenta.\nPantalla: Mi cuenta')}
             target="_blank"
             rel="noopener noreferrer"
             className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-[#00248b] hover:bg-[#1a3bb0] text-white active:scale-[0.98] transition shadow-md shadow-blue-900/20"
@@ -567,7 +568,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onLogout }
               </div>
               <div className="text-left">
                 <p className="text-xs font-bold">Soporte Kuota (WhatsApp oficial)</p>
-                <p className="text-[10px] text-blue-200">+51 987 654 321 · Atención inmediata</p>
+                <p className="text-[10px] text-blue-200">{supportDisplay()} · Atención inmediata</p>
               </div>
             </div>
             <ChevronRight size={18} />
@@ -1007,7 +1008,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onLogout }
                 <div className="space-y-5">
                   <div className="flex flex-col items-center text-center space-y-2 pt-2">
                     <div className="w-14 h-14 rounded-full bg-red-50 flex items-center justify-center">
-                      <LogOut size={26} className="text-red-500" />
+                      <LogOut size={26} className="text-red-600" />
                     </div>
                     <h4 className="text-base font-black text-[#151c27]">Cerrar sesión</h4>
                     <p className="text-xs text-[#4a5f7e] leading-relaxed">
