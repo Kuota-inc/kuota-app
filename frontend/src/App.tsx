@@ -284,7 +284,8 @@ function AppShell() {
     }
   };
 
-  const showBack = currentScreen !== 'welcome' && currentScreen !== 'dashboard' && currentScreen !== 'profile' && currentScreen !== 'login';
+  // Pantallas de inicio (Emprendedor y Provider): sin "Atrás"; el botón de Android sale de la app.
+  const showBack = currentScreen !== 'welcome' && currentScreen !== 'dashboard' && currentScreen !== 'provider_home' && currentScreen !== 'profile' && currentScreen !== 'login';
 
   // Botón Atrás de Android: cierra el diálogo abierto, retrocede un paso, vuelve
   // al Inicio o, desde el Inicio, sale de la app.
@@ -299,7 +300,7 @@ function AppShell() {
         handleBack();
       } else if (currentScreen === 'login') {
         setCurrentScreen('welcome');
-      } else if (currentScreen === 'welcome') {
+      } else if (currentScreen === 'welcome' || currentScreen === 'provider_home') {
         NativeApp.exitApp();
       } else if (currentScreen !== 'dashboard' || activeTab !== 'inicio') {
         setCurrentScreen('dashboard');
