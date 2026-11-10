@@ -1,4 +1,5 @@
 import { deviceId } from './payments';
+import { vaultGet, vaultSet } from '../services/secureVault';
 
 // URL del backend: VITE_API_BASE (p. ej. la IP de la PC en la red Wi-Fi para el APK,
 // ver .env.android). Sin ella, el backend de desarrollo en el mismo host que sirvió la
@@ -59,25 +60,15 @@ export function getMerchantId(): string | null {
 }
 
 // Token secreto de identidad de este dispositivo (el id del comercio no es un secreto).
+// Vive en la bóveda cifrada (Android Keystore), nunca en localStorage.
 const MERCHANT_TOKEN_KEY = 'kuota.merchant_token';
-let memoryMerchantToken: string | null = null;
 
 export function getMerchantToken(): string | null {
-  try {
-    return localStorage.getItem(MERCHANT_TOKEN_KEY) ?? memoryMerchantToken;
-  } catch {
-    return memoryMerchantToken;
-  }
+  return vaultGet(MERCHANT_TOKEN_KEY);
 }
 
 export function setMerchantToken(token: string | null) {
-  memoryMerchantToken = token;
-  try {
-    if (token) localStorage.setItem(MERCHANT_TOKEN_KEY, token);
-    else localStorage.removeItem(MERCHANT_TOKEN_KEY);
-  } catch {
-    /* almacenamiento no disponible: queda en memoria */
-  }
+  vaultSet(MERCHANT_TOKEN_KEY, token);
 }
 
 export function setMerchantId(id: string | null) {
@@ -104,25 +95,15 @@ export function getProviderId(): string | null {
   }
 }
 
+// Token secreto del proveedor: también en la bóveda cifrada.
 const PROVIDER_TOKEN_KEY = 'kuota.provider_token';
-let memoryProviderToken: string | null = null;
 
 export function getProviderToken(): string | null {
-  try {
-    return localStorage.getItem(PROVIDER_TOKEN_KEY) ?? memoryProviderToken;
-  } catch {
-    return memoryProviderToken;
-  }
+  return vaultGet(PROVIDER_TOKEN_KEY);
 }
 
 export function setProviderToken(token: string | null) {
-  memoryProviderToken = token;
-  try {
-    if (token) localStorage.setItem(PROVIDER_TOKEN_KEY, token);
-    else localStorage.removeItem(PROVIDER_TOKEN_KEY);
-  } catch {
-    /* almacenamiento no disponible: queda en memoria */
-  }
+  vaultSet(PROVIDER_TOKEN_KEY, token);
 }
 
 export function setProviderId(id: string | null) {
@@ -152,7 +133,10 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestInit
   const timer = window.setTimeout(() => controller.abort(), TIMEOUT_MS);
 
   try {
-    const res = await fetch(url, { ...options, headers, signal: options.signal ?? controller.signal });
+    const timeout = new Promise<never>((_, reject) =>
+      window.setTimeout(() => reject(Object.assign(new Error('timeout'), { name: 'AbortError' })), TIMEOUT_MS + 500)
+    );
+    const res = await Promise.race([fetch(url, { ...options, headers, signal: options.signal ?? controller.signal }), timeout]);
     const data = res.status === 204 ? null : await res.json().catch(() => null);
     if (!res.ok) {
       throw new ApiError(res.status, data?.error?.code ?? `HTTP_${res.status}`, data?.error?.message || httpMessage(res.status), data);

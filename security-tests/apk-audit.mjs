@@ -98,7 +98,9 @@ check('APK-13', 'MEDIO', 'Release con minificación/ofuscación (R8)', /release\
 // 7. Pinning de certificados
 const nscSrc = read(path.join(ROOT, 'frontend/android/app/src/main/res/xml/network_security_config.xml')).toString();
 check('APK-15', 'ALTO', 'Política de red: sin HTTP plano y sin CAs de usuario', /cleartextTrafficPermitted="false"/.test(nscSrc) && !/src="user"/.test(nscSrc), 'falta network_security_config con cleartextTrafficPermitted="false" (o confía en certificados instalados por el usuario)');
-check('APK-14', 'MEDIO', 'Pinning de certificados del backend', /<pin-set/.test(nscSrc), 'sin pin-set: un certificado raíz comprometido o un MDM corporativo permite interceptar el tráfico (requiere dominio propio para fijar el certificado sin riesgo de dejar la app sin conexión)');
+
+const nativeHttp = capCfg?.plugins?.CapacitorHttp?.enabled === true;
+check('APK-14', 'MEDIO', 'Pinning de certificados del backend (y API por HTTP nativo)', /<pin-set/.test(nscSrc) && nativeHttp, 'sin pin-set: un certificado raíz comprometido o un MDM corporativo permite interceptar el tráfico (requiere dominio propio para fijar el certificado sin riesgo de dejar la app sin conexión)');
 
 fs.rmSync(tmp, { recursive: true, force: true });
 results.sort((a, b) => Number(a.ok) - Number(b.ok) || SEV[b.severity] - SEV[a.severity]);

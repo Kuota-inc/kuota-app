@@ -35,8 +35,9 @@ android {
         release {
             if (ksFile.exists()) signingConfig signingConfigs.release
             debuggable false
-            minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            // R8: minifica y ofusca el código nativo (las reglas de proguard-rules.pro conservan los plugins).
+            minifyEnabled true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
 }

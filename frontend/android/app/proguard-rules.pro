@@ -19,3 +19,17 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+
+# --- Kuota: R8 en release ---
+# Capacitor llama a los plugins y a sus métodos por reflexión (nombre del plugin y @PluginMethod).
+-keep class com.getcapacitor.** { *; }
+-keep @com.getcapacitor.annotation.CapacitorPlugin public class * { *; }
+-keepclassmembers class * { @com.getcapacitor.PluginMethod public <methods>; }
+-keep class pe.kuota.app.** { *; }
+# Puente JS <-> nativo del WebView.
+-keepclassmembers class * { @android.webkit.JavascriptInterface <methods>; }
+-keepattributes *Annotation*, Signature, InnerClasses, EnclosingMethod
+# Cordova (plugins de compatibilidad de Capacitor).
+-keep class org.apache.cordova.** { *; }
+-dontwarn org.apache.cordova.**

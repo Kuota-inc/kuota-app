@@ -194,7 +194,9 @@ function AppShell() {
     const check = () => {
       const merchantId = getMerchantId();
       const providerId = getProviderId();
-      if (!merchantId && !providerId) { handleLogout(); return; }
+      // Sin cuenta todavía (registro en curso o bienvenida): no hay sesión que validar. Antes esto
+      // devolvía a la bienvenida cada 45 s y al volver a la app, a mitad del registro.
+      if (!merchantId && !providerId) return;
       apiRequest(merchantId ? '/auth/me' : '/providers/me').catch((err: any) => {
         if (err?.status === 404 || err?.status === 401 || err?.code === 'SESSION_EXPIRED' || err?.code === 'NOT_AUTHENTICATED') {
           handleLogout();

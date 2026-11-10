@@ -1,9 +1,31 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Política de red de Kuota: solo HTTPS y solo certificados del sistema (no los instalados por el usuario). -->
+<!-- Política de red de Kuota: solo HTTPS, solo certificados del sistema (no los instalados por el usuario)
+     y certificados fijados (pinning) para el backend. -->
 <network-security-config>
     <base-config cleartextTrafficPermitted="false">
         <trust-anchors>
             <certificates src="system" />
         </trust-anchors>
     </base-config>
+
+    <!-- Backend en Railway. Se fijan las CA raíz (no el certificado del servidor, que rota cada ~90 días):
+         Let's Encrypt (ISRG Root X1, X2, YE, YR) y, de respaldo, Google Trust Services (GTS R1, R4).
+         Un certificado emitido por otra CA, aunque el sistema confíe en ella (MDM, CA comprometida),
+         es rechazado. La fecha de vencimiento evita dejar la app sin conexión si el hosting cambia de CA:
+         antes de esa fecha hay que publicar una versión con los pines revisados. Calcular un pin:
+         openssl x509 -in raiz.pem -pubkey -noout | openssl pkey -pubin -outform der | openssl dgst -sha256 -binary | openssl enc -base64 -->
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">up.railway.app</domain>
+        <pin-set expiration="2027-12-31">
+            <pin digest="SHA-256">C5+lpZ7tcVwmwQIMcRtPbsQtWLABXhQzejna0wHFr8M=</pin> <!-- ISRG Root X1 -->
+            <pin digest="SHA-256">diGVwiVYbubAI3RW4hB9xU8e/CH2GnkuvVFZE8zmgzI=</pin> <!-- ISRG Root X2 -->
+            <pin digest="SHA-256">sCkq5UWXjg+7mKu9lMhhYF5bGLsy7VI/UNW3tccdR7w=</pin> <!-- ISRG Root YE -->
+            <pin digest="SHA-256">fk6IOKit1ild5647BH06ujSIq5XbCgqlbYl6ANhhi88=</pin> <!-- ISRG Root YR -->
+            <pin digest="SHA-256">hxqRlPTu1bMS/0DITB1SSu0vd4u/8l8TjPgfaAp63Gc=</pin> <!-- GTS Root R1 (respaldo) -->
+            <pin digest="SHA-256">mEflZT5enoR1FuXLgYYGqnVEoZvmf9c2bVBpiOjYQ0c=</pin> <!-- GTS Root R4 (respaldo) -->
+        </pin-set>
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </domain-config>
 </network-security-config>

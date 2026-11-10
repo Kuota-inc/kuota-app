@@ -17,6 +17,11 @@ const config: CapacitorConfig = {
     webContentsDebuggingEnabled: devLan
   },
   plugins: {
+    // Las llamadas a la API salen por el HTTP nativo de Android: así aplica el pinning de certificados
+    // de network_security_config.xml (las peticiones hechas desde el WebView no lo respetan).
+    CapacitorHttp: {
+      enabled: true
+    },
     StatusBar: {
       style: 'LIGHT',
       backgroundColor: '#f9f9ff',
