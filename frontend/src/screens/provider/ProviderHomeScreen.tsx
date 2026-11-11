@@ -70,6 +70,7 @@ export const ProviderHomeScreen: React.FC<{ onLogout: () => void; onSell: () => 
   const [orders, setOrders] = useState<Order[] | null>(null);
   const [links, setLinks] = useState<PaymentLink[] | null>(null);
   const [q, setQ] = useState('');
+  const [needsPin, setNeedsPin] = useState(false);
   const [sel, setSel] = useState<string | null>(null);
   const [openDay, setOpenDay] = useState<string | null>(null);
   const sheetRef = useRef<HTMLDivElement>(null);
@@ -88,9 +89,16 @@ export const ProviderHomeScreen: React.FC<{ onLogout: () => void; onSell: () => 
     apiRequest<ProviderProfile>('/providers/me').then(setProfile).catch((e: any) => setError(e?.message || 'No pudimos cargar tu perfil.'));
   }, []);
 
+  const loadLinks = (silent = true) => {
+    if (!getMerchantId()) return Promise.resolve();
+    return paymentsApi.listLinks(silent)
+      .then((r) => { setLinks(r.data); setNeedsPin(false); })
+      .catch((e: any) => { if (e?.code === 'SESSION_REQUIRED') setNeedsPin(true); setLinks((l) => l ?? []); });
+  };
+
   // Los cobros exigen sesión de cobros abierta (se abre al Vender): se vuelven a pedir al cambiar de pestaña.
   useEffect(() => {
-    if (getMerchantId()) paymentsApi.listLinks().then((r) => setLinks(r.data)).catch(() => setLinks((l) => l ?? []));
+    void loadLinks();
   }, [tab]);
 
   const handleSaveSettlement = async () => {
@@ -214,6 +222,11 @@ export const ProviderHomeScreen: React.FC<{ onLogout: () => void; onSell: () => 
           {profile?.ruc_masked && <span className="px-3 py-1 rounded-full bg-[#b6ccfd] text-[#1a3bb0] text-xs font-black">RUC {profile.ruc_masked}</span>}
         </div>
         {error && <div className="p-3 rounded-2xl bg-red-50 border border-red-200 text-xs text-red-700">{error}</div>}
+        {needsPin && (
+          <button type="button" onClick={() => void loadLinks(false)} className="w-full p-3 rounded-2xl bg-[#eff3ff] border border-[#d8e2ff] text-xs font-bold text-[#1a3bb0] text-left cursor-pointer">
+            Tus cobros de Kuota Payments están cerrados. Toca para verlos con tu PIN.
+          </button>
+        )}
 
         {tab === 'inicio' && (
           <>

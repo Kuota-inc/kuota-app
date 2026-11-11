@@ -147,7 +147,8 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestInit
     // (PIN, límites, confirmaciones). Sin el cuerpo: puede traer datos del comercio.
     // El token de identidad venció o fue revocado: volver al inicio de sesión.
     if (err instanceof ApiError && endpoint !== '/providers/logout' && (err.code === 'MERCHANT_AUTH_REQUIRED' || err.code === 'PROVIDER_AUTH_REQUIRED')) {
-      window.dispatchEvent(new Event('kuota:logout'));
+      // Un Provider vencido no debe cerrar el Emprendedor (y al revés): el evento dice qué perfil falló.
+      window.dispatchEvent(new CustomEvent('kuota:logout', { detail: { scope: err.code === 'PROVIDER_AUTH_REQUIRED' ? 'PROVIDER' : 'ALL' } }));
     }
     if (!(err instanceof ApiError) || err.status >= 500) {
       console.error(`API Call failed: ${endpoint}`, err?.code ?? err?.name ?? 'error');

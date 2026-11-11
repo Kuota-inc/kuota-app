@@ -2,7 +2,7 @@
 // confirmación con PIN cuando el backend la pide (STEP_UP_REQUIRED) e
 // idempotencia en la creación de cobros.
 import { Capacitor } from '@capacitor/core';
-import { ApiError, apiRequest, getMerchantId, setMerchantId, setMerchantToken } from './client';
+import { ApiError, apiRequest, getMerchantId, setMerchantId, setMerchantToken, setProviderId, setProviderToken } from './client';
 
 // ------------------------------------------------------------- dispositivo
 const DEVICE_KEY = 'kuota.device_id';
@@ -84,12 +84,18 @@ function openSession(summary = 'Para cobrar con Kuota confirmamos que eres tú.'
     kind: 'session',
     summary,
     verify: async (pin) => {
-      const r = await apiRequest<{ access_token: string; expires_at: string; identity_token?: string }>('/auth/sessions', {
+      const r = await apiRequest<{ access_token: string; expires_at: string; identity_token?: string; provider?: { provider_id: string; provider_token: string } | null }>('/auth/sessions', {
         method: 'POST',
         body: JSON.stringify({ pin, device_id: deviceId(), device_label: deviceLabel() })
       });
       // Cada inicio de sesión rota el token de identidad del dispositivo: hay que guardar el nuevo.
       if (r.identity_token) setMerchantToken(r.identity_token);
+      // El servidor rota también el token del Provider en cada sesión: si no se guarda el nuevo, el perfil Provider
+      // recibe 401 al cambiar de perfil y se cierra toda la sesión.
+      if (r.provider?.provider_id && r.provider.provider_token) {
+        setProviderId(r.provider.provider_id);
+        setProviderToken(r.provider.provider_token);
+      }
       session = { token: r.access_token, expiresAt: Date.parse(r.expires_at) };
     }
   }).finally(() => {
@@ -265,7 +271,7 @@ export const paymentsApi = {
   getLink: (id: string) => secureRequest<PaymentLink>(`/payment-links/${id}`),
   /** Consulta de fondo del estado: nunca abre el pedido de PIN. */
   /** Lista de links del comercio; solo con sesión de cobros abierta (no pide el PIN). */
-  listLinks: () => secureRequest<{ data: PaymentLink[] }>('/payment-links', { silent: true }),
+  listLinks: (silent = true) => secureRequest<{ data: PaymentLink[] }>('/payment-links', { silent }),
   pollLink: (id: string) => secureRequest<PaymentLink>(`/payment-links/${id}`, { silent: true }),
 
   getLimits: () => secureRequest<PaymentLimits>('/merchants/me/payments/limits'),

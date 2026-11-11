@@ -102,6 +102,19 @@ describe('Kuota Payments en el perfil Provider', () => {
     assert.equal(both.status, 201);
     assert.deepEqual(both.body.profiles, ['EMPRENDEDOR', 'PROVIDER']);
     assert.equal(both.body.merchant_id, s.body.merchant_id);
+
+    // Abrir la sesión de cobros con el PIN (candado de la app) rota el token del Provider: el anterior deja de
+    // valer y el cliente tiene que guardar el nuevo (si no, al cambiar a Provider se cierra toda la sesión).
+    resetRateLimits();
+    const merchantHdr = { 'X-Merchant-Id': both.body.merchant_id, 'X-Merchant-Token': both.body.identity_token, 'X-Device-Id': device };
+    const reopened = await call('POST', '/auth/sessions', { pin: PIN, device_id: device }, merchantHdr);
+    assert.equal(reopened.status, 201, JSON.stringify(reopened.body));
+    const fresh = reopened.body.provider;
+    assert.ok(fresh?.provider_token && fresh.provider_token !== both.body.provider.provider_token, 'devuelve un token de Provider nuevo');
+    const stale = { 'X-Provider-Id': both.body.provider.provider_id, 'X-Provider-Token': both.body.provider.provider_token };
+    assert.equal((await call('GET', '/providers/me', undefined, stale)).status, 401, 'el token anterior ya no vale');
+    const current = { 'X-Provider-Id': fresh.provider_id, 'X-Provider-Token': fresh.provider_token };
+    assert.equal((await call('GET', '/providers/me', undefined, current)).status, 200);
   });
 
   test('no se apropia de una cuenta Emprendedor ajena declarando su teléfono como WhatsApp', async () => {

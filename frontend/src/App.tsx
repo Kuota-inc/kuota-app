@@ -111,6 +111,8 @@ function AppShell() {
   const [activeTab, setActiveTab] = useState<string>('inicio');
   const [isKuotearOpen, setIsKuotearOpen] = useState<boolean>(false);
   const [chooser, setChooser] = useState<boolean>(false);
+  // Se llegó a vender desde el panel Provider: al terminar se vuelve a ese panel, y el perfil activo sigue siendo Provider.
+  const [sellFromProvider, setSellFromProvider] = useState<boolean>(false);
   const [sellFlow, setSellFlow] = useState<null | 'add_ruc' | 'paywall' | 'add_ruc_profile'>(null);
   // Pantallas con credenciales o datos de identidad: sin capturas ni grabación de pantalla (solo Android).
   // Cobros, ventas, crédito e inicio sí permiten capturas (p. ej. compartir un comprobante).
@@ -147,6 +149,7 @@ function AppShell() {
     setActiveProfile(null);
     setChooser(false);
     setSellFlow(null);
+    setSellFromProvider(false);
     resetSettings();
     setLocked(false);
     writeFlag(ONBOARDED_KEY, false);
@@ -173,6 +176,7 @@ function AppShell() {
     const onSwitch = (e: Event) => {
       const p = (e as CustomEvent<ProfileKind>).detail;
       setActiveProfile(p);
+      setSellFromProvider(false);
       setActiveTab('inicio');
       setCurrentScreen(p === 'PROVIDER' ? 'provider_home' : 'dashboard');
     };
@@ -217,7 +221,18 @@ function AppShell() {
 
   // El token de identidad dejó de valer (venció o se revocó): volver al inicio de sesión.
   useEffect(() => {
-    const onLogout = () => {
+    const onLogout = (e: Event) => {
+      if ((e as CustomEvent<{ scope?: string }>).detail?.scope === 'PROVIDER' && getMerchantId()) {
+        // Solo venció el acceso Provider (varias consultas lo avisan a la vez: se atiende una). El Emprendedor sigue abierto.
+        if (!getProviderId()) return;
+        setProviderId(null);
+        setActiveProfile('EMPRENDEDOR');
+        setSellFromProvider(false);
+        setActiveTab('inicio');
+        setCurrentScreen('dashboard');
+        toastRef.current.error('Tu perfil Provider se cerró. Inicia sesión otra vez con tu PIN para usarlo.');
+        return;
+      }
       handleLogout();
       toastRef.current.error('Tu sesión se cerró: iniciaste sesión en otro equipo o venció. Vuelve a ingresar con tu PIN.');
     };
@@ -304,6 +319,10 @@ function AppShell() {
         setCurrentScreen('welcome');
       } else if (currentScreen === 'welcome' || currentScreen === 'provider_home') {
         NativeApp.exitApp();
+      } else if (sellFromProvider) {
+        setSellFromProvider(false);
+        setActiveTab('inicio');
+        setCurrentScreen('provider_home');
       } else if (currentScreen !== 'dashboard' || activeTab !== 'inicio') {
         setCurrentScreen('dashboard');
         setActiveTab('inicio');
@@ -312,6 +331,11 @@ function AppShell() {
       }
     };
   });
+  // El perfil activo (el que se recuerda al reabrir) sigue a la pantalla: Provider en su panel, Emprendedor en el suyo.
+  useEffect(() => {
+    if (currentScreen === 'provider_home') setActiveProfile('PROVIDER');
+    else if (currentScreen === 'dashboard' && !sellFromProvider && getMerchantId()) setActiveProfile('EMPRENDEDOR');
+  }, [currentScreen, sellFromProvider]);
   // Desbloqueo: huella/rostro si está activada (candado local; los cobros siguen pidiendo el PIN);
   // si se cancela o falla, o no está activada, se pide el PIN y se verifica en el servidor.
   const promptUnlock = async (pinOnly = false) => {
@@ -424,6 +448,7 @@ function AppShell() {
                 return;
               }
               setActiveProfile('PROVIDER');
+              setSellFromProvider(true);
               void requestSell();
             }}
           />
@@ -588,6 +613,7 @@ function AppShell() {
                 setActiveTab('inicio');
               }}
               onNavigateTab={(tab) => {
+                setSellFromProvider(false);
                 setCurrentScreen('dashboard');
                 setActiveTab(tab);
               }}
@@ -599,7 +625,8 @@ function AppShell() {
             <PaymentLinkScreen
               onBack={() => {
                 // Si se vendió desde el perfil Provider, se vuelve a su panel.
-                if (getActiveProfile() === 'PROVIDER') {
+                if (sellFromProvider) {
+                  setSellFromProvider(false);
                   setActiveTab('inicio');
                   setCurrentScreen('provider_home');
                   return;
