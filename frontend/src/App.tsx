@@ -434,7 +434,7 @@ function AppShell() {
           <LoginScreen
             onSuccess={(role, profiles) => {
               writeFlag(ONBOARDED_KEY, true);
-              if (role !== 'PROVIDER' && profiles && profiles.length > 1) {
+              if (profiles && profiles.length > 1) {
                 // Dos perfiles: el modal de elección va antes de cualquier pantalla de inicio.
                 setCurrentScreen('dashboard');
                 setChooser(true);
