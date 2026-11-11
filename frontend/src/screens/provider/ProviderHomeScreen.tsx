@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { Building2, CheckCircle2, ChevronDown, ChevronRight, Clock, Home, Landmark, LogOut, Package, PiggyBank, QrCode, ShieldCheck, User, Wallet, Zap } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { CheckCircle2, ChevronDown, ChevronRight, Clock, Home, Info, Landmark, LogOut, PiggyBank, Plus, ShieldCheck, TrendingUp, User, Users, Wallet } from 'lucide-react';
 import { api, apiRequest, getMerchantId } from '../../api/client';
 import { paymentsApi } from '../../api/payments';
 import type { PaymentLink } from '../../api/payments';
@@ -27,30 +27,47 @@ interface Order {
   settled: boolean;
 }
 
+type Tab = 'inicio' | 'ventas' | 'clientes' | 'depositos' | 'cuenta';
+type Period = 'week' | 'month' | 'all';
+
 const BANKS = ['BCP', 'Interbank', 'Scotiabank', 'BBVA', 'Banco de la Nación', 'BanBif'];
+const PERIODS: [Period, string][] = [['week', 'Semana'], ['month', 'Mes'], ['all', 'Total acumulado']];
 
 const STATUS: Record<string, { label: string; tone: string; icon: React.ReactNode; hint: string }> = {
-  APPROVED: {
-    label: 'Verificado',
-    tone: 'bg-emerald-100 text-emerald-800',
-    icon: <CheckCircle2 size={14} />,
-    hint: 'Tu empresa ya puede recibir pedidos de comercios afiliados.'
-  },
-  IN_REVIEW: {
-    label: 'En revisión',
-    tone: 'bg-amber-100 text-amber-900',
-    icon: <Clock size={14} />,
-    hint: 'Estamos validando tu empresa. Te avisaremos por WhatsApp cuando termine.'
-  }
+  APPROVED: { label: 'Verificado', tone: 'bg-emerald-100 text-emerald-800', icon: <CheckCircle2 size={14} />, hint: 'Tu empresa ya puede recibir pedidos de comercios afiliados.' },
+  IN_REVIEW: { label: 'En revisión', tone: 'bg-amber-100 text-amber-900', icon: <Clock size={14} />, hint: 'Estamos validando tu empresa. Te avisaremos por WhatsApp cuando termine.' }
 };
 
-function soles(cents: number) {
-  return `S/ ${(cents / 100).toFixed(2)}`;
-}
+const soles = (cents: number) => `S/ ${(cents / 100).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const day = (iso: string) => new Date(iso).toLocaleDateString('es-PE', { day: '2-digit', month: 'short' });
+const sinceOf = (p: Period) => (p === 'week' ? Date.now() - 7 * 864e5 : p === 'month' ? Date.now() - 30 * 864e5 : 0);
+
+const Hero: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <section className="rounded-[28px] p-5 text-white bg-gradient-to-br from-[#00248b] to-[#1a3bb0] shadow-lg shadow-blue-900/20 space-y-3">{children}</section>
+);
+
+const Row: React.FC<{ label: string; value?: string | null }> = ({ label, value }) => (
+  <div className="flex items-center justify-between gap-3 text-sm">
+    <span className="text-[#4a5f7e]">{label}</span>
+    <span className="font-bold text-[#151c27] text-right">{value || '—'}</span>
+  </div>
+);
+
+const Card: React.FC<{ title?: string; icon?: React.ReactNode; children: React.ReactNode }> = ({ title, icon, children }) => (
+  <section className="bg-white rounded-3xl p-4 shadow-sm border border-[#e1e8f8] space-y-3">
+    {title && <h2 className="text-xs font-black text-[#151c27] uppercase tracking-wider flex items-center gap-1.5">{icon}{title}</h2>}
+    {children}
+  </section>
+);
+
 
 export const ProviderHomeScreen: React.FC<{ onLogout: () => void; onSell: () => void }> = ({ onLogout, onSell }) => {
+  const [tab, setTab] = useState<Tab>('inicio');
+  const [period, setPeriod] = useState<Period>('all');
   const [profile, setProfile] = useState<ProviderProfile | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [orders, setOrders] = useState<Order[] | null>(null);
+  const [links, setLinks] = useState<PaymentLink[] | null>(null);
 
   // Cuenta de abono
   const [showSettForm, setShowSettForm] = useState(false);
@@ -60,45 +77,20 @@ export const ProviderHomeScreen: React.FC<{ onLogout: () => void; onSell: () => 
   const [settSaving, setSettSaving] = useState(false);
   const [settError, setSettError] = useState<string | null>(null);
 
-  // Pedidos
-  const [orders, setOrders] = useState<Order[] | null>(null);
-  const [orderSummary, setOrderSummary] = useState<{ count: number; total_cents: number; settled_count: number } | null>(null);
-
-  // Cobros (Kuota Payments)
-  const [links, setLinks] = useState<PaymentLink[] | null>(null);
-
   useEffect(() => {
-    api.getProviderOrders()
-      .then((r: any) => { setOrders(r.orders); setOrderSummary(r.summary); })
-      .catch(() => {/* no-op: no bloquea el panel */});
-
-    if (getMerchantId()) {
-      paymentsApi.listLinks()
-        .then((r) => setLinks(r.data))
-        .catch(() => {/* no-op */});
-    }
-  }, []);
-
-  useEffect(() => {
-    apiRequest<ProviderProfile>('/providers/me')
-      .then(setProfile)
-      .catch((e: any) => setError(e?.message || 'No pudimos cargar tu perfil.'));
+    api.getProviderOrders().then((r: any) => setOrders(r.orders)).catch(() => setOrders([]));
+    if (getMerchantId()) paymentsApi.listLinks().then((r) => setLinks(r.data)).catch(() => setLinks([]));
+    apiRequest<ProviderProfile>('/providers/me').then(setProfile).catch((e: any) => setError(e?.message || 'No pudimos cargar tu perfil.'));
   }, []);
 
   const handleSaveSettlement = async () => {
     setSettError(null);
-    if (settCci.replace(/[\s-]/g, '').length !== 20) {
-      setSettError('El CCI tiene 20 dígitos. Cópialo de tu banca por internet.');
-      return;
-    }
-    if (!/^\d{6}$/.test(settPin)) {
-      setSettError('Ingresa tu PIN de 6 dígitos.');
-      return;
-    }
+    if (settCci.replace(/[\s-]/g, '').length !== 20) return setSettError('El CCI tiene 20 dígitos. Cópialo de tu banca por internet.');
+    if (!/^\d{6}$/.test(settPin)) return setSettError('Ingresa tu PIN de 6 dígitos.');
     setSettSaving(true);
     try {
       const res = await api.saveSettlementAccount({ bank: settBank, cci: settCci, pin: settPin });
-      setProfile((p) => p ? { ...p, settlement: { bank: res.bank, account_masked: res.account_masked } } : p);
+      setProfile((p) => (p ? { ...p, settlement: { bank: res.bank, account_masked: res.account_masked } } : p));
       setShowSettForm(false);
       setSettCci('');
       setSettPin('');
@@ -109,84 +101,120 @@ export const ProviderHomeScreen: React.FC<{ onLogout: () => void; onSell: () => 
     }
   };
 
-  const [tab, setTab] = useState<'inicio' | 'ventas' | 'cuenta'>('inicio');
-  const [period, setPeriod] = useState<'week' | 'month' | 'all'>('all');
-
-  // Ahorro real vs. un POS tradicional (3.5 %): solo cobros pagados; la comisión Kuota ya incluye IGV.
-  const since = period === 'week' ? Date.now() - 7 * 864e5 : period === 'month' ? Date.now() - 30 * 864e5 : 0;
-  const paid = (links ?? []).filter((l) => l.status === 'PAID' && Date.parse(l.paid_at ?? l.created_at) >= since);
-  const posCents = Math.round(paid.reduce((a, l) => a + l.amount_cents, 0) * 0.035);
-  const kuotaCents = paid.reduce((a, l) => a + l.fee_cents, 0);
-  const pendingLinks = (links ?? []).filter((l) => l.status === 'ACTIVE' || l.status === 'ON_HOLD');
-  const toCollect = (orders ?? []).filter((o) => !o.settled);
-
   const st = STATUS[profile?.kyc_status ?? 'IN_REVIEW'] ?? STATUS.IN_REVIEW;
+  const name = profile?.business_name || 'Tu empresa';
+
+  // Todo sale de datos reales: cobros Kuota Payments y pedidos aKuotas! de comercios afiliados.
+  const d = useMemo(() => {
+    const since = sinceOf(period);
+    const inPeriod = (iso: string) => Date.parse(iso) >= since;
+    const allLinks = links ?? [];
+    const allOrders = orders ?? [];
+    const paid = allLinks.filter((l) => l.status === 'PAID' && inPeriod(l.paid_at ?? l.created_at));
+    const pending = allLinks.filter((l) => l.status === 'ACTIVE' || l.status === 'ON_HOLD');
+    const ord = allOrders.filter((o) => inPeriod(o.issued_at));
+    const gross = paid.reduce((a, l) => a + l.amount_cents, 0);
+    const fees = paid.reduce((a, l) => a + l.fee_cents, 0);
+    const net = paid.reduce((a, l) => a + l.net_cents, 0);
+    const pos = Math.round(gross * 0.035); // 3.5 % promedio de un POS tradicional
+    const toCollect = allOrders.filter((o) => !o.settled);
+    const sales = [
+      ...allLinks.filter((l) => inPeriod(l.created_at)).map((l) => ({
+        id: l.id, who: l.concept || 'Cobro', channel: 'Kuota Payments', at: l.created_at, cents: l.amount_cents,
+        status: l.status === 'PAID' ? 'Cobrado' : l.status === 'EXPIRED' || l.status === 'CANCELLED' ? 'Vencido' : 'Por confirmar', ok: l.status === 'PAID'
+      })),
+      ...ord.map((o) => ({
+        id: o.id, who: o.customer, channel: `aKuotas! (${o.installments_count} cuotas)`, at: o.issued_at, cents: o.total_cents,
+        status: o.settled ? 'Liquidado' : 'Por cobrar', ok: o.settled
+      }))
+    ].sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
+    const byCustomer = new Map<string, { total: number; count: number; last: string }>();
+    for (const o of allOrders) {
+      const c = byCustomer.get(o.customer) ?? { total: 0, count: 0, last: o.issued_at };
+      c.total += o.total_cents;
+      c.count += 1;
+      if (Date.parse(o.issued_at) > Date.parse(c.last)) c.last = o.issued_at;
+      byCustomer.set(o.customer, c);
+    }
+    const customers = [...byCustomer.entries()].map(([who, c]) => ({ who, ...c })).sort((a, b) => b.total - a.total);
+    return { paid, pending, gross, fees, net, pos, toCollect, sales, customers, sold: gross + ord.reduce((a, o) => a + o.total_cents, 0) };
+  }, [links, orders, period]);
+
+  const loading = orders === null || (!!getMerchantId() && links === null);
+
+  const Chips = (
+    <div role="group" aria-label="Periodo" className="flex gap-2 overflow-x-auto">
+      {PERIODS.map(([k, label]) => (
+        <button key={k} type="button" aria-pressed={period === k} onClick={() => setPeriod(k)}
+          className={`px-3.5 h-9 rounded-full text-xs font-bold whitespace-nowrap cursor-pointer ${period === k ? 'bg-white text-[#1a3bb0]' : 'bg-white/15 text-white'}`}>{label}</button>
+      ))}
+    </div>
+  );
+
+  const Empty = ({ text }: { text: string }) => <p className="text-xs text-[#4a5f7e]">{loading ? 'Cargando…' : text}</p>;
+
+  const navItem = (k: Tab, label: string, Icon: typeof Home) => (
+    <button key={k} type="button" onClick={() => setTab(k)} aria-current={tab === k ? 'page' : undefined}
+      className={`flex flex-col items-center gap-0.5 py-1.5 text-[11px] font-bold cursor-pointer ${tab === k ? 'text-[#1a3bb0]' : 'text-[#4a5f7e]'}`}>
+      <Icon size={22} aria-hidden="true" />{label}
+    </button>
+  );
 
   return (
     <div className="flex-1 min-h-0 flex flex-col bg-gradient-to-b from-[#f9f9ff] via-[#eff3ff] to-[#e6edfd]">
-      <div className="flex-1 overflow-y-auto">
-      <div className="px-4.5 pt-6 pb-8 bg-gradient-to-br from-[#00248b] to-[#1a3bb0] text-white rounded-b-3xl">
-        <div className="flex items-start gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-white/15 border border-white/25 flex items-center justify-center shrink-0">
-            <Building2 size={24} />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-xs text-white/80">Panel de proveedor</p>
-            <h1 className="text-lg font-black leading-tight break-words">{profile?.business_name || 'Tu empresa'}</h1>
-          </div>
-          <div className="shrink-0">
-            <ProfileSwitcher active="PROVIDER" />
-          </div>
+      <header className="shrink-0 px-4.5 pt-4 pb-2 flex items-center gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="flex items-center gap-2 leading-none">
+            <span className="text-2xl font-black tracking-tight text-[#1a3bb0]">kuota</span>
+            <span className="px-2 py-0.5 rounded-full bg-[#b6ccfd] text-[#1a3bb0] text-[10px] font-black">PRO</span>
+          </p>
+          <p className="text-xs text-[#4a5f7e] truncate mt-0.5">{name}</p>
         </div>
-        <span className={`mt-4 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${st.tone}`}>
-          {st.icon}
-          {st.label}
-        </span>
-        <p className="mt-2 text-sm text-white/90 leading-snug">{st.hint}</p>
-      </div>
+        <ProfileSwitcher active="PROVIDER" />
+        <button type="button" onClick={() => setTab('cuenta')} aria-label="Mi cuenta"
+          className="w-10 h-10 rounded-full bg-[#00248b] text-white flex items-center justify-center cursor-pointer shrink-0"><User size={18} aria-hidden="true" /></button>
+      </header>
 
-      <div className="px-4.5 -mt-4 space-y-3 pb-6">
+      <div className="flex-1 overflow-y-auto px-4.5 pb-4 space-y-3">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${st.tone}`}>{st.icon}{st.label}</span>
+          {profile?.ruc_masked && <span className="px-3 py-1 rounded-full bg-[#b6ccfd] text-[#1a3bb0] text-xs font-black">RUC {profile.ruc_masked}</span>}
+        </div>
         {error && <div className="p-3 rounded-2xl bg-red-50 border border-red-200 text-xs text-red-700">{error}</div>}
 
         {tab === 'inicio' && (
           <>
-            {/* Ahorro: protagonista del Inicio (diseño provider_inicio) */}
-            <section className="rounded-3xl p-4 bg-white shadow-sm border border-[#e1e8f8] space-y-3">
-              <h2 className="text-sm font-black text-[#0b2545] flex items-center gap-2"><PiggyBank size={16} aria-hidden="true" /> Ahorraste con Kuota Payments</h2>
+            <Hero>
+              <h2 className="text-sm font-bold flex items-center gap-2"><PiggyBank size={16} aria-hidden="true" /> Ahorraste con Kuota Payments</h2>
               <div>
-                <p className="text-[11px] text-[#4a5f7e]">Ahorro total generado</p>
-                <p className="text-3xl font-black text-[#0b2545] tabular-nums">{soles(Math.max(posCents - kuotaCents, 0))}</p>
-                <p className="text-[11px] text-[#4a5f7e] mt-0.5">vs. 3.5 % promedio de comisión en POS tradicional</p>
+                <p className="text-[11px] tracking-wider text-white/80">AHORRO TOTAL GENERADO</p>
+                <p className="text-4xl font-black tabular-nums">{soles(Math.max(d.pos - d.fees, 0))}</p>
+                <p className="text-[11px] text-white/80 mt-1 flex items-center gap-1"><Info size={12} aria-hidden="true" /> vs. 3.5 % promedio de comisión en POS tradicional</p>
               </div>
-              <div role="group" aria-label="Periodo" className="flex gap-2">
-                {([['week', 'Semana'], ['month', 'Mes'], ['all', 'Total acumulado']] as const).map(([k, label]) => (
-                  <button key={k} type="button" aria-pressed={period === k} onClick={() => setPeriod(k)}
-                    className={`px-3 h-8 rounded-full text-[11px] font-bold cursor-pointer ${period === k ? 'bg-[#1a3bb0] text-white' : 'bg-[#eff3ff] text-[#4a5f7e]'}`}>{label}</button>
-                ))}
+              {Chips}
+              <div className="rounded-2xl bg-white/10 p-3.5 text-xs space-y-2">
+                <div className="flex justify-between gap-3"><span>Lo que habrías pagado en POS (3.5 %)</span><span className="font-bold shrink-0 whitespace-nowrap">{soles(d.pos)}</span></div>
+                <div className="flex justify-between gap-3"><span>Lo que pagaste con Kuota (1 % + IGV)</span><span className="font-bold shrink-0 whitespace-nowrap">-{soles(d.fees)}</span></div>
+                <div className="flex justify-between gap-3 pt-2 border-t border-white/20 text-sm font-black"><span className="flex items-center gap-1.5"><Wallet size={14} aria-hidden="true" /> Tu ahorro neto en el bolsillo</span><span className="shrink-0 whitespace-nowrap">{soles(Math.max(d.pos - d.fees, 0))}</span></div>
               </div>
-              <div className="text-xs space-y-1.5 pt-2 border-t border-[#f0f4ff]">
-                <div className="flex justify-between gap-3"><span className="text-[#4a5f7e]">Lo que habrías pagado en POS (3.5 %)</span><span className="font-bold text-[#0b2545]">{soles(posCents)}</span></div>
-                <div className="flex justify-between gap-3"><span className="text-[#4a5f7e]">Lo que pagaste con Kuota (1 % + IGV)</span><span className="font-bold text-[#0b2545]">-{soles(kuotaCents)}</span></div>
-              </div>
-              {links === null && getMerchantId() && <p className="text-[11px] text-[#4a5f7e]">Cargando…</p>}
-              {!getMerchantId() && <p className="text-[11px] text-[#4a5f7e]">Toca Vender para abrir Kuota Payments y empezar a ahorrar.</p>}
-            </section>
+              {!getMerchantId() && <p className="text-[11px] text-white/80">Toca Vender para abrir Kuota Payments y empezar a ahorrar.</p>}
+            </Hero>
 
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-black text-[#0b2545]">Operaciones de fondos</h2>
+            <div className="flex items-center justify-between pt-1">
+              <h2 className="text-base font-black text-[#0b2545]">Operaciones de fondos</h2>
               <span className="text-[11px] text-[#4a5f7e]">Actualizado hoy</span>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <section className="bg-white rounded-3xl p-4 shadow-sm border border-[#e1e8f8]">
-                <p className="text-[11px] font-bold text-[#4a5f7e] flex items-center gap-1"><Clock size={12} aria-hidden="true" /> Por cobrar</p>
-                <p className="mt-1 text-xl font-black text-[#0b2545] tabular-nums">{soles(toCollect.reduce((a, o) => a + o.total_cents, 0))}</p>
-                <p className="text-[11px] text-[#4a5f7e]">{toCollect.length} pedido{toCollect.length === 1 ? '' : 's'} sin liquidar</p>
-              </section>
-              <section className="bg-white rounded-3xl p-4 shadow-sm border border-[#e1e8f8]">
-                <p className="text-[11px] font-bold text-[#4a5f7e] flex items-center gap-1"><Wallet size={12} aria-hidden="true" /> Por confirmar</p>
-                <p className="mt-1 text-xl font-black text-[#0b2545] tabular-nums">{soles(pendingLinks.reduce((a, l) => a + l.amount_cents, 0))}</p>
-                <p className="text-[11px] text-[#4a5f7e]">{pendingLinks.length} link{pendingLinks.length === 1 ? '' : 's'} de cobro pendiente{pendingLinks.length === 1 ? '' : 's'}</p>
-              </section>
+              <Card>
+                <p className="text-xs font-bold text-[#4a5f7e] flex items-center gap-1"><Clock size={13} aria-hidden="true" /> Por cobrar</p>
+                <p className="text-xl font-black text-[#0b2545] tabular-nums">{soles(d.toCollect.reduce((a, o) => a + o.total_cents, 0))}</p>
+                <p className="text-[11px] text-[#4a5f7e]">{d.toCollect.length} pedido{d.toCollect.length === 1 ? '' : 's'} aKuotas! sin liquidar</p>
+              </Card>
+              <Card>
+                <p className="text-xs font-bold text-[#4a5f7e] flex items-center gap-1"><Wallet size={13} aria-hidden="true" /> Por confirmar</p>
+                <p className="text-xl font-black text-[#0b2545] tabular-nums">{soles(d.pending.reduce((a, l) => a + l.amount_cents, 0))}</p>
+                <p className="text-[11px] text-[#4a5f7e]">{d.pending.length} link{d.pending.length === 1 ? '' : 's'} de cobro por validar</p>
+              </Card>
             </div>
 
             {getMerchantId() && (
@@ -197,203 +225,171 @@ export const ProviderHomeScreen: React.FC<{ onLogout: () => void; onSell: () => 
             )}
           </>
         )}
+
         {tab === 'ventas' && (
           <>
-        {/* Mis pedidos */}
-        <section className="bg-white rounded-3xl p-4 shadow-sm border border-[#e1e8f8] space-y-3">
-          <h2 className="text-xs font-black text-[#151c27] uppercase tracking-wider flex items-center gap-1.5">
-            <Package size={14} /> Mis pedidos
-          </h2>
-          {orderSummary && (
-            <div className="flex gap-3 text-center">
-              <Stat label="Pedidos" value={String(orderSummary.count)} />
-              <Stat label="Total" value={soles(orderSummary.total_cents)} />
-              <Stat label="Liquidados" value={String(orderSummary.settled_count)} />
-            </div>
-          )}
-          {orders && orders.length === 0 && (
-            <p className="text-xs text-[#4a5f7e]">Aún no tienes pedidos de comercios afiliados.</p>
-          )}
-          {orders && orders.length > 0 && (
-            <div className="space-y-2">
-              {orders.slice(0, 5).map((o) => (
-                <div key={o.id} className="flex items-center justify-between gap-2 text-xs">
-                  <div className="min-w-0">
-                    <p className="font-semibold text-[#151c27] truncate">{o.customer}</p>
-                    <p className="text-[#4a5f7e]">{o.installments_count} cuotas · {new Date(o.issued_at).toLocaleDateString('es-PE', { day: '2-digit', month: 'short' })}</p>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <p className="font-bold text-[#151c27]">{soles(o.total_cents)}</p>
-                    <p className={`font-semibold ${o.settled ? 'text-emerald-600' : 'text-amber-600'}`}>{o.settled ? 'Liquidado' : 'Pendiente'}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-          {orders === null && <p className="text-xs text-[#4a5f7e]">Cargando…</p>}
-        </section>
-
-        {/* Mis cobros */}
-        {getMerchantId() && (
-          <section className="bg-white rounded-3xl p-4 shadow-sm border border-[#e1e8f8] space-y-3">
-            <h2 className="text-xs font-black text-[#151c27] uppercase tracking-wider flex items-center gap-1.5">
-              <Zap size={14} /> Mis cobros (Kuota Payments)
-            </h2>
-            {links === null && <p className="text-xs text-[#4a5f7e]">Cargando…</p>}
-            {links && links.length === 0 && (
-              <p className="text-xs text-[#4a5f7e]">Aún no generaste ningún link de cobro.</p>
-            )}
-            {links && links.length > 0 && (
-              <div className="space-y-2">
-                {links.slice(0, 5).map((l) => (
-                  <div key={l.id} className="flex items-center justify-between gap-2 text-xs">
+            <Hero>
+              <p className="text-[11px] tracking-wider text-white/80">TOTAL VENDIDO CON KUOTA</p>
+              <p className="text-4xl font-black tabular-nums">{soles(d.sold)}</p>
+              {Chips}
+            </Hero>
+            <Card title="Conciliación de ingresos">
+              <Row label="Total bruto facturado" value={soles(d.sold)} />
+              <Row label="Cobrado en cuenta (neto)" value={soles(d.net)} />
+              <Row label="Comisión Kuota (1 % + IGV)" value={`-${soles(d.fees)}`} />
+              <Row label="Por cobrar (aKuotas!)" value={soles(d.toCollect.reduce((a, o) => a + o.total_cents, 0))} />
+              <Row label="Por confirmar (links)" value={soles(d.pending.reduce((a, l) => a + l.amount_cents, 0))} />
+            </Card>
+            <Card title="Ventas recientes">
+              {d.sales.length === 0 && <Empty text="Aún no hay ventas en este periodo." />}
+              <div className="divide-y divide-[#f0f4ff]">
+                {d.sales.slice(0, 20).map((s) => (
+                  <div key={s.id} className="flex items-center justify-between gap-3 py-2.5 text-xs">
                     <div className="min-w-0">
-                      <p className="font-semibold text-[#151c27] truncate">{l.concept || 'Cobro'}</p>
-                      <p className="text-[#4a5f7e]">{new Date(l.created_at).toLocaleDateString('es-PE', { day: '2-digit', month: 'short' })}</p>
+                      <p className="font-bold text-[#151c27] truncate text-sm">{s.who}</p>
+                      <p className="text-[#4a5f7e]">{s.channel} · {day(s.at)}</p>
                     </div>
                     <div className="text-right shrink-0">
-                      <p className="font-bold text-[#151c27]">{soles(l.amount_cents)}</p>
-                      <p className={`font-semibold ${l.status === 'PAID' ? 'text-emerald-600' : l.status === 'EXPIRED' ? 'text-red-500' : 'text-amber-600'}`}>
-                        {l.status === 'PAID' ? 'Pagado' : l.status === 'EXPIRED' ? 'Expirado' : 'Pendiente'}
-                      </p>
+                      <p className="font-black text-[#151c27] text-sm">{soles(s.cents)}</p>
+                      <span className={`inline-block mt-0.5 px-2 py-0.5 rounded-full font-bold ${s.ok ? 'bg-emerald-100 text-emerald-800' : 'bg-[#e1e8f8] text-[#1a3bb0]'}`}>{s.status}</span>
                     </div>
                   </div>
                 ))}
               </div>
-            )}
-          </section>
-        )}
-
+            </Card>
           </>
         )}
+
+        {tab === 'clientes' && (
+          <>
+            <div className="flex items-end justify-between">
+              <div>
+                <p className="text-xs tracking-wider text-[#4a5f7e]">CARTERA DE NEGOCIOS</p>
+                <h2 className="text-2xl font-black text-[#0b2545]">Clientes Activos</h2>
+              </div>
+              <span className="px-3 py-1.5 rounded-full bg-[#b6ccfd] text-[#1a3bb0] text-xs font-black flex items-center gap-1"><ShieldCheck size={13} aria-hidden="true" />{d.customers.length} comercios</span>
+            </div>
+            <Card>
+              {d.customers.length === 0 && <Empty text="Aún no tienes pedidos de comercios afiliados." />}
+              <div className="divide-y divide-[#f0f4ff]">
+                {d.customers.map((c) => (
+                  <div key={c.who} className="py-3 flex items-center gap-3">
+                    <span className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#00248b] to-[#1a3bb0] text-white font-black flex items-center justify-center shrink-0">{c.who.trim().slice(0, 2).toUpperCase()}</span>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-bold text-sm text-[#151c27] truncate">{c.who}</p>
+                      <p className="text-[11px] text-[#4a5f7e]">{c.count} pedido{c.count === 1 ? '' : 's'} · ticket prom. {soles(Math.round(c.total / c.count))} · último {day(c.last)}</p>
+                    </div>
+                    <p className="font-black text-sm text-[#1a3bb0] shrink-0">{soles(c.total)}</p>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          </>
+        )}
+
+        {tab === 'depositos' && (
+          <>
+            <Hero>
+              <p className="text-[11px] tracking-wider text-white/80">TOTAL DEPOSITADO EN TU CUENTA</p>
+              <p className="text-4xl font-black tabular-nums">{soles(d.net)}</p>
+              {Chips}
+              <div className="rounded-2xl bg-white text-[#0b2545] p-3.5 text-xs">
+                <p className="font-black text-sm">Próximo abono</p>
+                <p className="text-[#4a5f7e]">{d.toCollect.length > 0 ? `${soles(d.toCollect.reduce((a, o) => a + o.total_cents, 0))} en ${d.toCollect.length} pedido${d.toCollect.length === 1 ? '' : 's'} por liquidar` : 'No tienes abonos programados.'}</p>
+              </div>
+            </Hero>
+            <Card title="Histórico de liquidaciones">
+              {d.paid.length === 0 && <Empty text="Aún no hay cobros liquidados en este periodo." />}
+              <div className="divide-y divide-[#f0f4ff]">
+                {d.paid.map((l) => (
+                  <div key={l.id} className="flex items-center justify-between gap-3 py-2.5 text-xs">
+                    <div className="min-w-0">
+                      <p className="font-bold text-sm text-[#151c27] truncate">{l.concept || 'Cobro'}</p>
+                      <p className="text-[#4a5f7e]">{day(l.paid_at ?? l.created_at)} · Bruto {soles(l.amount_cents)} · Comisión {soles(l.fee_cents)}</p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="font-black text-sm text-[#151c27]">{soles(l.net_cents)}</p>
+                      <span className="inline-block mt-0.5 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold">Abonado</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+            <Card title="Cuenta bancaria de abono" icon={<Landmark size={14} />}>
+              {profile?.settlement ? <Row label={profile.settlement.bank || 'Banco'} value={profile.settlement.account_masked} /> : <p className="text-xs text-[#4a5f7e]">Aún no registraste una cuenta. Hazlo en Cuenta.</p>}
+            </Card>
+            <Card title="Transparencia: regla de comisión mínima">
+              <p className="text-xs text-[#4a5f7e]">Para cobros pequeños aplica la comisión base de S/ 4.50 + IGV. Ejemplo con una venta de S/ 200.00:</p>
+              <div className="grid grid-cols-3 gap-2 text-center text-xs rounded-2xl bg-[#eff3ff] p-3">
+                <div><p className="text-[#4a5f7e]">Bruto</p><p className="font-black">S/ 200.00</p></div>
+                <div><p className="text-red-600">Tarifa + IGV</p><p className="font-black text-red-600">-S/ 5.31</p></div>
+                <div><p className="text-[#4a5f7e]">Abono neto</p><p className="font-black">S/ 194.69</p></div>
+              </div>
+            </Card>
+          </>
+        )}
+
         {tab === 'cuenta' && (
           <>
-        {/* Datos */}
-        <section className="bg-white rounded-3xl p-4 shadow-sm border border-[#e1e8f8] space-y-3">
-          <h2 className="text-xs font-black text-[#151c27] uppercase tracking-wider">Datos de la empresa</h2>
-          <Row label="RUC" value={profile?.ruc_masked} />
-          <Row label="Rubro" value={profile?.category} />
-          <Row label="WhatsApp" value={profile?.whatsapp_masked} />
-          <Row label="Tarifa por cobro" value={profile?.fee_bps != null ? `${profile.fee_bps / 100} % + IGV (mín. S/ 4.50)` : null} />
-        </section>
-
-        {/* Cuenta de abono */}
-        <section className="bg-white rounded-3xl p-4 shadow-sm border border-[#e1e8f8] space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xs font-black text-[#151c27] uppercase tracking-wider flex items-center gap-1.5">
-              <Landmark size={14} /> Cuenta de abono
-            </h2>
-            <button
-              type="button"
-              onClick={() => { setShowSettForm((v) => !v); setSettError(null); }}
-              className="text-[11px] font-bold text-[#1a3bb0] flex items-center gap-0.5"
-            >
-              {profile?.settlement ? 'Editar' : 'Registrar'}
-              {showSettForm ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-            </button>
-          </div>
-
-          {profile?.settlement ? (
-            <Row label={profile.settlement.bank || 'Banco'} value={profile.settlement.account_masked} />
-          ) : (
-            <p className="text-xs text-[#4a5f7e]">Aún no registraste una cuenta para recibir tus pagos.</p>
-          )}
-
-          {showSettForm && (
-            <div className="pt-2 space-y-2 border-t border-[#f0f4ff]">
-              <div>
-                <label className="text-[11px] text-[#4a5f7e] font-semibold mb-1 block">Banco</label>
-                <select
-                  value={settBank}
-                  onChange={(e) => setSettBank(e.target.value)}
-                  className="w-full border border-[#e1e8f8] rounded-xl px-3 py-2 text-sm bg-[#f9f9ff] text-[#151c27]"
-                >
-                  {BANKS.map((b) => <option key={b}>{b}</option>)}
-                </select>
+            <Card title="Datos de la empresa">
+              <Row label="RUC" value={profile?.ruc_masked} />
+              <Row label="Rubro" value={profile?.category} />
+              <Row label="WhatsApp" value={profile?.whatsapp_masked} />
+              <Row label="Tarifa por cobro" value={profile?.fee_bps != null ? `${profile.fee_bps / 100} % + IGV (mín. S/ 4.50)` : null} />
+              <p className="text-[11px] text-[#4a5f7e]">{st.hint}</p>
+            </Card>
+            <Card title="Cuenta de abono" icon={<Landmark size={14} />}>
+              <div className="flex items-center justify-between">
+                {profile?.settlement ? <Row label={profile.settlement.bank || 'Banco'} value={profile.settlement.account_masked} /> : <p className="text-xs text-[#4a5f7e]">Aún no registraste una cuenta para recibir tus pagos.</p>}
+                <button type="button" onClick={() => { setShowSettForm((v) => !v); setSettError(null); }} className="text-[11px] font-bold text-[#1a3bb0] flex items-center gap-0.5 shrink-0 ml-3 cursor-pointer">
+                  {profile?.settlement ? 'Editar' : 'Registrar'}{showSettForm ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                </button>
               </div>
-              <div>
-                <label className="text-[11px] text-[#4a5f7e] font-semibold mb-1 block">CCI (20 dígitos)</label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={24}
-                  placeholder="002 123 456789012345 00"
-                  value={settCci}
-                  onChange={(e) => setSettCci(e.target.value)}
-                  className="w-full border border-[#e1e8f8] rounded-xl px-3 py-2 text-sm bg-[#f9f9ff] text-[#151c27] placeholder:text-[#b0bdd0]"
-                />
-              </div>
-              <div>
-                <label className="text-[11px] text-[#4a5f7e] font-semibold mb-1 block">Tu PIN de 6 dígitos</label>
-                <input
-                  type="password"
-                  inputMode="numeric"
-                  maxLength={6}
-                  placeholder="••••••"
-                  value={settPin}
-                  onChange={(e) => setSettPin(e.target.value)}
-                  className="w-full border border-[#e1e8f8] rounded-xl px-3 py-2 text-sm bg-[#f9f9ff] text-[#151c27] placeholder:text-[#b0bdd0]"
-                />
-              </div>
-              {settError && <p className="text-xs text-red-600">{settError}</p>}
-              <button
-                type="button"
-                disabled={settSaving}
-                onClick={handleSaveSettlement}
-                className="w-full py-2.5 rounded-xl bg-[#00248b] text-white text-sm font-bold disabled:opacity-60"
-              >
-                {settSaving ? 'Guardando…' : 'Guardar cuenta'}
-              </button>
+              {showSettForm && (
+                <div className="pt-2 space-y-2 border-t border-[#f0f4ff]">
+                  <div>
+                    <label className="text-[11px] text-[#4a5f7e] font-semibold mb-1 block">Banco</label>
+                    <select value={settBank} onChange={(e) => setSettBank(e.target.value)} className="w-full border border-[#e1e8f8] rounded-xl px-3 py-2 text-sm bg-[#f9f9ff] text-[#151c27]">
+                      {BANKS.map((b) => <option key={b}>{b}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[11px] text-[#4a5f7e] font-semibold mb-1 block">CCI (20 dígitos)</label>
+                    <input type="text" inputMode="numeric" maxLength={24} placeholder="002 123 456789012345 00" value={settCci} onChange={(e) => setSettCci(e.target.value)}
+                      className="w-full border border-[#e1e8f8] rounded-xl px-3 py-2 text-sm bg-[#f9f9ff] text-[#151c27] placeholder:text-[#b0bdd0]" />
+                  </div>
+                  <div>
+                    <label className="text-[11px] text-[#4a5f7e] font-semibold mb-1 block">Tu PIN de 6 dígitos</label>
+                    <input type="password" inputMode="numeric" maxLength={6} placeholder="••••••" value={settPin} onChange={(e) => setSettPin(e.target.value)}
+                      className="w-full border border-[#e1e8f8] rounded-xl px-3 py-2 text-sm bg-[#f9f9ff] text-[#151c27] placeholder:text-[#b0bdd0]" />
+                  </div>
+                  {settError && <p className="text-xs text-red-600">{settError}</p>}
+                  <button type="button" disabled={settSaving} onClick={handleSaveSettlement} className="w-full py-2.5 rounded-xl bg-[#00248b] text-white text-sm font-bold disabled:opacity-60">
+                    {settSaving ? 'Guardando…' : 'Guardar cuenta'}
+                  </button>
+                </div>
+              )}
+            </Card>
+            <div className="p-3 rounded-2xl bg-[#eff3ff] border border-[#d8e2ff] flex items-start gap-2 text-[11px] text-[#2b3f66] leading-snug">
+              <ShieldCheck size={16} className="shrink-0 mt-0.5 text-[#1a3bb0]" aria-hidden="true" />
+              <span>Tu cuenta solo puede estar abierta en un equipo a la vez. Vendes con la misma clave en tus dos perfiles.</span>
             </div>
-          )}
-        </section>
-
-        <div className="p-3 rounded-2xl bg-[#eff3ff] border border-[#d8e2ff] flex items-start gap-2 text-[11px] text-[#2b3f66] leading-snug">
-          <ShieldCheck size={16} className="shrink-0 mt-0.5 text-[#1a3bb0]" />
-          <span>Tu cuenta solo puede estar abierta en un equipo a la vez. Vendes con la misma clave en tus dos perfiles.</span>
-        </div>
-
-        <button
-          type="button"
-          onClick={onLogout}
-          className="w-full py-3.5 rounded-2xl bg-white border border-[#e1e8f8] text-red-600 font-bold text-sm flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99]"
-        >
-          <LogOut size={16} /> Cerrar sesión
-        </button>
+            <button type="button" onClick={onLogout} className="w-full py-3.5 rounded-2xl bg-white border border-[#e1e8f8] text-red-600 font-bold text-sm flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99]">
+              <LogOut size={16} aria-hidden="true" /> Cerrar sesión
+            </button>
           </>
         )}
       </div>
-      </div>
 
-      <nav aria-label="Navegación del proveedor" className="shrink-0 bg-white border-t border-[#e1e8f8] px-2 pt-1.5 pb-2 grid grid-cols-4 items-end">
-        {([['inicio', 'Inicio', Home], ['ventas', 'Ventas', Package]] as const).map(([k, label, Icon]) => (
-          <button key={k} type="button" onClick={() => setTab(k)} aria-current={tab === k ? 'page' : undefined}
-            className={`flex flex-col items-center gap-0.5 py-1 text-[11px] font-bold cursor-pointer ${tab === k ? 'text-[#1a3bb0]' : 'text-[#4a5f7e]'}`}>
-            <Icon size={20} aria-hidden="true" />{label}
-          </button>
-        ))}
-        <button type="button" onClick={onSell} className="flex flex-col items-center gap-0.5 text-[11px] font-black text-[#00248b] cursor-pointer">
-          <span className="-mt-5 w-12 h-12 rounded-full bg-gradient-to-br from-[#00248b] to-[#1a3bb0] text-white flex items-center justify-center shadow-lg"><QrCode size={22} aria-hidden="true" /></span>Vender
+      <nav aria-label="Navegación del proveedor" className="shrink-0 mx-3 mb-2 bg-white rounded-full shadow-lg shadow-blue-900/15 border border-[#e1e8f8] px-2 grid grid-cols-5 items-end">
+        {navItem('inicio', 'Inicio', Home)}
+        {navItem('ventas', 'Ventas', TrendingUp)}
+        <button type="button" onClick={onSell} className="flex flex-col items-center gap-0.5 pb-1.5 text-[11px] font-black text-[#00248b] cursor-pointer">
+          <span className="-mt-6 w-14 h-14 rounded-full bg-gradient-to-br from-[#00248b] to-[#1a3bb0] text-white flex items-center justify-center shadow-lg"><Plus size={28} aria-hidden="true" /></span>Vender
         </button>
-        <button type="button" onClick={() => setTab('cuenta')} aria-current={tab === 'cuenta' ? 'page' : undefined}
-          className={`flex flex-col items-center gap-0.5 py-1 text-[11px] font-bold cursor-pointer ${tab === 'cuenta' ? 'text-[#1a3bb0]' : 'text-[#4a5f7e]'}`}>
-          <User size={20} aria-hidden="true" />Cuenta
-        </button>
+        {navItem('clientes', 'Clientes', Users)}
+        {navItem('depositos', 'Depósitos', Wallet)}
       </nav>
     </div>
   );
 };
-
-const Row: React.FC<{ label: string; value?: string | null }> = ({ label, value }) => (
-  <div className="flex items-center justify-between gap-3 text-sm">
-    <span className="text-[#4a5f7e]">{label}</span>
-    <span className="font-bold text-[#151c27] text-right break-all">{value || '—'}</span>
-  </div>
-);
-
-const Stat: React.FC<{ label: string; value: string }> = ({ label, value }) => (
-  <div className="flex-1 bg-[#f4f7ff] rounded-xl p-2 text-center">
-    <p className="text-[11px] text-[#4a5f7e]">{label}</p>
-    <p className="font-black text-[#151c27] text-sm">{value}</p>
-  </div>
-);
