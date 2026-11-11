@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Building2, CheckCircle2, ChevronDown, ChevronRight, Clock, Home, Landmark, LogOut, Package, QrCode, ShieldCheck, Zap } from 'lucide-react';
+import { Building2, CheckCircle2, ChevronDown, ChevronRight, Clock, Home, Landmark, LogOut, Package, PiggyBank, QrCode, ShieldCheck, User, Wallet, Zap } from 'lucide-react';
 import { api, apiRequest, getMerchantId } from '../../api/client';
 import { paymentsApi } from '../../api/payments';
 import type { PaymentLink } from '../../api/payments';
@@ -109,10 +109,22 @@ export const ProviderHomeScreen: React.FC<{ onLogout: () => void; onSell: () => 
     }
   };
 
+  const [tab, setTab] = useState<'inicio' | 'ventas' | 'cuenta'>('inicio');
+  const [period, setPeriod] = useState<'week' | 'month' | 'all'>('all');
+
+  // Ahorro real vs. un POS tradicional (3.5 %): solo cobros pagados; la comisión Kuota ya incluye IGV.
+  const since = period === 'week' ? Date.now() - 7 * 864e5 : period === 'month' ? Date.now() - 30 * 864e5 : 0;
+  const paid = (links ?? []).filter((l) => l.status === 'PAID' && Date.parse(l.paid_at ?? l.created_at) >= since);
+  const posCents = Math.round(paid.reduce((a, l) => a + l.amount_cents, 0) * 0.035);
+  const kuotaCents = paid.reduce((a, l) => a + l.fee_cents, 0);
+  const pendingLinks = (links ?? []).filter((l) => l.status === 'ACTIVE' || l.status === 'ON_HOLD');
+  const toCollect = (orders ?? []).filter((o) => !o.settled);
+
   const st = STATUS[profile?.kyc_status ?? 'IN_REVIEW'] ?? STATUS.IN_REVIEW;
 
   return (
-    <div className="flex-1 flex flex-col overflow-y-auto bg-gradient-to-b from-[#f9f9ff] via-[#eff3ff] to-[#e6edfd]">
+    <div className="flex-1 min-h-0 flex flex-col bg-gradient-to-b from-[#f9f9ff] via-[#eff3ff] to-[#e6edfd]">
+      <div className="flex-1 overflow-y-auto">
       <div className="px-4.5 pt-6 pb-8 bg-gradient-to-br from-[#00248b] to-[#1a3bb0] text-white rounded-b-3xl">
         <div className="flex items-start gap-3">
           <div className="w-12 h-12 rounded-2xl bg-white/15 border border-white/25 flex items-center justify-center shrink-0">
@@ -136,25 +148,126 @@ export const ProviderHomeScreen: React.FC<{ onLogout: () => void; onSell: () => 
       <div className="px-4.5 -mt-4 space-y-3 pb-6">
         {error && <div className="p-3 rounded-2xl bg-red-50 border border-red-200 text-xs text-red-700">{error}</div>}
 
-        <button
-          type="button"
-          onClick={onSell}
-          className="w-full py-4 rounded-2xl bg-gradient-to-r from-[#00248b] to-[#1a3bb0] text-white font-black text-sm flex items-center justify-center gap-2 shadow-lg shadow-blue-900/20 cursor-pointer active:scale-[0.99]"
-        >
-          <QrCode size={18} /> Vender con Kuota Payments
-        </button>
+        {tab === 'inicio' && (
+          <>
+            {/* Ahorro: protagonista del Inicio (diseño provider_inicio) */}
+            <section className="rounded-3xl p-4 bg-white shadow-sm border border-[#e1e8f8] space-y-3">
+              <h2 className="text-sm font-black text-[#0b2545] flex items-center gap-2"><PiggyBank size={16} aria-hidden="true" /> Ahorraste con Kuota Payments</h2>
+              <div>
+                <p className="text-[11px] text-[#4a5f7e]">Ahorro total generado</p>
+                <p className="text-3xl font-black text-[#0b2545] tabular-nums">{soles(Math.max(posCents - kuotaCents, 0))}</p>
+                <p className="text-[11px] text-[#4a5f7e] mt-0.5">vs. 3.5 % promedio de comisión en POS tradicional</p>
+              </div>
+              <div role="group" aria-label="Periodo" className="flex gap-2">
+                {([['week', 'Semana'], ['month', 'Mes'], ['all', 'Total acumulado']] as const).map(([k, label]) => (
+                  <button key={k} type="button" aria-pressed={period === k} onClick={() => setPeriod(k)}
+                    className={`px-3 h-8 rounded-full text-[11px] font-bold cursor-pointer ${period === k ? 'bg-[#1a3bb0] text-white' : 'bg-[#eff3ff] text-[#4a5f7e]'}`}>{label}</button>
+                ))}
+              </div>
+              <div className="text-xs space-y-1.5 pt-2 border-t border-[#f0f4ff]">
+                <div className="flex justify-between gap-3"><span className="text-[#4a5f7e]">Lo que habrías pagado en POS (3.5 %)</span><span className="font-bold text-[#0b2545]">{soles(posCents)}</span></div>
+                <div className="flex justify-between gap-3"><span className="text-[#4a5f7e]">Lo que pagaste con Kuota (1 % + IGV)</span><span className="font-bold text-[#0b2545]">-{soles(kuotaCents)}</span></div>
+              </div>
+              {links === null && getMerchantId() && <p className="text-[11px] text-[#4a5f7e]">Cargando…</p>}
+              {!getMerchantId() && <p className="text-[11px] text-[#4a5f7e]">Toca Vender para abrir Kuota Payments y empezar a ahorrar.</p>}
+            </section>
 
-        {/* El Home (crédito, ventas, cuenta) vive en el perfil Emprendedor: acceso directo, sin pasar por el botón de perfil. */}
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-black text-[#0b2545]">Operaciones de fondos</h2>
+              <span className="text-[11px] text-[#4a5f7e]">Actualizado hoy</span>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <section className="bg-white rounded-3xl p-4 shadow-sm border border-[#e1e8f8]">
+                <p className="text-[11px] font-bold text-[#4a5f7e] flex items-center gap-1"><Clock size={12} aria-hidden="true" /> Por cobrar</p>
+                <p className="mt-1 text-xl font-black text-[#0b2545] tabular-nums">{soles(toCollect.reduce((a, o) => a + o.total_cents, 0))}</p>
+                <p className="text-[11px] text-[#4a5f7e]">{toCollect.length} pedido{toCollect.length === 1 ? '' : 's'} sin liquidar</p>
+              </section>
+              <section className="bg-white rounded-3xl p-4 shadow-sm border border-[#e1e8f8]">
+                <p className="text-[11px] font-bold text-[#4a5f7e] flex items-center gap-1"><Wallet size={12} aria-hidden="true" /> Por confirmar</p>
+                <p className="mt-1 text-xl font-black text-[#0b2545] tabular-nums">{soles(pendingLinks.reduce((a, l) => a + l.amount_cents, 0))}</p>
+                <p className="text-[11px] text-[#4a5f7e]">{pendingLinks.length} link{pendingLinks.length === 1 ? '' : 's'} de cobro pendiente{pendingLinks.length === 1 ? '' : 's'}</p>
+              </section>
+            </div>
+
+            {getMerchantId() && (
+              <button type="button" onClick={() => window.dispatchEvent(new CustomEvent(SWITCH_EVENT, { detail: 'EMPRENDEDOR' }))}
+                className="w-full py-3.5 rounded-2xl bg-white border border-[#c9d5f3] text-[#00248b] font-black text-sm flex items-center justify-center gap-2 shadow-sm cursor-pointer active:scale-[0.99]">
+                <Home size={18} aria-hidden="true" /> Ir al Home
+              </button>
+            )}
+          </>
+        )}
+        {tab === 'ventas' && (
+          <>
+        {/* Mis pedidos */}
+        <section className="bg-white rounded-3xl p-4 shadow-sm border border-[#e1e8f8] space-y-3">
+          <h2 className="text-xs font-black text-[#151c27] uppercase tracking-wider flex items-center gap-1.5">
+            <Package size={14} /> Mis pedidos
+          </h2>
+          {orderSummary && (
+            <div className="flex gap-3 text-center">
+              <Stat label="Pedidos" value={String(orderSummary.count)} />
+              <Stat label="Total" value={soles(orderSummary.total_cents)} />
+              <Stat label="Liquidados" value={String(orderSummary.settled_count)} />
+            </div>
+          )}
+          {orders && orders.length === 0 && (
+            <p className="text-xs text-[#4a5f7e]">Aún no tienes pedidos de comercios afiliados.</p>
+          )}
+          {orders && orders.length > 0 && (
+            <div className="space-y-2">
+              {orders.slice(0, 5).map((o) => (
+                <div key={o.id} className="flex items-center justify-between gap-2 text-xs">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-[#151c27] truncate">{o.customer}</p>
+                    <p className="text-[#4a5f7e]">{o.installments_count} cuotas · {new Date(o.issued_at).toLocaleDateString('es-PE', { day: '2-digit', month: 'short' })}</p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="font-bold text-[#151c27]">{soles(o.total_cents)}</p>
+                    <p className={`font-semibold ${o.settled ? 'text-emerald-600' : 'text-amber-600'}`}>{o.settled ? 'Liquidado' : 'Pendiente'}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          {orders === null && <p className="text-xs text-[#4a5f7e]">Cargando…</p>}
+        </section>
+
+        {/* Mis cobros */}
         {getMerchantId() && (
-          <button
-            type="button"
-            onClick={() => window.dispatchEvent(new CustomEvent(SWITCH_EVENT, { detail: 'EMPRENDEDOR' }))}
-            className="w-full py-3.5 rounded-2xl bg-white border border-[#c9d5f3] text-[#00248b] font-black text-sm flex items-center justify-center gap-2 shadow-sm cursor-pointer active:scale-[0.99]"
-          >
-            <Home size={18} aria-hidden="true" /> Ir al Home
-          </button>
+          <section className="bg-white rounded-3xl p-4 shadow-sm border border-[#e1e8f8] space-y-3">
+            <h2 className="text-xs font-black text-[#151c27] uppercase tracking-wider flex items-center gap-1.5">
+              <Zap size={14} /> Mis cobros (Kuota Payments)
+            </h2>
+            {links === null && <p className="text-xs text-[#4a5f7e]">Cargando…</p>}
+            {links && links.length === 0 && (
+              <p className="text-xs text-[#4a5f7e]">Aún no generaste ningún link de cobro.</p>
+            )}
+            {links && links.length > 0 && (
+              <div className="space-y-2">
+                {links.slice(0, 5).map((l) => (
+                  <div key={l.id} className="flex items-center justify-between gap-2 text-xs">
+                    <div className="min-w-0">
+                      <p className="font-semibold text-[#151c27] truncate">{l.concept || 'Cobro'}</p>
+                      <p className="text-[#4a5f7e]">{new Date(l.created_at).toLocaleDateString('es-PE', { day: '2-digit', month: 'short' })}</p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="font-bold text-[#151c27]">{soles(l.amount_cents)}</p>
+                      <p className={`font-semibold ${l.status === 'PAID' ? 'text-emerald-600' : l.status === 'EXPIRED' ? 'text-red-500' : 'text-amber-600'}`}>
+                        {l.status === 'PAID' ? 'Pagado' : l.status === 'EXPIRED' ? 'Expirado' : 'Pendiente'}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
         )}
 
+          </>
+        )}
+        {tab === 'cuenta' && (
+          <>
         {/* Datos */}
         <section className="bg-white rounded-3xl p-4 shadow-sm border border-[#e1e8f8] space-y-3">
           <h2 className="text-xs font-black text-[#151c27] uppercase tracking-wider">Datos de la empresa</h2>
@@ -235,71 +348,6 @@ export const ProviderHomeScreen: React.FC<{ onLogout: () => void; onSell: () => 
           )}
         </section>
 
-        {/* Mis pedidos */}
-        <section className="bg-white rounded-3xl p-4 shadow-sm border border-[#e1e8f8] space-y-3">
-          <h2 className="text-xs font-black text-[#151c27] uppercase tracking-wider flex items-center gap-1.5">
-            <Package size={14} /> Mis pedidos
-          </h2>
-          {orderSummary && (
-            <div className="flex gap-3 text-center">
-              <Stat label="Pedidos" value={String(orderSummary.count)} />
-              <Stat label="Total" value={soles(orderSummary.total_cents)} />
-              <Stat label="Liquidados" value={String(orderSummary.settled_count)} />
-            </div>
-          )}
-          {orders && orders.length === 0 && (
-            <p className="text-xs text-[#4a5f7e]">Aún no tienes pedidos de comercios afiliados.</p>
-          )}
-          {orders && orders.length > 0 && (
-            <div className="space-y-2">
-              {orders.slice(0, 5).map((o) => (
-                <div key={o.id} className="flex items-center justify-between gap-2 text-xs">
-                  <div className="min-w-0">
-                    <p className="font-semibold text-[#151c27] truncate">{o.customer}</p>
-                    <p className="text-[#4a5f7e]">{o.installments_count} cuotas · {new Date(o.issued_at).toLocaleDateString('es-PE', { day: '2-digit', month: 'short' })}</p>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <p className="font-bold text-[#151c27]">{soles(o.total_cents)}</p>
-                    <p className={`font-semibold ${o.settled ? 'text-emerald-600' : 'text-amber-600'}`}>{o.settled ? 'Liquidado' : 'Pendiente'}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-          {orders === null && <p className="text-xs text-[#4a5f7e]">Cargando…</p>}
-        </section>
-
-        {/* Mis cobros */}
-        {getMerchantId() && (
-          <section className="bg-white rounded-3xl p-4 shadow-sm border border-[#e1e8f8] space-y-3">
-            <h2 className="text-xs font-black text-[#151c27] uppercase tracking-wider flex items-center gap-1.5">
-              <Zap size={14} /> Mis cobros (Kuota Payments)
-            </h2>
-            {links === null && <p className="text-xs text-[#4a5f7e]">Cargando…</p>}
-            {links && links.length === 0 && (
-              <p className="text-xs text-[#4a5f7e]">Aún no generaste ningún link de cobro.</p>
-            )}
-            {links && links.length > 0 && (
-              <div className="space-y-2">
-                {links.slice(0, 5).map((l) => (
-                  <div key={l.id} className="flex items-center justify-between gap-2 text-xs">
-                    <div className="min-w-0">
-                      <p className="font-semibold text-[#151c27] truncate">{l.concept || 'Cobro'}</p>
-                      <p className="text-[#4a5f7e]">{new Date(l.created_at).toLocaleDateString('es-PE', { day: '2-digit', month: 'short' })}</p>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <p className="font-bold text-[#151c27]">{soles(l.amount_cents)}</p>
-                      <p className={`font-semibold ${l.status === 'PAID' ? 'text-emerald-600' : l.status === 'EXPIRED' ? 'text-red-500' : 'text-amber-600'}`}>
-                        {l.status === 'PAID' ? 'Pagado' : l.status === 'EXPIRED' ? 'Expirado' : 'Pendiente'}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-        )}
-
         <div className="p-3 rounded-2xl bg-[#eff3ff] border border-[#d8e2ff] flex items-start gap-2 text-[11px] text-[#2b3f66] leading-snug">
           <ShieldCheck size={16} className="shrink-0 mt-0.5 text-[#1a3bb0]" />
           <span>Tu cuenta solo puede estar abierta en un equipo a la vez. Vendes con la misma clave en tus dos perfiles.</span>
@@ -312,7 +360,26 @@ export const ProviderHomeScreen: React.FC<{ onLogout: () => void; onSell: () => 
         >
           <LogOut size={16} /> Cerrar sesión
         </button>
+          </>
+        )}
       </div>
+      </div>
+
+      <nav aria-label="Navegación del proveedor" className="shrink-0 bg-white border-t border-[#e1e8f8] px-2 pt-1.5 pb-2 grid grid-cols-4 items-end">
+        {([['inicio', 'Inicio', Home], ['ventas', 'Ventas', Package]] as const).map(([k, label, Icon]) => (
+          <button key={k} type="button" onClick={() => setTab(k)} aria-current={tab === k ? 'page' : undefined}
+            className={`flex flex-col items-center gap-0.5 py-1 text-[11px] font-bold cursor-pointer ${tab === k ? 'text-[#1a3bb0]' : 'text-[#4a5f7e]'}`}>
+            <Icon size={20} aria-hidden="true" />{label}
+          </button>
+        ))}
+        <button type="button" onClick={onSell} className="flex flex-col items-center gap-0.5 text-[11px] font-black text-[#00248b] cursor-pointer">
+          <span className="-mt-5 w-12 h-12 rounded-full bg-gradient-to-br from-[#00248b] to-[#1a3bb0] text-white flex items-center justify-center shadow-lg"><QrCode size={22} aria-hidden="true" /></span>Vender
+        </button>
+        <button type="button" onClick={() => setTab('cuenta')} aria-current={tab === 'cuenta' ? 'page' : undefined}
+          className={`flex flex-col items-center gap-0.5 py-1 text-[11px] font-bold cursor-pointer ${tab === 'cuenta' ? 'text-[#1a3bb0]' : 'text-[#4a5f7e]'}`}>
+          <User size={20} aria-hidden="true" />Cuenta
+        </button>
+      </nav>
     </div>
   );
 };
