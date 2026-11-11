@@ -635,6 +635,13 @@ function AppShell() {
                 setActiveTab('inicio');
               }}
               onNavigateTab={(tab) => {
+                if (sellFromProvider) {
+                  // Vendiendo como Provider no se sale al Emprendedor: se vuelve a su panel.
+                  setSellFromProvider(false);
+                  setActiveTab('inicio');
+                  setCurrentScreen('provider_home');
+                  return;
+                }
                 setCurrentScreen('dashboard');
                 setActiveTab(tab);
               }}
@@ -715,6 +722,8 @@ function AppShell() {
             }
           }}
           showBack={showBack}
+          // La barra inferior es del Emprendedor: al vender como Provider no se muestra (sus cobros ya están en esta pantalla).
+          showBottomNav={!sellFromProvider}
           bare={device}
           activeScreenTitle=""
           onBack={handleBack}
