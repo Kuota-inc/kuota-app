@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { api, ApiError } from '../../api/client';
+import { profilesApi } from '../../api/profiles';
 import { isCancelled, newIdempotencyKey, paymentsApi, type PaymentLink } from '../../api/payments';
-import { Delete, ArrowRight, CheckCircle2, Copy, ArrowLeft, ShieldCheck, Clock, XCircle, Hourglass, Share2 } from 'lucide-react';
+import { Delete, ArrowRight, CheckCircle2, Copy, ArrowLeft, ShieldCheck, Clock, XCircle, Hourglass, Share2, Store, MessageCircle, Link2, Lock, Phone, User, Package, QrCode as QrIcon, Plus } from 'lucide-react';
 import { useToast } from '../../components/toast-context';
 import { QrCode } from '../../components/QrCode';
 import { FEE_PCT, MIN_AMOUNT_CENTS, localQuote } from '../../config/fee';
@@ -16,6 +17,16 @@ const formatSoles = (cents: number) => `S/ ${(cents / 100).toLocaleString('es-PE
 const formatWhen = (iso: string) =>
   new Date(iso).toLocaleString('es-PE', { timeZone: 'America/Lima', weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
 
+const Field: React.FC<{ icon: React.ReactNode; label: string; children: React.ReactNode }> = ({ icon, label, children }) => (
+  <label className="block space-y-1.5">
+    <span className="text-[11px] font-bold text-[#4a5f7e] tracking-wide">{label}</span>
+    <span className="flex items-center gap-2.5 h-12 px-3.5 rounded-2xl bg-[#eff3ff] text-[#4a5f7e] focus-within:ring-2 focus-within:ring-[#1a3bb0]/40">
+      {icon}
+      {children}
+    </span>
+  </label>
+);
+
 export const PaymentLinkScreen: React.FC<PaymentLinkScreenProps> = ({ onBack, onNavigateTab }) => {
   const toast = useToast();
   const [amountStr, setAmountStr] = useState<string>('50');
@@ -26,8 +37,16 @@ export const PaymentLinkScreen: React.FC<PaymentLinkScreenProps> = ({ onBack, on
   const [loading, setLoading] = useState<boolean>(false);
   const [paying, setPaying] = useState<boolean>(false);
   const [paymentSuccess, setPaymentSuccess] = useState<boolean>(false);
+  // Datos del comprador: solo sirven para armar el mensaje de WhatsApp (no se guardan en el servidor).
+  const [buyerName, setBuyerName] = useState<string>('');
+  const [buyerPhone, setBuyerPhone] = useState<string>('');
+  const [businessName, setBusinessName] = useState<string | null>(null);
   // Misma clave mientras no cambie el cobro: un reintento tras un corte de red no lo duplica.
   const pendingKey = useRef<{ fingerprint: string; key: string } | null>(null);
+
+  useEffect(() => {
+    profilesApi.access().then((a) => setBusinessName(a.business_name)).catch(() => {});
+  }, []);
 
   const amountNumber = parseFloat(amountStr) || 0;
   const amountCents = Math.round(amountNumber * 100);
@@ -191,240 +210,197 @@ export const PaymentLinkScreen: React.FC<PaymentLinkScreenProps> = ({ onBack, on
 
   const canShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
 
-  return (
-    <div className="flex-1 p-4 space-y-4 bg-[#f9f9ff] flex flex-col justify-between">
-      {/* Clean Flow Header (Sin switcher: flujo independiente de vender y cobrar) */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between pb-1">
-          <div className="flex items-center gap-2.5">
-            <button
-              type="button"
-              onClick={onBack}
-              className="w-8 h-8 rounded-full bg-white border border-[#e1e8f8] flex items-center justify-center text-[#1a3bb0] hover:bg-blue-50 active:scale-95 transition shadow-xs cursor-pointer"
-              aria-label="Volver al inicio"
-            >
-              <ArrowLeft size={16} />
-            </button>
-            <div>
-              <h1 className="text-base font-black text-[#0b2545] tracking-tight">Vender y Cobrar</h1>
-              <p className="text-[10px] text-[#4a5f7e]">Genera links de cobro · Tarifa {FEE_PCT}% · <b className="text-amber-800">Simulado</b>, sin banco real aún</p>
-            </div>
-          </div>
-          <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200">
-            Tarifa {FEE_PCT}%
-          </span>
-        </div>
+  const buyerDigits = buyerPhone.replace(/\D/g, '').replace(/^51(?=\d{9}$)/, '');
+  const whatsappHref = link?.url
+    ? `https://wa.me/${buyerDigits.length === 9 ? '51' + buyerDigits : ''}?text=${encodeURIComponent(
+        `Hola${buyerName.trim() ? ' ' + buyerName.trim() : ''}, te envío el link para pagar ${formatSoles(link.amount_cents)}${link.concept ? ' por ' + link.concept : ''}: ${link.url}`
+      )}`
+    : '';
+  const fieldInput = 'flex-1 min-w-0 bg-transparent outline-none text-sm font-semibold text-[#0b2545] placeholder:text-[#4a5f7e]/70';
 
-        {!link ? (
-          <>
-            {/* Amount Display */}
-            <div className="p-4 bg-white rounded-3xl border border-[#e1e8f8] shadow-sm text-center space-y-1">
-              <span className="text-[10px] font-bold text-[#4a5f7e] uppercase tracking-wider">
-                Monto a cobrar
-              </span>
-              <div className="text-4xl font-black text-[#0b2545] tracking-tight">
+  return (
+    <div className="flex-1 p-4 space-y-3.5 bg-[#f9f9ff] flex flex-col">
+      {/* Encabezado */}
+      <div className="flex items-center gap-3">
+        <button type="button" onClick={onBack} aria-label="Volver al inicio"
+          className="w-9 h-9 rounded-full bg-white border border-[#e1e8f8] flex items-center justify-center text-[#1a3bb0] active:scale-95 transition shadow-xs cursor-pointer">
+          <ArrowLeft size={18} aria-hidden="true" />
+        </button>
+        <h1 className="text-lg font-black text-[#0b2545] tracking-tight">Nueva Venta</h1>
+      </div>
+
+      {/* Terminal activo */}
+      <div className="flex items-center gap-3 p-3.5 rounded-3xl bg-[#eff3ff]">
+        <span className="w-11 h-11 rounded-2xl bg-[#b6ccfd] text-[#1a3bb0] flex items-center justify-center shrink-0"><Store size={22} aria-hidden="true" /></span>
+        <div className="min-w-0 flex-1">
+          <p className="text-[10px] font-black tracking-[0.12em] text-[#4a5f7e]">TERMINAL ACTIVO</p>
+          <p className="text-base font-black text-[#0b2545] truncate">{businessName || 'Tu negocio'}</p>
+        </div>
+        <span className="px-2.5 py-1 rounded-full bg-[#b6ccfd] text-[#1a3bb0] text-[10px] font-black shrink-0">Kuota Payments</span>
+      </div>
+
+      {/* Canal */}
+      <div className="p-3.5 rounded-3xl bg-white border border-[#e1e8f8] shadow-sm space-y-1.5">
+        <div className="flex items-center justify-between gap-2">
+          <span className="flex items-center gap-2 text-xs font-bold text-[#0b2545]"><i className="w-2 h-2 rounded-full bg-emerald-500" /> Canal activo · Link, QR y código 360pay</span>
+          <span className="px-2.5 py-1 rounded-full bg-[#eff3ff] text-[#1a3bb0] text-[10px] font-black shrink-0">{FEE_PCT}% + IGV</span>
+        </div>
+        <p className="text-xs text-[#4a5f7e] leading-relaxed">Genera un cobro de monto fijo y compártelo. Se acredita a tu cuenta vinculada cuando el cliente paga.</p>
+      </div>
+
+      {!link ? (
+        <>
+          <section className="p-4 rounded-3xl bg-white border border-[#e1e8f8] shadow-sm space-y-3.5">
+            <div className="flex items-center justify-between">
+              <h2 className="flex items-center gap-2 text-sm font-black text-[#0b2545]"><Package size={17} aria-hidden="true" /> Detalle del Cobro</h2>
+              <span className="text-[10px] font-bold text-[#4a5f7e]">En vivo</span>
+            </div>
+
+            <div className="rounded-2xl bg-[#eff3ff] px-4 py-3 text-center space-y-1">
+              <span className="text-[11px] font-bold text-[#4a5f7e]">Monto a cobrar (PEN)</span>
+              <div className="text-4xl font-black text-[#0b2545] tracking-tight tabular-nums">
                 <span className="text-2xl text-[#1a3bb0] mr-1">S/</span>
                 {amountStr.endsWith('.') ? amountStr : parseFloat(amountStr || '0').toLocaleString('es-PE', { minimumFractionDigits: 2 })}
               </div>
-
-              {/* Commission breakdown (PRD 08) */}
               {quote && (
-                <div className="pt-2 flex flex-wrap justify-center gap-x-4 gap-y-0.5 text-[11px] text-[#4a5f7e] border-t border-slate-100">
-                  <div>
-                    Comisión ({FEE_PCT}% + IGV, mín. S/ 4.50):{' '}
-                    <strong className="text-red-600">S/ {(quote.fee_cents / 100).toFixed(2)}</strong>
-                  </div>
-                  <div>
-                    Recibes neto:{' '}
-                    <strong className="text-emerald-700">S/ {(quote.net_cents / 100).toFixed(2)}</strong>
-                  </div>
+                <div className="pt-1.5 flex flex-wrap justify-center gap-x-4 gap-y-0.5 text-[11px] text-[#4a5f7e]">
+                  <span>Comisión (mín. S/ 4.50 + IGV): <strong className="text-red-600">S/ {(quote.fee_cents / 100).toFixed(2)}</strong></span>
+                  <span>Recibes neto: <strong className="text-emerald-700">S/ {(quote.net_cents / 100).toFixed(2)}</strong></span>
                 </div>
               )}
             </div>
 
-            {/* Concept Input */}
-            <input
-              type="text"
-              value={concept}
-              onChange={(e) => setConcept(e.target.value)}
-              aria-label="Concepto del cobro"
-              maxLength={80}
-              placeholder="Concepto: Ej. Lote de polos, vestido lino..."
-              className="w-full px-4 py-2.5 bg-white rounded-2xl border border-[#e1e8f8] text-xs font-semibold text-[#0b2545] focus:outline-none focus:border-[#1a3bb0]"
-            />
-
-            {/* Quick add chips */}
             <div className="flex justify-between gap-1.5">
               {[20, 50, 100, 200].map((v) => (
-                <motion.button
-                  key={v}
-                  whileTap={{ scale: 0.92 }}
-                  whileHover={{ scale: 1.05 }}
-                  type="button"
-                  onClick={() => handleQuickAdd(v)}
-                  className="flex-1 py-1.5 bg-white border border-[#e1e8f8] hover:border-[#1a3bb0] rounded-xl text-xs font-bold text-[#1a3bb0] shadow-sm cursor-pointer"
-                >
-                  +{v}
-                </motion.button>
+                <motion.button key={v} whileTap={{ scale: 0.92 }} type="button" onClick={() => handleQuickAdd(v)}
+                  className="flex-1 py-1.5 bg-white border border-[#e1e8f8] hover:border-[#1a3bb0] rounded-xl text-xs font-bold text-[#1a3bb0] cursor-pointer">+{v}</motion.button>
               ))}
             </div>
 
-            {/* Numeric Keypad */}
             <div className="grid grid-cols-3 gap-2">
               {['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0'].map((digit) => (
-                <motion.button
-                  key={digit}
-                  whileTap={{ scale: 0.88 }}
-                  type="button"
-                  onClick={() => handleKeyPress(digit)}
-                  className="py-3 bg-white hover:bg-slate-50 text-[#0b2545] font-black text-lg rounded-2xl border border-[#e1e8f8] shadow-sm transition cursor-pointer select-none"
-                >
-                  {digit}
-                </motion.button>
+                <motion.button key={digit} whileTap={{ scale: 0.88 }} type="button" onClick={() => handleKeyPress(digit)}
+                  className="py-2.5 bg-white hover:bg-slate-50 text-[#0b2545] font-black text-lg rounded-2xl border border-[#e1e8f8] transition cursor-pointer select-none">{digit}</motion.button>
               ))}
-              <motion.button
-                whileTap={{ scale: 0.88 }}
-                type="button"
-                onClick={handleDelete}
-                aria-label="Borrar último dígito"
-                className="py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-2xl flex items-center justify-center transition cursor-pointer"
-              >
+              <motion.button whileTap={{ scale: 0.88 }} type="button" onClick={handleDelete} aria-label="Borrar último dígito"
+                className="py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-2xl flex items-center justify-center transition cursor-pointer">
                 <Delete size={20} aria-hidden="true" />
               </motion.button>
             </div>
-          </>
-        ) : link.status === 'ON_HOLD' ? (
-          /* Retenido por el motor antifraude */
-          <div className="p-5 bg-white rounded-3xl border border-amber-200 shadow-md space-y-3 text-center">
-            <div className="w-12 h-12 mx-auto rounded-full bg-amber-100 text-amber-700 flex items-center justify-center">
-              <Hourglass size={26} aria-hidden="true" />
-            </div>
-            <h2 className="text-base font-black text-[#0b2545]">Estamos revisando este cobro</h2>
-            <p className="text-xs text-[#4a5f7e] leading-relaxed">
-              Por tu seguridad validamos el cobro de <strong className="text-[#0b2545]">{formatSoles(link.amount_cents)}</strong> antes de
-              activarlo. Te avisaremos en minutos; no necesitas hacer nada.
-            </p>
-            <div className="flex gap-2">
-              <button type="button" onClick={resetFlow} className="flex-1 h-10 rounded-full bg-[#eff3ff] text-[#1a3bb0] text-xs font-bold cursor-pointer">
-                Entendido
-              </button>
-              <button type="button" onClick={handleCancel} className="flex-1 h-10 rounded-full text-red-600 text-xs font-bold cursor-pointer">
-                Cancelar cobro
-              </button>
-            </div>
+
+            <Field icon={<Package size={17} aria-hidden="true" />} label="Concepto o producto">
+              <input type="text" value={concept} onChange={(e) => setConcept(e.target.value)} maxLength={80} aria-label="Concepto del cobro" placeholder="Ej. 10 rollos de tela Pima" className={fieldInput} />
+            </Field>
+            <Field icon={<User size={17} aria-hidden="true" />} label="Nombre del comprador (opcional)">
+              <input type="text" value={buyerName} onChange={(e) => setBuyerName(e.target.value)} maxLength={60} aria-label="Nombre del comprador" placeholder="Ej. Juan Mendoza" className={fieldInput} />
+            </Field>
+            <Field icon={<Phone size={17} aria-hidden="true" />} label="Teléfono WhatsApp (opcional)">
+              <input type="tel" inputMode="tel" value={buyerPhone} onChange={(e) => setBuyerPhone(e.target.value)} maxLength={16} aria-label="Teléfono WhatsApp del comprador" placeholder="+51 984 123 456" className={fieldInput} />
+            </Field>
+          </section>
+
+          <div className="pt-1 space-y-2">
+            <button type="button" onClick={handleCreateAndIssue} disabled={loading || amountCents < MIN_AMOUNT_CENTS}
+              className="w-full py-3.5 px-4 bg-gradient-to-r from-[#00248b] to-[#1a3bb0] text-white rounded-full font-bold text-sm shadow-lg shadow-blue-900/20 active:scale-[0.98] transition flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer">
+              <QrIcon size={17} aria-hidden="true" />
+              <span>{loading ? 'Generando link…' : 'Generar link y QR de cobro'}</span>
+              <ArrowRight size={16} aria-hidden="true" />
+            </button>
+            <p className="text-[10px] text-center text-[#4a5f7e]">Tu cliente verá el nombre de tu negocio y el monto antes de pagar.</p>
           </div>
-        ) : (
-          /* Issued Link View */
-          <div className="p-4 bg-white rounded-3xl border border-blue-100 shadow-md space-y-4 text-center">
-            {!paymentSuccess ? (
-              <>
-                <div className="w-12 h-12 mx-auto rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center">
-                  <CheckCircle2 size={28} aria-hidden="true" />
-                </div>
-                <div>
-                  <h2 className="text-base font-black text-[#0b2545]">¡Link de Cobro Listo!</h2>
-                  <div className="text-2xl font-black text-[#1a3bb0] mt-1">{formatSoles(link.amount_cents)}</div>
-                  {link.concept && <p className="text-[11px] text-[#4a5f7e] mt-0.5">{link.concept}</p>}
-                </div>
+        </>
+      ) : link.status === 'ON_HOLD' ? (
+        <div className="p-5 bg-white rounded-3xl border border-amber-200 shadow-md space-y-3 text-center">
+          <div className="w-12 h-12 mx-auto rounded-full bg-amber-100 text-amber-700 flex items-center justify-center"><Hourglass size={26} aria-hidden="true" /></div>
+          <h2 className="text-base font-black text-[#0b2545]">Estamos revisando este cobro</h2>
+          <p className="text-xs text-[#4a5f7e] leading-relaxed">
+            Por tu seguridad validamos el cobro de <strong className="text-[#0b2545]">{formatSoles(link.amount_cents)}</strong> antes de activarlo. Te avisaremos en minutos; no necesitas hacer nada.
+          </p>
+          <div className="flex gap-2">
+            <button type="button" onClick={resetFlow} className="flex-1 h-10 rounded-full bg-[#eff3ff] text-[#1a3bb0] text-xs font-bold cursor-pointer">Entendido</button>
+            <button type="button" onClick={handleCancel} className="flex-1 h-10 rounded-full text-red-600 text-xs font-bold cursor-pointer">Cancelar cobro</button>
+          </div>
+        </div>
+      ) : !paymentSuccess ? (
+        <section className="p-4 rounded-3xl bg-white border border-[#e1e8f8] shadow-md space-y-3.5">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="flex items-center gap-2 text-sm font-black text-[#0b2545]"><QrIcon size={18} aria-hidden="true" /> QR dinámico generado</h2>
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#eff3ff] text-[#1a3bb0] text-[10px] font-black"><Lock size={11} aria-hidden="true" /> Cifrado SSL</span>
+          </div>
 
-                {link.url && (
-                  <div className="flex justify-center p-2 bg-slate-50 rounded-2xl border border-slate-100">
-                    <QrCode value={link.url} label={`QR para pagar ${formatSoles(link.amount_cents)}`} />
-                  </div>
-                )}
-                {link.url && link.url.includes('localhost') && (
-                  <div className="flex items-start gap-2 p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-[11px] text-amber-800">
-                    <span className="shrink-0 mt-0.5">⚠️</span>
-                    <span>Este QR apunta a localhost y solo funciona en red local. Configura <strong>KUOTA_PAY_BASE_URL</strong> en Railway para producción.</span>
-                  </div>
-                )}
+          {link.url && (
+            <div className="flex justify-center p-3 bg-white rounded-2xl border border-[#e1e8f8]">
+              <QrCode value={link.url} size={176} label={`QR para pagar ${formatSoles(link.amount_cents)}`} />
+            </div>
+          )}
+          {link.url && link.url.includes('localhost') && (
+            <div className="flex items-start gap-2 p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-[11px] text-amber-800">
+              <span className="shrink-0 mt-0.5">⚠️</span>
+              <span>Este QR apunta a localhost y solo funciona en red local. Configura <strong>KUOTA_PAY_BASE_URL</strong> en Railway para producción.</span>
+            </div>
+          )}
 
-                <div className="flex items-center justify-center gap-3 text-[10px] text-[#4a5f7e]">
-                  <span className="inline-flex items-center gap-1">
-                    <ShieldCheck size={12} className="text-emerald-700" aria-hidden="true" /> Monto fijo · un solo pago
-                  </span>
-                  <span className="inline-flex items-center gap-1">
-                    <Clock size={12} aria-hidden="true" /> Vence {formatWhen(link.expires_at)}
-                  </span>
-                </div>
+          {(link.payment_code || link.code) && (
+            <button type="button" onClick={handleCopy} aria-label="Copiar link de cobro"
+              className="w-full flex items-center justify-between gap-2 px-4 py-2.5 rounded-full bg-[#eff3ff] text-left cursor-pointer">
+              <span className="text-[11px] font-bold text-[#4a5f7e]">{link.payment_code ? 'CÓDIGO 360PAY' : 'CÓDIGO DE PAGO'}: <strong className="font-mono text-sm text-[#1a3bb0]">{link.payment_code ?? link.code}</strong></span>
+              <Copy size={15} className="text-[#4a5f7e] shrink-0" aria-hidden="true" />
+            </button>
+          )}
 
-                {link.payment_code && (
-                  <div className="p-2.5 rounded-xl bg-[#eff3ff] text-[11px] text-[#304670]">
-                    Código de pago 360pay (bancos y agentes): <strong className="font-mono text-[#0b2545]">{link.payment_code}</strong>
-                  </div>
-                )}
+          <div className="rounded-2xl bg-[#eff3ff] p-3.5 text-sm space-y-1.5">
+            {buyerName.trim() && <div className="flex justify-between gap-3"><span className="text-[#4a5f7e]">Cliente:</span><b className="text-[#0b2545] text-right">{buyerName.trim()}</b></div>}
+            {link.concept && <div className="flex justify-between gap-3"><span className="text-[#4a5f7e]">Concepto:</span><b className="text-[#0b2545] text-right">{link.concept}</b></div>}
+            <div className="flex justify-between gap-3 items-baseline"><span className="font-bold text-[#0b2545]">Total a cobrar:</span><b className="text-xl text-[#1a3bb0] tabular-nums">{formatSoles(link.amount_cents)}</b></div>
+            <div className="flex justify-between gap-3 text-xs"><span className="text-[#4a5f7e]">Recibes neto:</span><b className="text-emerald-700">{formatSoles(link.net_cents)}</b></div>
+          </div>
 
-                <div className="p-2.5 bg-slate-50 rounded-xl text-[11px] font-mono text-slate-700 flex items-center justify-between gap-2">
-                  <span className="truncate">{link.url}</span>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <button type="button" onClick={handleCopy} aria-label="Copiar link de cobro" className="w-7 h-7 rounded-lg flex items-center justify-center text-[#1a3bb0] hover:bg-white cursor-pointer">
-                      <Copy size={14} aria-hidden="true" />
-                    </button>
-                    {canShare && (
-                      <button type="button" onClick={handleShare} aria-label="Compartir link de cobro" className="w-7 h-7 rounded-lg flex items-center justify-center text-[#1a3bb0] hover:bg-white cursor-pointer">
-                        <Share2 size={14} aria-hidden="true" />
-                      </button>
-                    )}
-                  </div>
-                </div>
+          <div className="flex items-center justify-center gap-3 text-[10px] text-[#4a5f7e]">
+            <span className="inline-flex items-center gap-1"><ShieldCheck size={12} className="text-emerald-700" aria-hidden="true" /> Monto fijo · un solo pago</span>
+            <span className="inline-flex items-center gap-1"><Clock size={12} aria-hidden="true" /> Vence {formatWhen(link.expires_at)}</span>
+          </div>
 
-                {/* Simulación de la página de pago de 360pay (solo desarrollo) */}
-                <button
-                  type="button"
-                  onClick={handleSimulateClientPay}
-                  disabled={paying}
-                  className="w-full py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl text-xs font-bold shadow-md hover:opacity-95 flex items-center justify-center gap-2 cursor-pointer active:scale-98 transition disabled:opacity-60"
-                >
-                  <img src="/brand/yape-official.png" alt="" className="w-4 h-4 rounded-md object-cover inline shadow-xs" />
-                  <span>{paying ? 'Procesando pago…' : 'Simular pago del cliente con Yape'}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={handleCancel}
-                  className="w-full inline-flex items-center justify-center gap-1.5 text-[11px] font-bold text-red-600 cursor-pointer"
-                >
-                  <XCircle size={13} aria-hidden="true" /> Cancelar este link
-                </button>
-              </>
-            ) : (
-              <div className="space-y-3 py-4">
-                <div className="w-14 h-14 mx-auto rounded-full bg-emerald-500 text-white flex items-center justify-center">
-                  <CheckCircle2 size={32} aria-hidden="true" />
-                </div>
-                <h3 className="text-base font-black text-[#0b2545]">¡Cobro Exitoso Acreditado!</h3>
-                <p className="text-xs text-[#4a5f7e]">
-                  Se acreditaron {formatSoles(link.net_cents)} a tu cuenta y sumaste puntos a tu Score.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    resetFlow();
-                    onNavigateTab('ventas');
-                  }}
-                  className="px-4 py-2 bg-[#1a3bb0] text-white rounded-xl text-xs font-bold cursor-pointer"
-                >
-                  Ver en Ventas
-                </button>
-              </div>
+          <a href={whatsappHref} target="_blank" rel="noopener noreferrer"
+            className="w-full py-3.5 rounded-full bg-gradient-to-r from-[#00248b] to-[#1a3bb0] text-white font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-blue-900/20 active:scale-[0.98] transition">
+            <MessageCircle size={18} aria-hidden="true" /> Enviar link por WhatsApp
+          </a>
+          <div className="flex gap-2">
+            <button type="button" onClick={handleCopy} className="flex-1 py-3 rounded-full bg-[#b6ccfd]/60 text-[#1a3bb0] font-bold text-sm flex items-center justify-center gap-2 cursor-pointer">
+              <Link2 size={16} aria-hidden="true" /> Copiar link
+            </button>
+            {canShare && (
+              <button type="button" onClick={handleShare} aria-label="Compartir link de cobro" className="w-12 rounded-full bg-[#b6ccfd]/60 text-[#1a3bb0] flex items-center justify-center cursor-pointer">
+                <Share2 size={16} aria-hidden="true" />
+              </button>
             )}
           </div>
-        )}
-      </div>
 
-      {/* Footer Submit Button */}
-      {!link && (
-        <div className="pt-2 space-y-2">
-          <button
-            type="button"
-            onClick={handleCreateAndIssue}
-            disabled={loading || amountCents < MIN_AMOUNT_CENTS}
-            className="w-full py-3.5 px-4 bg-gradient-to-r from-[#00248b] to-[#1a3bb0] hover:from-[#1a3bb0] hover:to-[#00248b] text-white rounded-2xl font-bold text-sm shadow-lg shadow-blue-900/20 active:scale-[0.98] transition flex items-center justify-center gap-2 disabled:opacity-50"
-          >
-            <span>{loading ? 'Generando link...' : 'Generar Link y QR de Cobro'}</span>
-            <ArrowRight size={16} aria-hidden="true" />
+          {/* Simulación de la página de pago de 360pay (solo mientras no haya dinero real) */}
+          <button type="button" onClick={handleSimulateClientPay} disabled={paying}
+            className="w-full py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-full text-xs font-bold shadow-md hover:opacity-95 flex items-center justify-center gap-2 cursor-pointer active:scale-98 transition disabled:opacity-60">
+            <img src="/brand/yape-official.png" alt="" className="w-4 h-4 rounded-md object-cover inline" />
+            <span>{paying ? 'Procesando pago…' : 'Simular pago del cliente con Yape'}</span>
           </button>
-          <p className="text-[10px] text-center text-[#4a5f7e]">Tus clientes verán el nombre de tu negocio y el monto antes de pagar.</p>
-        </div>
+          <div className="flex items-center justify-between pt-1">
+            <button type="button" onClick={handleCancel} className="inline-flex items-center gap-1.5 text-[11px] font-bold text-red-600 cursor-pointer">
+              <XCircle size={13} aria-hidden="true" /> Cancelar este link
+            </button>
+            <button type="button" onClick={resetFlow} className="inline-flex items-center gap-1 text-[11px] font-bold text-[#1a3bb0] cursor-pointer">
+              <Plus size={13} aria-hidden="true" /> Nuevo cobro
+            </button>
+          </div>
+        </section>
+      ) : (
+        <section className="p-6 bg-white rounded-3xl border border-emerald-200 shadow-md text-center space-y-3">
+          <div className="w-16 h-16 mx-auto rounded-full bg-emerald-500 text-white flex items-center justify-center"><CheckCircle2 size={34} aria-hidden="true" /></div>
+          <h3 className="text-lg font-black text-[#0b2545]">¡Cobro exitoso!</h3>
+          <p className="text-3xl font-black text-[#1a3bb0] tabular-nums">{formatSoles(link.amount_cents)}</p>
+          <p className="text-xs text-[#4a5f7e]">Se acreditaron {formatSoles(link.net_cents)} a tu cuenta y sumaste puntos a tu Score.</p>
+          <div className="flex gap-2 pt-1">
+            <button type="button" onClick={resetFlow} className="flex-1 h-11 rounded-full bg-[#eff3ff] text-[#1a3bb0] text-sm font-bold cursor-pointer">Nuevo cobro</button>
+            <button type="button" onClick={() => { resetFlow(); onNavigateTab('ventas'); }} className="flex-1 h-11 rounded-full bg-gradient-to-r from-[#00248b] to-[#1a3bb0] text-white text-sm font-bold cursor-pointer">Ver mis ventas</button>
+          </div>
+        </section>
       )}
     </div>
   );
