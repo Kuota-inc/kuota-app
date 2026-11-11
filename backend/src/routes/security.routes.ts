@@ -199,9 +199,9 @@ async function providerLogin(req: Request, res: Response): Promise<boolean> {
   if (phone.length !== 9) return false;
   const prov = await coreDb.get<{
     id: string; legal_name: string | null; kyc_status: string | null; pin_hash: string | null;
-    pin_failed_attempts: number; pin_locked_until: string | null; user_id: string | null;
+    pin_failed_attempts: number; pin_locked_until: string | null;
   }>(
-    `SELECT id, legal_name, kyc_status, pin_hash, pin_failed_attempts, pin_locked_until, user_id FROM provider_profiles
+    `SELECT id, legal_name, kyc_status, pin_hash, pin_failed_attempts, pin_locked_until FROM provider_profiles
      WHERE right(regexp_replace(coalesce(whatsapp, ''), '[^0-9]', '', 'g'), 9) = ? ORDER BY created_at DESC LIMIT 1`,
     phone
   );
@@ -239,14 +239,9 @@ async function providerLogin(req: Request, res: Response): Promise<boolean> {
     prov.id
   );
   await audit({ actorType: 'MERCHANT', actorId: prov.id, action: 'SESSION_OPEN', result: 'OK', ip, details: { role: 'PROVIDER' } });
-  // Si este proveedor ya abrió Kuota Payments, también devolvemos el merchant_id para que el app muestre ambos perfiles.
-  const linkedMerchant = prov.user_id
-    ? await coreDb.get<{ id: string }>('SELECT id FROM merchant_profiles WHERE user_id = ?', prov.user_id)
-    : null;
   res.status(201).json({
     role: 'PROVIDER',
-    profiles: linkedMerchant ? ['EMPRENDEDOR', 'PROVIDER'] : ['PROVIDER'],
-    merchant_id: linkedMerchant?.id ?? undefined,
+    profiles: ['PROVIDER'],
     provider_id: prov.id,
     provider_token: token,
     business_name: prov.legal_name,
