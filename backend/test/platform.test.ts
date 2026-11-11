@@ -169,7 +169,6 @@ describe('Flujos del núcleo sobre Postgres', () => {
     for (const [method, url, body] of [
       ['PUT', '/providers/activity', { category: 'TEXTILES', seniority_range: 'GT_3Y' }],
       ['PUT', '/providers/notifications', { consent: 'GRANTED' }],
-      ['PUT', '/providers/settlement-account', { bank: 'BCP', cci: '00219400123456789012', holder_name: 'DON LUCHO SAC', holder_doc: '20519482711' }],
       ['GET', '/providers/savings-estimate', undefined],
       ['POST', '/providers/activate', undefined],
       ['GET', '/providers/recommended', undefined]

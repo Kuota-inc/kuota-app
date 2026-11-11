@@ -22,16 +22,13 @@ export const ProviderSavingsScreen: React.FC<ProviderSavingsScreenProps> = ({ on
   }, []);
 
   const handleSaveCci = async () => {
-    if (cci.length !== 20) {
+    if (cci.replace(/[\s-]/g, '').length !== 20) {
       toast.error('El código CCI debe tener exactamente 20 dígitos.');
       return;
     }
-    try {
-      await api.saveSettlementAccount({ bank, cci });
-      setSavedCci(true);
-    } catch (err: any) {
-      toast.error(err.message || 'Error al guardar cuenta');
-    }
+    // Durante el registro el PIN aún no existe: se guarda desde el panel después de completar el proceso.
+    toast.info('Podrás registrar tu cuenta de abono desde el panel de proveedor, una vez que crees tu PIN.');
+    setSavedCci(true);
   };
 
   const handleActivate = async () => {

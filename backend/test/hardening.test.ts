@@ -586,3 +586,34 @@ describe('Proveedor: representante legal con carnet de extranjería', () => {
     assert.equal(rec.body.role, 'PROVIDER');
   });
 });
+
+describe('Panel del proveedor: cuenta de abono y pedidos', () => {
+  test('la cuenta de abono exige sesión, PIN y un CCI válido del banco elegido; los pedidos son solo los suyos', async () => {
+    resetRateLimits();
+    const sid = 'ses_provider_panel_' + Date.now();
+    const conf = await call('POST', '/businesses/confirm', { session_id: sid, ruc: '20100041953', legal_rep_dni: '47891234', whatsapp: '984000333' });
+    assert.equal(conf.status, 201, JSON.stringify(conf.body));
+    assert.equal((await call('POST', `/onboarding/sessions/${sid}/security-pin`, { pin: '739164' })).status, 200);
+    const mine = { 'X-Provider-Id': conf.body.provider_id, 'X-Provider-Token': conf.body.provider_token };
+    const cci = '00219400123456789012';
+
+    assert.equal((await call('PUT', '/providers/settlement-account', { bank: 'BCP', cci, pin: '739164' })).status, 401, 'sin sesión de proveedor no se cambia');
+    assert.equal((await call('PUT', '/providers/settlement-account', { bank: 'BCP', cci: '0021940012345678901X', pin: '739164' }, mine)).body.error.code, 'CCI_INVALID');
+    assert.equal((await call('PUT', '/providers/settlement-account', { bank: 'BBVA', cci, pin: '739164' }, mine)).body.error.code, 'CCI_BANK_MISMATCH');
+    assert.equal((await call('PUT', '/providers/settlement-account', { bank: 'BCP', cci }, mine)).body.error.code, 'PIN_INVALID', 'sin PIN no se cambia');
+    assert.equal((await call('PUT', '/providers/settlement-account', { bank: 'BCP', cci, pin: '000111' }, mine)).status, 401);
+    assert.equal((await call('GET', '/providers/me', undefined, mine)).body.settlement, null, 'nada se guardó con los intentos fallidos');
+
+    const ok = await call('PUT', '/providers/settlement-account', { bank: 'BCP', cci: '002-194-00123456789012', pin: '739164' }, mine);
+    assert.equal(ok.status, 200, JSON.stringify(ok.body));
+    const me = await call('GET', '/providers/me', undefined, mine);
+    assert.equal(me.body.settlement.bank, 'BCP');
+    assert.ok(me.body.settlement.account_masked.endsWith('9012'));
+    assert.ok(!JSON.stringify(me.body).includes(cci), 'el CCI completo no se devuelve');
+
+    const orders = await call('GET', '/providers/orders', undefined, mine);
+    assert.equal(orders.status, 200);
+    assert.deepEqual(orders.body.orders, []);
+    assert.equal((await call('GET', '/providers/orders', undefined, { 'X-Provider-Id': 'prov_donlucho', 'X-Provider-Token': conf.body.provider_token })).status, 401, 'no se ven pedidos de otro proveedor');
+  });
+});

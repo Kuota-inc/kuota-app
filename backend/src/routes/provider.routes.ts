@@ -7,6 +7,9 @@ import { startVerification } from '../services/kyc.service.js';
 import crypto from 'node:crypto';
 import type { Request, Response } from 'express';
 import { config } from '../security/config.js';
+import { audit } from '../security/audit.js';
+import { verifyPin } from '../security/crypto.js';
+import { checkCci } from '../security/cci.js';
 
 const sha256 = (v: string) => crypto.createHash('sha256').update(v).digest('hex');
 
@@ -603,28 +606,78 @@ providerRouter.get('/savings-estimate', (req, res) => {
   });
 });
 
-// PRD 16: Cuenta bancaria de abono
+// Cuenta bancaria de abono del proveedor. Cambiarla es la operación más delicada (a dónde va el dinero):
+// exige sesión de proveedor + PIN (con bloqueo por intentos), valida el CCI y queda en la bitácora.
 providerRouter.put('/settlement-account', async (req, res) => {
-  const { bank, cci } = req.body;
   const providerId = await authProvider(req, res);
   if (providerId === undefined) return;
+  if (!providerId) return res.status(401).json({ error: { code: 'PROVIDER_AUTH_REQUIRED', message: 'Inicia sesión para continuar.' } });
 
-  if (!cci || cci.length !== 20) {
-    return res.status(422).json({ error: { code: 'CCI_INVALID', message: 'El código de cuenta interbancario (CCI) debe tener 20 dígitos.' } });
+  const check = checkCci(req.body?.cci, req.body?.bank);
+  if (!check.ok) return res.status(422).json({ error: { code: check.code, message: check.message } });
+
+  const prov = (await db.prepare('SELECT pin_hash, pin_failed_attempts, pin_locked_until FROM provider_profiles WHERE id = ?').get(providerId)) as
+    | { pin_hash: string | null; pin_failed_attempts: number | null; pin_locked_until: string | null }
+    | undefined;
+  if (!prov?.pin_hash) return res.status(409).json({ error: { code: 'PIN_NOT_CONFIGURED', message: 'Primero crea tu PIN.' } });
+  const now = new Date();
+  if (prov.pin_locked_until && new Date(prov.pin_locked_until) > now) {
+    const minutes = Math.ceil((new Date(prov.pin_locked_until).getTime() - now.getTime()) / 60_000);
+    return res.status(423).json({ error: { code: 'PIN_LOCKED', message: `Bloqueamos el PIN por varios intentos fallidos. Inténtalo en ${minutes} min.` } });
+  }
+  const pin = req.body?.pin;
+  const ip = typeof req.ip === 'string' ? req.ip : null;
+  if (typeof pin !== 'string' || !/^\d{6}$/.test(pin) || !verifyPin(pin, prov.pin_hash)) {
+    const attempts = (prov.pin_failed_attempts ?? 0) + 1;
+    if (attempts >= config.pinMaxAttempts) {
+      const lockedUntil = new Date(now.getTime() + config.pinLockMinutes * 60_000).toISOString();
+      await db.prepare('UPDATE provider_profiles SET pin_failed_attempts = 0, pin_locked_until = ? WHERE id = ?').run(lockedUntil, providerId);
+      await audit({ actorType: 'MERCHANT', actorId: providerId, action: 'PIN_LOCKED', result: 'DENIED', ip, details: { role: 'PROVIDER', purpose: 'SETTLEMENT_ACCOUNT' } });
+      return res.status(423).json({ error: { code: 'PIN_LOCKED', message: `Bloqueamos el PIN por ${config.pinLockMinutes} min por varios intentos fallidos.` } });
+    }
+    await db.prepare('UPDATE provider_profiles SET pin_failed_attempts = ? WHERE id = ?').run(attempts, providerId);
+    const left = config.pinMaxAttempts - attempts;
+    return res.status(401).json({ error: { code: 'PIN_INVALID', message: `PIN incorrecto. Te queda${left === 1 ? '' : 'n'} ${left} intento${left === 1 ? '' : 's'}.` } });
   }
 
-  if (providerId) {
-    await db.prepare(`
-      UPDATE provider_profiles SET settlement_bank = ?, settlement_cci = ?, updated_at = utc_now_text()
-      WHERE id = ?
-    `).run(bank || 'BCP', cci, providerId).catch(() => {});
-  }
+  await db.prepare(`
+    UPDATE provider_profiles SET settlement_bank = ?, settlement_cci = ?, pin_failed_attempts = 0, pin_locked_until = NULL, updated_at = utc_now_text()
+    WHERE id = ?
+  `).run(check.bank, check.cci, providerId);
+  await audit({ actorType: 'MERCHANT', actorId: providerId, action: 'SETTLEMENT_ACCOUNT_SET', result: 'OK', ip, details: { role: 'PROVIDER', bank: check.bank, cci_last4: check.cci.slice(-4) } });
 
+  res.json({ success: true, bank: check.bank, account_masked: '•'.repeat(16) + check.cci.slice(-4), status: 'ACTIVE' });
+});
+
+// Pedidos del proveedor: compras que los comercios le hicieron con aKuotas!. Solo los suyos.
+providerRouter.get('/orders', async (req, res) => {
+  const id = await authProvider(req, res);
+  if (id === undefined) return;
+  if (!id) return res.status(401).json({ error: { code: 'PROVIDER_AUTH_REQUIRED', message: 'Inicia sesión para continuar.' } });
+  const rows = (await db.prepare(`
+    SELECT cp.id, cp.total_cents, cp.down_payment_cents, cp.financed_cents, cp.installments_count, cp.status, cp.issued_at, cp.settled_at,
+           mp.business_name
+    FROM credit_purchases cp
+    LEFT JOIN merchant_profiles mp ON mp.id = cp.merchant_id
+    WHERE cp.provider_id = ?
+    ORDER BY cp.issued_at DESC
+    LIMIT 50
+  `).all(id)) as Array<Record<string, any>>;
   res.json({
-    success: true,
-    bank: bank || 'BCP',
-    account_masked: '••• ' + cci.slice(-4),
-    status: 'ACTIVE'
+    summary: {
+      count: rows.length,
+      total_cents: rows.reduce((sum, r) => sum + Number(r.total_cents || 0), 0),
+      settled_count: rows.filter((r) => r.settled_at).length
+    },
+    orders: rows.map((r) => ({
+      id: r.id,
+      customer: r.business_name ?? 'Comercio',
+      total_cents: Number(r.total_cents),
+      installments_count: r.installments_count,
+      status: r.status,
+      issued_at: r.issued_at,
+      settled: !!r.settled_at
+    }))
   });
 });
 

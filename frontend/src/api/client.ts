@@ -356,11 +356,12 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify({ consent })
     }),
-  saveSettlementAccount: (data: { bank: string; cci: string }) =>
+  saveSettlementAccount: (data: { bank: string; cci: string; pin: string }) =>
     apiRequest('/providers/settlement-account', {
       method: 'PUT',
       body: JSON.stringify(data)
     }),
+  getProviderOrders: () => apiRequest('/providers/orders'),
   getSavingsEstimate: () => apiRequest('/providers/savings-estimate'),
   activateProvider: () => apiRequest('/providers/activate', { method: 'POST' }),
   getRecommendedProviders: () => apiRequest('/providers/recommended'),
