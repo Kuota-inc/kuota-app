@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Building2, CheckCircle2, ChevronDown, ChevronRight, Clock, Landmark, LogOut, Package, QrCode, ShieldCheck, Zap } from 'lucide-react';
+import { Building2, CheckCircle2, ChevronDown, ChevronRight, Clock, Home, Landmark, LogOut, Package, QrCode, ShieldCheck, Zap } from 'lucide-react';
 import { api, apiRequest, getMerchantId } from '../../api/client';
 import { paymentsApi } from '../../api/payments';
 import type { PaymentLink } from '../../api/payments';
-import { ProfileSwitcher } from '../../components/ProfileSwitcher';
+import { ProfileSwitcher, SWITCH_EVENT } from '../../components/ProfileSwitcher';
 
 interface ProviderProfile {
   id: string;
@@ -143,6 +143,17 @@ export const ProviderHomeScreen: React.FC<{ onLogout: () => void; onSell: () => 
         >
           <QrCode size={18} /> Vender con Kuota Payments
         </button>
+
+        {/* El Home (crédito, ventas, cuenta) vive en el perfil Emprendedor: acceso directo, sin pasar por el botón de perfil. */}
+        {getMerchantId() && (
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new CustomEvent(SWITCH_EVENT, { detail: 'EMPRENDEDOR' }))}
+            className="w-full py-3.5 rounded-2xl bg-white border border-[#c9d5f3] text-[#00248b] font-black text-sm flex items-center justify-center gap-2 shadow-sm cursor-pointer active:scale-[0.99]"
+          >
+            <Home size={18} aria-hidden="true" /> Ir al Home
+          </button>
+        )}
 
         {/* Datos */}
         <section className="bg-white rounded-3xl p-4 shadow-sm border border-[#e1e8f8] space-y-3">
