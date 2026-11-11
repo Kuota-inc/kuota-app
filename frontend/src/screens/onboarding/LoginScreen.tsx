@@ -108,10 +108,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, onBack }) =
       );
       if (res.role === 'PROVIDER' && res.provider_id) {
         // Cuenta de proveedor: guarda su id y su token (reemplaza al anterior: una sola sesión).
-        setMerchantId(null);
+        // Si ya tiene Kuota Payments, el backend devuelve merchant_id y profiles duales.
+        res.merchant_id ? setMerchantId(res.merchant_id) : setMerchantId(null);
         setProviderId(res.provider_id);
         if (res.provider_token) setProviderToken(res.provider_token);
-        onSuccess('PROVIDER');
+        onSuccess('PROVIDER', res.profiles);
         return;
       }
       if (res.merchant_id) setMerchantId(res.merchant_id);
@@ -153,10 +154,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, onBack }) =
       );
       if (res.role === 'PROVIDER' && res.provider_id) {
         // Cuenta de proveedor: guarda su id y su token (reemplaza al anterior: una sola sesión).
-        setMerchantId(null);
+        res.merchant_id ? setMerchantId(res.merchant_id) : setMerchantId(null);
         setProviderId(res.provider_id);
         if (res.provider_token) setProviderToken(res.provider_token);
-        onSuccess('PROVIDER');
+        onSuccess('PROVIDER', res.profiles);
         return;
       }
       if (res.merchant_id) setMerchantId(res.merchant_id);
