@@ -38,10 +38,10 @@ export const ProfileSwitcher: React.FC<{ active: ProfileKind }> = ({ active }) =
       const r = await profilesApi.createProvider();
       setProviderId(r.provider_id);
       setProviderToken(r.provider_token);
-      toast.success('Tu perfil Provider está listo.');
+      toast.success('Tu perfil Proveedor está listo.');
       doSwitch('PROVIDER');
     } catch (e) {
-      toast.error(e instanceof ApiError ? e.message : 'No pudimos crear tu perfil Provider.');
+      toast.error(e instanceof ApiError ? e.message : 'No pudimos crear tu perfil Proveedor.');
     } finally {
       setBusy(false);
     }
@@ -107,7 +107,7 @@ export const ProfileSwitcher: React.FC<{ active: ProfileKind }> = ({ active }) =
                 className="w-full p-3.5 rounded-2xl border border-[#e1e8f8] text-left flex items-center justify-between cursor-pointer disabled:opacity-60"
               >
                 <div>
-                  <p className="text-sm font-black text-[#0b2545]">Crear perfil Provider</p>
+                  <p className="text-sm font-black text-[#0b2545]">Crear perfil Proveedor</p>
                   <p className="text-[11px] text-[#4a5f7e]">Usamos tu RUC ya validado, no se pide de nuevo.</p>
                 </div>
                 <Plus size={18} className="text-[#0f766e]" aria-hidden="true" />
@@ -122,8 +122,8 @@ export const ProfileSwitcher: React.FC<{ active: ProfileKind }> = ({ active }) =
                 className="w-full p-3.5 rounded-2xl border border-dashed border-[#9aa8c9] text-left flex items-center justify-between cursor-pointer"
               >
                 <div>
-                  <p className="text-sm font-black text-[#0b2545]">Abre tu perfil Provider</p>
-                  <p className="text-[11px] text-[#4a5f7e]">Agrega tu RUC para vender y abrir tu perfil Provider.</p>
+                  <p className="text-sm font-black text-[#0b2545]">Abre tu perfil Proveedor</p>
+                  <p className="text-[11px] text-[#4a5f7e]">Agrega tu RUC para vender y abrir tu perfil Proveedor.</p>
                 </div>
                 <Lock size={18} className="text-[#4a5f7e]" aria-hidden="true" />
               </button>

@@ -16,7 +16,7 @@ export interface ProfileAccess {
 // Color distintivo por perfil: el mismo en el modal de elección y en el botón de perfil.
 export const PROFILE_META: Record<ProfileKind, { label: string; hint: string; color: string; soft: string }> = {
   EMPRENDEDOR: { label: 'Emprendedor', hint: 'Compra con aKuotas! y vende con Kuota Payments', color: '#1a3bb0', soft: '#eff3ff' },
-  PROVIDER: { label: 'Provider', hint: 'Cobra a tus clientes y controla tus pedidos', color: '#0f766e', soft: '#e6f6f3' }
+  PROVIDER: { label: 'Proveedor', hint: 'Cobra a tus clientes y controla tus pedidos', color: '#0f766e', soft: '#e6f6f3' }
 };
 
 const ACTIVE_KEY = 'kuota.active_profile';

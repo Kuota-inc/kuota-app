@@ -54,7 +54,7 @@ export const AddRucSheet: React.FC<{ reason: 'sell' | 'profile'; onClose: () => 
         <p className="text-sm text-[#4a5f7e] leading-snug">
           {reason === 'sell'
             ? 'Para vender y cobrar con tarjeta necesitas un RUC. Sigues con el mismo teléfono, clave e historial.'
-            : 'Con tu RUC puedes vender y abrir tu perfil Provider, sin crear otra cuenta.'}
+            : 'Con tu RUC puedes vender y abrir tu perfil Proveedor, sin crear otra cuenta.'}
         </p>
 
         <label className="block text-xs font-bold text-[#0b2545]" htmlFor="ruc-input">RUC (11 dígitos)</label>

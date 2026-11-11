@@ -230,7 +230,7 @@ function AppShell() {
         setSellFromProvider(false);
         setActiveTab('inicio');
         setCurrentScreen('dashboard');
-        toastRef.current.error('Tu perfil Provider se cerró. Inicia sesión otra vez con tu PIN para usarlo.');
+        toastRef.current.error('Tu perfil Proveedor se cerró. Inicia sesión otra vez con tu PIN para usarlo.');
         return;
       }
       handleLogout();

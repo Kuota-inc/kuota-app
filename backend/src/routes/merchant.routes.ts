@@ -120,7 +120,7 @@ merchantRouter.post('/sales/activate', async (req, res) => {
 merchantRouter.post('/provider-profile', async (req, res) => {
   const m = (await getMerchantProfile(req)) as Record<string, any>;
   if (m.ruc_verified !== true) {
-    return res.status(409).json({ error: { code: 'RUC_REQUIRED', message: 'Agrega tu RUC para abrir tu perfil Provider.' } });
+    return res.status(409).json({ error: { code: 'RUC_REQUIRED', message: 'Agrega tu RUC para abrir tu perfil Proveedor.' } });
   }
   const phone = lastNine(m.phone);
   const cred = (await db.prepare('SELECT pin_hash FROM merchant_credentials WHERE merchant_id = ?').get(m.id)) as { pin_hash: string } | undefined;
@@ -131,7 +131,7 @@ merchantRouter.post('/provider-profile', async (req, res) => {
   let providerId: string;
   if (existing) {
     if (lastNine(existing.whatsapp) !== phone) {
-      return res.status(409).json({ error: { code: 'RUC_ALREADY_REGISTERED', message: 'Este RUC ya tiene un perfil Provider con otro teléfono.' } });
+      return res.status(409).json({ error: { code: 'RUC_ALREADY_REGISTERED', message: 'Este RUC ya tiene un perfil Proveedor con otro teléfono.' } });
     }
     providerId = existing.id;
     await db.prepare('UPDATE provider_profiles SET access_token_hash = ? WHERE id = ?').run(tokenHash, providerId);
