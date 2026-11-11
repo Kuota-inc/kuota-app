@@ -7,6 +7,9 @@ import { sunatService } from '../services/sunat.service.js';
 import { PLANS, planOf, withIgv } from '../security/pricing.js';
 import { RUC_IN_REVIEW, RUC_NOT_YOURS, rucOwnership } from '../security/rucOwnership.js';
 import { getMerchantProfile } from '../security/merchantContext.js';
+import { audit } from '../security/audit.js';
+import { rateLimit } from '../security/guards.js';
+import { clientIp } from '../security/http.js';
 import { getNotificationState, markSeen, parsePreferences, savePreferences, unreadCount } from './notifications.js';
 
 export const merchantRouter = Router();
@@ -480,5 +483,56 @@ merchantRouter.get('/score', async (req, res) => {
     score: score?.score || 720,
     level: score?.level || 1,
     last_validated_at: score?.last_calculated_at || new Date().toISOString()
+  });
+});
+
+// ── Contactos: ¿este celular ya tiene cuenta Kuota? ─────────────────────────────────────────────
+// Sirve para cobrar sin pedir datos bancarios. También podría usarse para averiguar quién usa Kuota, así que:
+// exige sesión del dispositivo, se limita por minuto y por hora, se anota en la bitácora (sin el número) y solo
+// devuelve lo que ya es público en una página de cobro (nombre del negocio) o nombre con apellidos abreviados.
+const lookupKey = (req: any) => `${clientIp(req)}:${req.headers['x-merchant-id'] ?? ''}`;
+const lookupPerMinute = rateLimit({ name: 'contact-lookup-min', windowMs: 60_000, max: 15, key: lookupKey });
+const lookupPerHour = rateLimit({ name: 'contact-lookup-hour', windowMs: 3_600_000, max: 120, key: lookupKey });
+
+/** Celular peruano de 9 dígitos (acepta +51 / 51 y separadores) o null. */
+export function phone9(v: unknown): string | null {
+  const d = typeof v === 'string' ? v.replace(/\D/g, '') : '';
+  const n = d.length === 11 && d.startsWith('51') ? d.slice(2) : d;
+  return /^9\d{8}$/.test(n) ? n : null;
+}
+
+/** "HUAMANI LOVATON JOSUE" -> "Huamani L*** J***". */
+export function maskedName(full: string | null | undefined): string | null {
+  const parts = (full ?? '').trim().split(/\s+/).filter(Boolean).slice(0, 3);
+  if (!parts.length) return null;
+  const cap = (w: string) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+  return [cap(parts[0]), ...parts.slice(1).map((w) => w.charAt(0).toUpperCase() + '***')].join(' ');
+}
+
+merchantRouter.post('/contacts/lookup', lookupPerMinute, lookupPerHour, async (req, res) => {
+  const me = await getMerchantProfile(req);
+  const phone = phone9(req.body?.phone);
+  if (!phone) {
+    return res.status(422).json({ error: { code: 'PHONE_INVALID', message: 'Ingresa un celular peruano de 9 dígitos (empieza con 9).' } });
+  }
+  const digits = (col: string) => `right(regexp_replace(coalesce(${col}, ''), '[^0-9]', '', 'g'), 9)`;
+  const m = (await db
+    .prepare(`SELECT id, user_id, business_name, full_name, ruc_verified FROM merchant_profiles WHERE ${digits('phone')} = ? ORDER BY updated_at DESC LIMIT 1`)
+    .get(phone)) as { id: string; user_id: string | null; business_name: string | null; full_name: string | null; ruc_verified: number | boolean | null } | undefined;
+  const p = m
+    ? undefined
+    : ((await db
+        .prepare(`SELECT id, user_id, legal_name FROM provider_profiles WHERE ${digits('whatsapp')} = ? ORDER BY created_at DESC LIMIT 1`)
+        .get(phone)) as { id: string; user_id: string | null; legal_name: string | null } | undefined);
+  const found = !!(m || p);
+  const isSelf = (!!m && m.id === me.id) || (!!p && !!p.user_id && p.user_id === me.user_id);
+  await audit({ actorType: 'MERCHANT', actorId: me.id, action: 'CONTACT_LOOKUP', result: 'OK', ip: clientIp(req), details: { found } });
+  res.json({
+    phone_masked: `+51 ••• ••• ${phone.slice(-3)}`,
+    registered: found,
+    is_self: isSelf,
+    kind: m ? 'EMPRENDEDOR' : p ? 'PROVEEDOR' : null,
+    display_name: m ? m.business_name?.trim() || maskedName(m.full_name) : p ? p.legal_name?.trim() || null : null,
+    verified: !!m?.ruc_verified
   });
 });

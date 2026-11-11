@@ -35,7 +35,7 @@ const MerchantActivityScreen = lazy(() => import('./screens/onboarding/MerchantA
 const MerchantProductsScreen = lazy(() => import('./screens/onboarding/MerchantProductsScreen').then((m) => ({ default: m.MerchantProductsScreen })));
 const MerchantWelcomeSummaryScreen = lazy(() => import('./screens/onboarding/MerchantWelcomeSummaryScreen').then((m) => ({ default: m.MerchantWelcomeSummaryScreen })));
 const SalesScreen = lazy(() => import('./screens/dashboard/SalesScreen').then((m) => ({ default: m.SalesScreen })));
-const PaymentLinkScreen = lazy(() => import('./screens/dashboard/PaymentLinkScreen').then((m) => ({ default: m.PaymentLinkScreen })));
+const CobrosFlow = lazy(() => import('./screens/dashboard/CobrosFlow').then((m) => ({ default: m.CobrosFlow })));
 const BuyOnCreditScreen = lazy(() => import('./screens/dashboard/BuyOnCreditScreen').then((m) => ({ default: m.BuyOnCreditScreen })));
 const CreditLineScreen = lazy(() => import('./screens/dashboard/CreditLineScreen').then((m) => ({ default: m.CreditLineScreen })));
 const ProviderFiscalScreen = lazy(() => import('./screens/provider/ProviderFiscalScreen').then((m) => ({ default: m.ProviderFiscalScreen })));
@@ -622,7 +622,7 @@ function AppShell() {
         }
         if (currentScreen === 'dashboard_cobros' || activeTab === 'cobros') {
           return (
-            <PaymentLinkScreen
+            <CobrosFlow
               onBack={() => {
                 // Si se vendió desde el perfil Provider, se vuelve a su panel.
                 if (sellFromProvider) {

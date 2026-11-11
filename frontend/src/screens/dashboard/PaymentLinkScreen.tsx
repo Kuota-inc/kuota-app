@@ -3,14 +3,17 @@ import { motion } from 'framer-motion';
 import { api, ApiError } from '../../api/client';
 import { profilesApi } from '../../api/profiles';
 import { isCancelled, newIdempotencyKey, paymentsApi, type PaymentLink } from '../../api/payments';
-import { Delete, ArrowRight, CheckCircle2, Copy, ArrowLeft, ShieldCheck, Clock, XCircle, Hourglass, Share2, Store, MessageCircle, Link2, Lock, Phone, User, Package, QrCode as QrIcon, Plus } from 'lucide-react';
+import { Delete, ArrowRight, CheckCircle2, Copy, ArrowLeft, ShieldCheck, Clock, XCircle, Hourglass, Share2, Store, MessageCircle, Link2, Lock, Phone, User, Package, QrCode as QrIcon, Plus, BadgeCheck } from 'lucide-react';
 import { useToast } from '../../components/toast-context';
 import { QrCode } from '../../components/QrCode';
 import { FEE_PCT, MIN_AMOUNT_CENTS, localQuote } from '../../config/fee';
+import type { ChargeContact } from './CobrosHubScreen';
 
 interface PaymentLinkScreenProps {
   onBack: () => void;
   onNavigateTab: (tab: string) => void;
+  /** Contacto elegido en "Cobrar y pagar": ya trae su celular y si tiene cuenta Kuota. */
+  contact?: ChargeContact | null;
 }
 
 const formatSoles = (cents: number) => `S/ ${(cents / 100).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -27,7 +30,7 @@ const Field: React.FC<{ icon: React.ReactNode; label: string; children: React.Re
   </label>
 );
 
-export const PaymentLinkScreen: React.FC<PaymentLinkScreenProps> = ({ onBack, onNavigateTab }) => {
+export const PaymentLinkScreen: React.FC<PaymentLinkScreenProps> = ({ onBack, onNavigateTab, contact = null }) => {
   const toast = useToast();
   const [amountStr, setAmountStr] = useState<string>('50');
   const [concept, setConcept] = useState<string>('');
@@ -39,7 +42,7 @@ export const PaymentLinkScreen: React.FC<PaymentLinkScreenProps> = ({ onBack, on
   const [paymentSuccess, setPaymentSuccess] = useState<boolean>(false);
   // Datos del comprador: solo sirven para armar el mensaje de WhatsApp (no se guardan en el servidor).
   const [buyerName, setBuyerName] = useState<string>('');
-  const [buyerPhone, setBuyerPhone] = useState<string>('');
+  const [buyerPhone, setBuyerPhone] = useState<string>(contact?.phone ?? '');
   const [businessName, setBusinessName] = useState<string | null>(null);
   // Misma clave mientras no cambie el cobro: un reintento tras un corte de red no lo duplica.
   const pendingKey = useRef<{ fingerprint: string; key: string } | null>(null);
@@ -239,6 +242,21 @@ export const PaymentLinkScreen: React.FC<PaymentLinkScreenProps> = ({ onBack, on
         <span className="px-2.5 py-1 rounded-full bg-[#b6ccfd] text-[#1a3bb0] text-[10px] font-black shrink-0">Kuota Payments</span>
       </div>
 
+      {contact && (
+        <div className="flex items-center gap-3 p-3 rounded-3xl bg-white border border-[#e1e8f8] shadow-sm">
+          <span className="w-10 h-10 rounded-xl bg-[#eff3ff] text-[#1a3bb0] font-black flex items-center justify-center shrink-0"><User size={18} aria-hidden="true" /></span>
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] font-black tracking-[0.12em] text-[#4a5f7e]">COBRAR A</p>
+            <p className="font-black text-sm text-[#0b2545] truncate">{contact.name || `+51 ••• ••• ${contact.phone.slice(-3)}`}</p>
+          </div>
+          {contact.registered ? (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-black shrink-0"><BadgeCheck size={12} aria-hidden="true" /> Cuenta Kuota activa</span>
+          ) : (
+            <span className="px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 text-[10px] font-black shrink-0">Aún sin Kuota</span>
+          )}
+        </div>
+      )}
+
       {/* Canal */}
       <div className="p-3.5 rounded-3xl bg-white border border-[#e1e8f8] shadow-sm space-y-1.5">
         <div className="flex items-center justify-between gap-2">
@@ -362,7 +380,7 @@ export const PaymentLinkScreen: React.FC<PaymentLinkScreenProps> = ({ onBack, on
 
           <a href={whatsappHref} target="_blank" rel="noopener noreferrer"
             className="w-full py-3.5 rounded-full bg-gradient-to-r from-[#00248b] to-[#1a3bb0] text-white font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-blue-900/20 active:scale-[0.98] transition">
-            <MessageCircle size={18} aria-hidden="true" /> Enviar link por WhatsApp
+            <MessageCircle size={18} aria-hidden="true" /> {contact?.registered ? 'Enviar solicitud por WhatsApp' : 'Enviar link por WhatsApp'}
           </a>
           <div className="flex gap-2">
             <button type="button" onClick={handleCopy} className="flex-1 py-3 rounded-full bg-[#b6ccfd]/60 text-[#1a3bb0] font-bold text-sm flex items-center justify-center gap-2 cursor-pointer">

@@ -179,6 +179,15 @@ export interface NotificationState {
   workshop: Workshop;
 }
 
+export interface ContactLookup {
+  phone_masked: string;
+  registered: boolean;
+  is_self: boolean;
+  kind: 'EMPRENDEDOR' | 'PROVEEDOR' | null;
+  display_name: string | null;
+  verified: boolean;
+}
+
 export const api = {
   // Public
   getStats: () => apiRequest('/public/stats'),
@@ -291,6 +300,10 @@ export const api = {
     apiRequest(`/credit/purchases/${purchaseId}/settle`, {
       method: 'POST'
     }),
+
+  // ¿Este celular ya tiene cuenta Kuota? (el servidor limita las consultas y no devuelve datos de más)
+  lookupContact: (phone: string) =>
+    apiRequest<ContactLookup>('/merchants/me/contacts/lookup', { method: 'POST', body: JSON.stringify({ phone }) }),
 
   // Payment Links: cotización pública; el resto (con sesión y PIN) está en api/payments.ts
   quotePaymentLink: (amount_cents: number) =>
