@@ -1,9 +1,10 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, ChevronDown, ChevronRight, Clock, Home, Info, Landmark, LogOut, PiggyBank, Plus, ShieldCheck, TrendingUp, User, Users, Wallet } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { CheckCircle2, ChevronDown, ChevronRight, Clock, Home, Info, Landmark, LogOut, PiggyBank, Plus, Search, ShieldCheck, TrendingUp, User, Users, Wallet, X } from 'lucide-react';
 import { api, apiRequest, getMerchantId } from '../../api/client';
 import { paymentsApi } from '../../api/payments';
 import type { PaymentLink } from '../../api/payments';
 import { ProfileSwitcher, SWITCH_EVENT } from '../../components/ProfileSwitcher';
+import { useDialog } from '../../hooks/useDialog';
 
 interface ProviderProfile {
   id: string;
@@ -68,6 +69,11 @@ export const ProviderHomeScreen: React.FC<{ onLogout: () => void; onSell: () => 
   const [error, setError] = useState<string | null>(null);
   const [orders, setOrders] = useState<Order[] | null>(null);
   const [links, setLinks] = useState<PaymentLink[] | null>(null);
+  const [q, setQ] = useState('');
+  const [sel, setSel] = useState<string | null>(null);
+  const [openDay, setOpenDay] = useState<string | null>(null);
+  const sheetRef = useRef<HTMLDivElement>(null);
+  useDialog(sheetRef, () => setSel(null), { enabled: sel !== null });
 
   // Cuenta de abono
   const [showSettForm, setShowSettForm] = useState(false);
@@ -79,9 +85,13 @@ export const ProviderHomeScreen: React.FC<{ onLogout: () => void; onSell: () => 
 
   useEffect(() => {
     api.getProviderOrders().then((r: any) => setOrders(r.orders)).catch(() => setOrders([]));
-    if (getMerchantId()) paymentsApi.listLinks().then((r) => setLinks(r.data)).catch(() => setLinks([]));
     apiRequest<ProviderProfile>('/providers/me').then(setProfile).catch((e: any) => setError(e?.message || 'No pudimos cargar tu perfil.'));
   }, []);
+
+  // Los cobros exigen sesión de cobros abierta (se abre al Vender): se vuelven a pedir al cambiar de pestaña.
+  useEffect(() => {
+    if (getMerchantId()) paymentsApi.listLinks().then((r) => setLinks(r.data)).catch(() => setLinks((l) => l ?? []));
+  }, [tab]);
 
   const handleSaveSettlement = async () => {
     setSettError(null);
@@ -128,18 +138,41 @@ export const ProviderHomeScreen: React.FC<{ onLogout: () => void; onSell: () => 
         status: o.settled ? 'Liquidado' : 'Por cobrar', ok: o.settled
       }))
     ].sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
-    const byCustomer = new Map<string, { total: number; count: number; last: string }>();
+    const byCustomer = new Map<string, { total: number; count: number; last: string; orders: Order[] }>();
     for (const o of allOrders) {
-      const c = byCustomer.get(o.customer) ?? { total: 0, count: 0, last: o.issued_at };
+      const c = byCustomer.get(o.customer) ?? { total: 0, count: 0, last: o.issued_at, orders: [] as Order[] };
       c.total += o.total_cents;
       c.count += 1;
+      c.orders.push(o);
       if (Date.parse(o.issued_at) > Date.parse(c.last)) c.last = o.issued_at;
       byCustomer.set(o.customer, c);
     }
     const customers = [...byCustomer.entries()].map(([who, c]) => ({ who, ...c })).sort((a, b) => b.total - a.total);
-    return { paid, pending, gross, fees, net, pos, toCollect, sales, customers, sold: gross + ord.reduce((a, o) => a + o.total_cents, 0) };
+    const dayKey = (iso: string) => new Date(iso).toLocaleDateString('en-CA');
+    const nd = period === 'week' ? 7 : 30;
+    const bars = Array.from({ length: nd }, (_, i) => {
+      const t = new Date(Date.now() - (nd - 1 - i) * 864e5);
+      return { key: t.toLocaleDateString('en-CA'), label: String(t.getDate()), pay: 0, ak: 0 };
+    });
+    for (const l of paid) { const b = bars.find((x) => x.key === dayKey(l.paid_at ?? l.created_at)); if (b) b.pay += l.amount_cents; }
+    for (const o of ord) { const b = bars.find((x) => x.key === dayKey(o.issued_at)); if (b) b.ak += o.total_cents; }
+    const peak = bars.reduce((m, b) => (b.pay + b.ak > m.pay + m.ak ? b : m), bars[0]);
+    const byProduct = new Map<string, { total: number; count: number }>();
+    for (const l of paid) { const k = l.concept?.trim() || 'Cobro sin concepto'; const p = byProduct.get(k) ?? { total: 0, count: 0 }; p.total += l.amount_cents; p.count += 1; byProduct.set(k, p); }
+    const products = [...byProduct.entries()].map(([name, p]) => ({ name, ...p })).sort((a, b) => b.total - a.total);
+    const byDay = new Map<string, { key: string; at: string; n: number; gross: number; fee: number; net: number }>();
+    for (const l of paid) {
+      const at = l.paid_at ?? l.created_at; const k = dayKey(at);
+      const x = byDay.get(k) ?? { key: k, at, n: 0, gross: 0, fee: 0, net: 0 };
+      x.n += 1; x.gross += l.amount_cents; x.fee += l.fee_cents; x.net += l.net_cents; byDay.set(k, x);
+    }
+    const settlements = [...byDay.values()].sort((a, b) => b.key.localeCompare(a.key));
+    return { bars, peak, products, settlements, paid, pending, gross, fees, net, pos, toCollect, sales, customers, sold: gross + ord.reduce((a, o) => a + o.total_cents, 0) };
   }, [links, orders, period]);
 
+  const shownCustomers = d.customers.filter((c) => c.who.toLowerCase().includes(q.trim().toLowerCase()));
+  const selC = d.customers.find((c) => c.who === sel) ?? null;
+  const maxBar = Math.max(1, ...d.bars.map((b) => b.pay + b.ak));
   const loading = orders === null || (!!getMerchantId() && links === null);
 
   const Chips = (
@@ -240,6 +273,36 @@ export const ProviderHomeScreen: React.FC<{ onLogout: () => void; onSell: () => 
               <Row label="Por cobrar (aKuotas!)" value={soles(d.toCollect.reduce((a, o) => a + o.total_cents, 0))} />
               <Row label="Por confirmar (links)" value={soles(d.pending.reduce((a, l) => a + l.amount_cents, 0))} />
             </Card>
+            <Card title="Actividad diaria">
+              {d.bars.every((b) => b.pay + b.ak === 0) ? <Empty text="Aún no hay ventas en este periodo." /> : (
+                <>
+                  <p className="text-[11px] text-[#4a5f7e]">Pico máximo: <b className="text-[#1a3bb0]">{d.peak.label} · {soles(d.peak.pay + d.peak.ak)}</b></p>
+                  <div className="flex items-end gap-0.5 h-28" role="img" aria-label="Ventas por día">
+                    {d.bars.map((b) => (
+                      <div key={b.key} className="flex-1 min-w-0 flex flex-col justify-end h-full" title={`${b.label}: ${soles(b.pay + b.ak)}`}>
+                        <div className="w-full bg-[#afc5f6] rounded-t-sm" style={{ height: `${(b.ak / maxBar) * 100}%` }} />
+                        <div className="w-full bg-[#1a3bb0]" style={{ height: `${(b.pay / maxBar) * 100}%` }} />
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex justify-between text-[10px] text-[#4a5f7e]"><span>{d.bars[0].label}</span><span>{d.bars[d.bars.length - 1].label}</span></div>
+                  <div className="flex gap-4 text-[11px] text-[#4a5f7e]">
+                    <span className="flex items-center gap-1"><i className="w-2.5 h-2.5 rounded-full bg-[#1a3bb0]" />Kuota Payments</span>
+                    <span className="flex items-center gap-1"><i className="w-2.5 h-2.5 rounded-full bg-[#afc5f6]" />aKuotas!</span>
+                  </div>
+                </>
+              )}
+            </Card>
+            <Card title="Ventas por producto">
+              {d.products.length === 0 && <Empty text="Aún no hay cobros pagados en este periodo." />}
+              {d.products.slice(0, 5).map((p, i) => (
+                <div key={p.name} className="space-y-1">
+                  <div className="flex justify-between gap-3 text-sm"><span className="font-bold text-[#151c27] truncate">{i + 1}. {p.name}</span><span className="font-black shrink-0">{soles(p.total)}</span></div>
+                  <div className="h-2 rounded-full bg-[#e1e8f8]"><div className="h-2 rounded-full bg-[#1a3bb0]" style={{ width: `${(p.total / d.products[0].total) * 100}%` }} /></div>
+                  <p className="text-[11px] text-[#4a5f7e]">{p.count} cobro{p.count === 1 ? '' : 's'} · {Math.round((p.total / Math.max(d.gross, 1)) * 100)} % del volumen</p>
+                </div>
+              ))}
+            </Card>
             <Card title="Ventas recientes">
               {d.sales.length === 0 && <Empty text="Aún no hay ventas en este periodo." />}
               <div className="divide-y divide-[#f0f4ff]">
@@ -269,11 +332,16 @@ export const ProviderHomeScreen: React.FC<{ onLogout: () => void; onSell: () => 
               </div>
               <span className="px-3 py-1.5 rounded-full bg-[#b6ccfd] text-[#1a3bb0] text-xs font-black flex items-center gap-1"><ShieldCheck size={13} aria-hidden="true" />{d.customers.length} comercios</span>
             </div>
+            <label className="flex items-center gap-2 h-12 px-4 rounded-2xl bg-white border border-[#e1e8f8] text-[#4a5f7e]">
+              <Search size={18} aria-hidden="true" />
+              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar cliente por nombre" aria-label="Buscar cliente" className="flex-1 min-w-0 bg-transparent outline-none text-sm text-[#151c27] placeholder:text-[#4a5f7e]" />
+            </label>
+            <p className="text-[11px] text-[#4a5f7e]">Mostrando {shownCustomers.length} de {d.customers.length} comercios</p>
             <Card>
               {d.customers.length === 0 && <Empty text="Aún no tienes pedidos de comercios afiliados." />}
               <div className="divide-y divide-[#f0f4ff]">
-                {d.customers.map((c) => (
-                  <div key={c.who} className="py-3 flex items-center gap-3">
+                {shownCustomers.map((c) => (
+                  <div key={c.who} role="button" tabIndex={0} onClick={() => setSel(c.who)} onKeyDown={(e) => e.key === 'Enter' && setSel(c.who)} className="py-3 flex items-center gap-3 cursor-pointer">
                     <span className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#00248b] to-[#1a3bb0] text-white font-black flex items-center justify-center shrink-0">{c.who.trim().slice(0, 2).toUpperCase()}</span>
                     <div className="min-w-0 flex-1">
                       <p className="font-bold text-sm text-[#151c27] truncate">{c.who}</p>
@@ -299,20 +367,34 @@ export const ProviderHomeScreen: React.FC<{ onLogout: () => void; onSell: () => 
               </div>
             </Hero>
             <Card title="Histórico de liquidaciones">
-              {d.paid.length === 0 && <Empty text="Aún no hay cobros liquidados en este periodo." />}
+              {d.settlements.length === 0 && <Empty text="Aún no hay cobros liquidados en este periodo." />}
               <div className="divide-y divide-[#f0f4ff]">
-                {d.paid.map((l) => (
-                  <div key={l.id} className="flex items-center justify-between gap-3 py-2.5 text-xs">
-                    <div className="min-w-0">
-                      <p className="font-bold text-sm text-[#151c27] truncate">{l.concept || 'Cobro'}</p>
-                      <p className="text-[#4a5f7e]">{day(l.paid_at ?? l.created_at)} · Bruto {soles(l.amount_cents)} · Comisión {soles(l.fee_cents)}</p>
+                {d.settlements.map((x) => {
+                  const base = Math.round(x.fee / 1.18);
+                  const open = openDay === x.key;
+                  return (
+                    <div key={x.key} className="py-2.5 text-xs">
+                      <button type="button" onClick={() => setOpenDay(open ? null : x.key)} aria-expanded={open} className="w-full flex items-center justify-between gap-3 text-left cursor-pointer">
+                        <span className="min-w-0">
+                          <span className="block font-bold text-sm text-[#151c27]">{new Date(x.at).toLocaleDateString('es-PE', { weekday: 'long', day: '2-digit', month: 'short' })}</span>
+                          <span className="block text-[#4a5f7e]">{x.n} venta{x.n === 1 ? '' : 's'} incluida{x.n === 1 ? '' : 's'} · Bruto {soles(x.gross)}</span>
+                        </span>
+                        <span className="text-right shrink-0">
+                          <span className="block font-black text-sm text-[#151c27]">{soles(x.net)}</span>
+                          <span className="inline-block mt-0.5 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold">Abonado</span>
+                        </span>
+                      </button>
+                      {open && (
+                        <div className="mt-2 rounded-2xl bg-[#eff3ff] p-3 space-y-1.5">
+                          <div className="flex justify-between"><span>Venta bruta ({x.n} cobro{x.n === 1 ? '' : 's'})</span><b>{soles(x.gross)}</b></div>
+                          <div className="flex justify-between text-red-600"><span>Comisión de cobranza Kuota</span><b>-{soles(base)}</b></div>
+                          <div className="flex justify-between text-red-600"><span>IGV de la comisión (18 %)</span><b>-{soles(x.fee - base)}</b></div>
+                          <div className="flex justify-between pt-1.5 border-t border-[#d8e2ff] text-sm font-black text-[#0b2545]"><span>Monto neto depositado</span><span>{soles(x.net)}</span></div>
+                        </div>
+                      )}
                     </div>
-                    <div className="text-right shrink-0">
-                      <p className="font-black text-sm text-[#151c27]">{soles(l.net_cents)}</p>
-                      <span className="inline-block mt-0.5 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold">Abonado</span>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </Card>
             <Card title="Cuenta bancaria de abono" icon={<Landmark size={14} />}>
@@ -380,6 +462,36 @@ export const ProviderHomeScreen: React.FC<{ onLogout: () => void; onSell: () => 
           </>
         )}
       </div>
+
+      {selC && (
+        <div className="fixed inset-0 z-[66] flex items-end justify-center bg-black/45" onClick={() => setSel(null)}>
+          <div ref={sheetRef} role="dialog" aria-modal="true" aria-label={`Ficha de ${selC.who}`} onClick={(e) => e.stopPropagation()} className="w-full max-w-md max-h-[85vh] overflow-y-auto bg-[#f9f9ff] rounded-t-3xl p-5 pb-7 space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-black tracking-wider text-[#1a3bb0]">FICHA DE CLIENTE</p>
+              <button type="button" onClick={() => setSel(null)} aria-label="Cerrar" className="w-9 h-9 rounded-full bg-[#e1e8f8] flex items-center justify-center cursor-pointer"><X size={16} aria-hidden="true" /></button>
+            </div>
+            <div className="flex items-center gap-3 bg-white rounded-3xl p-4 border border-[#e1e8f8]">
+              <span className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#00248b] to-[#1a3bb0] text-white font-black text-lg flex items-center justify-center shrink-0">{selC.who.trim().slice(0, 2).toUpperCase()}</span>
+              <p className="font-black text-lg text-[#0b2545] leading-tight">{selC.who}</p>
+            </div>
+            <Card title="Resumen comercial acumulado">
+              <div className="grid grid-cols-3 gap-2 text-center rounded-2xl bg-[#eff3ff] p-3">
+                <div><p className="text-[11px] text-[#4a5f7e]">Total comprado</p><p className="font-black text-[#1a3bb0] text-sm">{soles(selC.total)}</p><p className="text-[10px] text-[#4a5f7e]">{selC.count} pedido{selC.count === 1 ? '' : 's'}</p></div>
+                <div><p className="text-[11px] text-[#4a5f7e]">Ticket prom.</p><p className="font-black text-sm">{soles(Math.round(selC.total / selC.count))}</p></div>
+                <div><p className="text-[11px] text-[#4a5f7e]">Frecuencia</p><p className="font-black text-sm">{selC.count > 1 ? `Cada ${Math.max(1, Math.round((Date.parse(selC.last) - Math.min(...selC.orders.map((o) => Date.parse(o.issued_at)))) / (selC.count - 1) / 864e5))} días` : '—'}</p></div>
+              </div>
+            </Card>
+            <Card title="Historial reciente">
+              {[...selC.orders].sort((x, y) => Date.parse(y.issued_at) - Date.parse(x.issued_at)).slice(0, 3).map((o) => (
+                <div key={o.id} className="flex justify-between gap-3 text-xs">
+                  <span className="text-[#4a5f7e]">{day(o.issued_at)} · {o.installments_count} cuota{o.installments_count === 1 ? '' : 's'}</span>
+                  <span className="font-bold text-[#151c27]">{soles(o.total_cents)} · {o.settled ? 'Liquidado' : 'Por cobrar'}</span>
+                </div>
+              ))}
+            </Card>
+          </div>
+        </div>
+      )}
 
       <nav aria-label="Navegación del proveedor" className="shrink-0 mx-3 mb-2 bg-white rounded-full shadow-lg shadow-blue-900/15 border border-[#e1e8f8] px-2 grid grid-cols-5 items-end">
         {navItem('inicio', 'Inicio', Home)}
