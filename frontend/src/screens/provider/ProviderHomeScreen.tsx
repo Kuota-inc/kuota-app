@@ -5,6 +5,7 @@ import { paymentsApi } from '../../api/payments';
 import type { PaymentLink } from '../../api/payments';
 import { ProfileSwitcher, SWITCH_EVENT } from '../../components/ProfileSwitcher';
 import { useDialog } from '../../hooks/useDialog';
+import { VenderSheet } from '../../components/VenderSheet';
 
 interface ProviderProfile {
   id: string;
@@ -71,6 +72,7 @@ export const ProviderHomeScreen: React.FC<{ onLogout: () => void; onSell: () => 
   const [links, setLinks] = useState<PaymentLink[] | null>(null);
   const [q, setQ] = useState('');
   const [needsPin, setNeedsPin] = useState(false);
+  const [venderOpen, setVenderOpen] = useState(false);
   const [sel, setSel] = useState<string | null>(null);
   const [openDay, setOpenDay] = useState<string | null>(null);
   const sheetRef = useRef<HTMLDivElement>(null);
@@ -506,10 +508,18 @@ export const ProviderHomeScreen: React.FC<{ onLogout: () => void; onSell: () => 
         </div>
       )}
 
+      {venderOpen && (
+        <VenderSheet
+          onClose={() => setVenderOpen(false)}
+          onCobrar={() => { setVenderOpen(false); onSell(); }}
+          onPedidos={() => { setVenderOpen(false); setTab('ventas'); }}
+        />
+      )}
+
       <nav aria-label="Navegación del proveedor" className="shrink-0 mx-3 mb-2 bg-white rounded-full shadow-lg shadow-blue-900/15 border border-[#e1e8f8] px-2 grid grid-cols-5 items-end">
         {navItem('inicio', 'Inicio', Home)}
         {navItem('ventas', 'Ventas', TrendingUp)}
-        <button type="button" onClick={onSell} className="flex flex-col items-center gap-0.5 pb-1.5 text-[11px] font-black text-[#00248b] cursor-pointer">
+        <button type="button" onClick={() => setVenderOpen(true)} aria-haspopup="dialog" className="flex flex-col items-center gap-0.5 pb-1.5 text-[11px] font-black text-[#00248b] cursor-pointer">
           <span className="-mt-6 w-14 h-14 rounded-full bg-gradient-to-br from-[#00248b] to-[#1a3bb0] text-white flex items-center justify-center shadow-lg"><Plus size={28} aria-hidden="true" /></span>Vender
         </button>
         {navItem('clientes', 'Clientes', Users)}
