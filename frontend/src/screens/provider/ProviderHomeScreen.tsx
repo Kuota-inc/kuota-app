@@ -69,6 +69,8 @@ const Card: React.FC<{ title?: string; icon?: React.ReactNode; children: React.R
 );
 
 
+const Empty: React.FC<{ text: string; loading: boolean }> = ({ text, loading }) => <p className="text-xs text-[#4a5f7e]">{loading ? 'Cargando…' : text}</p>;
+
 export const ProviderHomeScreen: React.FC<{ onLogout: () => void; onSell: () => void }> = ({ onLogout, onSell }) => {
   const [tab, setTab] = useState<Tab>('inicio');
   const [period, setPeriod] = useState<Period>('all');
@@ -226,8 +228,6 @@ export const ProviderHomeScreen: React.FC<{ onLogout: () => void; onSell: () => 
     </div>
   );
 
-  const Empty = ({ text }: { text: string }) => <p className="text-xs text-[#4a5f7e]">{loading ? 'Cargando…' : text}</p>;
-
   const navItem = (k: Tab, label: string, Icon: typeof Home) => (
     <button key={k} type="button" onClick={() => setTab(k)} aria-current={tab === k ? 'page' : undefined}
       className={`flex flex-col items-center gap-0.5 py-1.5 text-[11px] font-bold cursor-pointer ${tab === k ? 'text-[#1a3bb0]' : 'text-[#4a5f7e]'}`}>
@@ -321,7 +321,7 @@ export const ProviderHomeScreen: React.FC<{ onLogout: () => void; onSell: () => 
               <Row label="Por confirmar (links)" value={soles(d.pending.reduce((a, l) => a + l.amount_cents, 0))} />
             </Card>
             <Card title="Actividad diaria">
-              {d.bars.every((b) => b.pay + b.ak === 0) ? <Empty text="Aún no hay ventas en este periodo." /> : (
+              {d.bars.every((b) => b.pay + b.ak === 0) ? <Empty loading={loading} text="Aún no hay ventas en este periodo." /> : (
                 <>
                   <p className="text-[11px] text-[#4a5f7e]">Pico máximo: <b className="text-[#1a3bb0]">{d.peak.label} · {soles(d.peak.pay + d.peak.ak)}</b></p>
                   <div className="flex items-end gap-0.5 h-28" role="img" aria-label="Ventas por día">
@@ -341,7 +341,7 @@ export const ProviderHomeScreen: React.FC<{ onLogout: () => void; onSell: () => 
               )}
             </Card>
             <Card title="Ventas por producto">
-              {d.products.length === 0 && <Empty text="Aún no hay cobros pagados en este periodo." />}
+              {d.products.length === 0 && <Empty loading={loading} text="Aún no hay cobros pagados en este periodo." />}
               {d.products.slice(0, 5).map((p, i) => (
                 <div key={p.name} className="space-y-1">
                   <div className="flex justify-between gap-3 text-sm"><span className="font-bold text-[#151c27] truncate">{i + 1}. {p.name}</span><span className="font-black shrink-0">{soles(p.total)}</span></div>
@@ -351,7 +351,7 @@ export const ProviderHomeScreen: React.FC<{ onLogout: () => void; onSell: () => 
               ))}
             </Card>
             <Card title="Ventas recientes">
-              {d.sales.length === 0 && <Empty text="Aún no hay ventas en este periodo." />}
+              {d.sales.length === 0 && <Empty loading={loading} text="Aún no hay ventas en este periodo." />}
               <div className="divide-y divide-[#f0f4ff]">
                 {d.sales.slice(0, 20).map((s) => (
                   <div key={s.id} className="flex items-center justify-between gap-3 py-2.5 text-xs">
@@ -385,7 +385,7 @@ export const ProviderHomeScreen: React.FC<{ onLogout: () => void; onSell: () => 
             </label>
             <p className="text-[11px] text-[#4a5f7e]">Mostrando {shownCustomers.length} de {d.customers.length} comercios</p>
             <Card>
-              {d.customers.length === 0 && <Empty text="Aún no tienes pedidos de comercios afiliados." />}
+              {d.customers.length === 0 && <Empty loading={loading} text="Aún no tienes pedidos de comercios afiliados." />}
               <div className="divide-y divide-[#f0f4ff]">
                 {shownCustomers.map((c) => (
                   <div key={c.who} role="button" tabIndex={0} onClick={() => setSel(c.who)} onKeyDown={(e) => e.key === 'Enter' && setSel(c.who)} className="py-3 flex items-center gap-3 cursor-pointer">
@@ -414,7 +414,7 @@ export const ProviderHomeScreen: React.FC<{ onLogout: () => void; onSell: () => 
               </div>
             </Hero>
             <Card title="Histórico de liquidaciones">
-              {d.settlements.length === 0 && <Empty text="Aún no hay cobros liquidados en este periodo." />}
+              {d.settlements.length === 0 && <Empty loading={loading} text="Aún no hay cobros liquidados en este periodo." />}
               <div className="divide-y divide-[#f0f4ff]">
                 {d.settlements.map((x) => {
                   const base = Math.round(x.fee / 1.18);

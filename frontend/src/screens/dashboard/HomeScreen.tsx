@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import { api } from '../../api/client';
 import { AnimatedNumber } from '../../components/AnimatedNumber';
-import { Bell, Sparkles, ChevronRight } from 'lucide-react';
+import { Bell, Sparkles } from 'lucide-react';
 import { useToast } from '../../components/toast-context';
 import { ProfileSwitcher } from '../../components/ProfileSwitcher';
 import { LoadState } from '../../components/LoadState';
@@ -37,7 +37,7 @@ const itemVariants: Variants = {
   }
 };
 
-export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateTab, onOpenKuotear, onOpenProfile, onOpenNotifications, notificationsSeen }) => {
+export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateTab, onOpenProfile, onOpenNotifications, notificationsSeen }) => {
   const toast = useToast();
   const [data, setData] = useState<any>(null);
   const [scoreData, setScoreData] = useState<any>(null);

@@ -12,7 +12,7 @@ import { PaywallSheet } from './screens/dashboard/PaywallSheet';
 import { getActiveProfile, profilesApi, setActiveProfile, type ProfileKind } from './api/profiles';
 import { isBiometricEnabled, resetSettings, setBiometricEnabled } from './services/appSettings';
 import { refreshListener, setCaptureHandler } from './services/paymentListener';
-import { api, apiRequest, getMerchantId, getProviderId, setMerchantId, setProviderId } from './api/client';
+import { apiRequest, getMerchantId, getProviderId, setMerchantId, setProviderId } from './api/client';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { useDeviceMode } from './hooks/useDeviceMode';
 import { motion, AnimatePresence } from 'framer-motion';

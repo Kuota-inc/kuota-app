@@ -1,123 +1,117 @@
-# Kuota · Fintech de Crédito y Cobros (Perú)
+# Kuota · Crédito y cobros para emprendedores (Perú)
 
-Ecosistema financiero y comercial B2B/B2C desarrollado para emprendedores y proveedores mayoristas en el mercado peruano, implementando los **16 PRDs** y el **Design System oficial de Stitch**.
+Kuota es una app móvil (Android) y un backend para que **emprendedores** compren a crédito a sus
+**proveedores** (aKuotas!) y cobren a sus clientes con **link, QR o código de pago** (Kuota Payments).
+Los proveedores reciben pedidos, cobran y ven sus liquidaciones desde su propio panel.
 
----
+> **Estado:** fase de pruebas. Los pagos funcionan en **modo simulado** (`KUOTA_SANDBOX=1`): no mueven dinero
+> real. Antes de operar con dinero hay que cerrar la lista de [docs/DESPLIEGUE.md](docs/DESPLIEGUE.md#antes-de-mover-dinero-real).
 
-## 🚀 Arquitectura y Tecnologías
-
-- **Backend REST API v1 (`/backend`):**
-  - **Runtime:** Node.js + TypeScript
-  - **Framework:** Express 5 + CORS + Dotenv + UUID
-  - **Base de Datos:** Postgres con migraciones versionadas (`backend/migrations/`). En desarrollo y pruebas
-    corre embebido con PGlite (sin instalar nada); en producción, Cloud SQL Postgres 16 (`DATABASE_URL`).
-    La zona de dinero vive en el esquema `payments` con su propio usuario de privilegio mínimo.
-    Arquitectura y despliegue en GCP: [docs/BACKEND-GCP.md](docs/BACKEND-GCP.md).
-  - **Convenciones financieras:** Montos en céntimos enteros PEN (`amount_cents`), fechas ISO 8601 UTC (presentación `America/Lima`), partida doble en `ledger_entries`, y respuestas de error en español según PRD 00.
-- **Frontend App Móvil Interactiva (`/frontend`):**
-  - **Framework:** React + Vite + TypeScript
-  - **Estilos:** Tailwind CSS v4 con los tokens semánticos exactos de Stitch (`DESIGN.md` y `design_8.md`).
-  - **Simulador:** Marco de dispositivo móvil interactivo con selector lateral para alternar y probar en vivo cualquiera de las 16 pantallas.
+APK de pruebas listo para instalar: [`releases/Kuota.apk`](releases/) (también en el release `v0.1.0-pitch`).
 
 ---
 
-## 📱 Módulos y Pantallas Implementadas (PRD 01 al 16)
+## Qué hace
 
-### 🔹 Flujo Emprendedor (`MERCHANT`)
-1. **PRD 01 — Bienvenida · Elige tu perfil:** Selector de rol, contadores comunitarios (`+18,500 negocios`) y creación de sesión de onboarding.
-2. **PRD 02 — Actividad comercial (Paso 1/3):** Rubros (`FASHION`, `FOOD`, etc.), rangos de antigüedad, cálculo de `tier_hint` y autoguardado.
-3. **PRD 03 — Añadir productos (Paso 2/3):** Catálogo de productos con precio en soles, marcas de frecuencia y autoguardado.
-4. **PRD 04 — Onboarding exitoso (Paso 3/3):** Creación atómica de línea de crédito inicial (**S/ 1,400.00 en Nivel 1 Brote**), RUC y proveedores recomendados.
-5. **PRD 05 — Inicio (Home):** Endpoint agregado de baja latencia con saldo disponible, poder de compra ($2\times$), próximo vencimiento y racha de puntualidad.
-6. **PRD 06 — Ventas de mi negocio:** Balance mensual de ventas verificadas vs declaradas, registro de venta rápida, simulación de OCR de comprobantes Yape/Plin (+8 pts Score) y Score Kuota.
-7. **PRD 07 — Modal Kuotear:** Hoja modal con resumen de línea, acciones habilitadas según la **Regla 3.2** y simulador interactivo de cuotas quincenales.
-8. **PRD 08 — Cobrar con link de pago:** Teclado numérico, desglose en tiempo real de comisión (1.00%) y neto a recibir, generación de link y código QR, y botón de simulación de pago del cliente con webhook automático.
-9. **PRD 09 — Comprar al crédito (Plan Kuota 3X):** Compra activa en curso con Confecciones Don Lucho, amortización progresiva, pago de cuotas con recarga automática de línea y liquidación anticipada.
-10. **PRD 10 — Mi línea de crédito:** Escala canónica unificada de 6 niveles (`Brote` 50% $\to$ `Raíz` 40% $\to$ `Tallo` 30% $\to$ `Rama` 20% $\to$ `Fruto` 10% $\to$ `Cosecha` 0% de inicial).
+| Para | Funciones |
+|---|---|
+| **Emprendedor** | Registro con DNI/CE, KYC, línea de crédito rotativa de 6 niveles (Brote → Cosecha), compra a crédito en 3 cuotas, calendario de pagos, Score Kuota, ventas (venta rápida y abonos de Yape/Plin detectados en el teléfono), mi cuenta con foto de perfil. |
+| **Cobrar y pagar** | Buscador por nombre o celular que avisa si el contacto ya tiene cuenta Kuota, lector de QR que muestra comercio y monto antes de pagar, link/QR/código 360pay con envío por WhatsApp. Comisión **1 % + IGV**, mínima **S/ 4.50 + IGV**, cobro mínimo **S/ 10**. Planes **Basic** (S/ 80 + IGV, hasta S/ 5,000 por cobro) y **Pro** (S/ 120 + IGV). |
+| **Proveedor** | Registro con RUC (SUNAT), representante legal, cuenta de abono (CCI), panel con ahorro frente a un POS, ventas y conciliación, clientes, depósitos y liquidaciones. Puede tener también perfil de Emprendedor con **una sola cuenta y un solo PIN**. |
+| **Seguridad** | PIN de 6 dígitos verificado en el servidor, sesión única por cuenta, token de identidad por dispositivo, tokens en el Android Keystore, bloqueo de la app, **huella registrada** (se puede usar donde se pide el PIN), capturas bloqueadas en pantallas sensibles, certificados fijados (pinning), bitácora inmutable. |
 
-### 🔹 Flujo Proveedor (`PROVIDER`)
-11. **PRD 11 — Registro fiscal:** Consulta en tiempo real de RUC 11 dígitos contra padrón SUNAT (Activo y Habido), DNI de representante legal (Reniec) y WhatsApp comercial.
-12. **PRD 12 — Validando datos (KYC / Scoring):** Proceso asíncrono con `request_id` (`PRV-89420-PE`) en 3 etapas: SUNAT, Reniec y Scoring inicial.
-13. **PRD 13 — Actividad comercial:** Insumo predominante y antigüedad comercial contrastada.
-14. **PRD 14 — Confirmación GPS:** Mapa interactivo con pin GPS en Gamarra/La Victoria y dirección normalizada.
-15. **PRD 15 — Notificaciones y permisos:** Vista previa del panel de control con límite aprobado (**S/ 45,000.00 PEN**) y comercios asociados.
-16. **PRD 16 — Resultado y ahorro final:** Desglose del **71% de ahorro** (S/ 588.00 al año sobre S/ 24,000 facturados con tarifa Kuota del 1.00% vs 3.45% del mercado), registro de cuenta bancaria CCI y activación de cuenta.
+La explicación completa está en [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md).
 
 ---
 
-## 💻 Instrucciones para Iniciar
+## Mapa del repositorio
 
-### 0. Clonar e instalar
+```
+backend/          API REST (Express 5 + TypeScript), migraciones SQL, pruebas
+frontend/         App React + Vite + Capacitor (web y Android), plugins nativos en Kotlin
+security-tests/   Batería de ataques al backend y auditoría del APK
+releases/         APK de pruebas firmado y su SHA-256
+docs/             Arquitectura, despliegue, seguridad, cumplimiento regulatorio, diseño
+scrapers/         Submódulo opcional (consulta de RUC)
+.github/          CI, plantillas de issues y PR, Dependabot
+```
+
+---
+
+## Empezar
+
+Requisitos: **Node 22 o superior** (el CI usa 24). Para el APK: JDK 21 y el Android SDK.
+
 ```bash
-git clone --recurse-submodules <url-del-repo>
+git clone --recurse-submodules https://github.com/Kuota-inc/kuota-app.git
 cd kuota-app
-npm --prefix backend install
-npm --prefix frontend install
+npm run install:all          # instala backend y frontend
 ```
 
-`scrapers/scrap-sunat` es un submódulo de [debugsito/scrap-sunat](https://github.com/debugsito/scrap-sunat)
-(MIT). El backend lo usa como respaldo opcional para consultar RUC; si no está instalado,
-usa las otras fuentes. La base Postgres local (`backend/.pgdata`, PGlite) se crea, migra y siembra
-al arrancar; para empezar de cero basta con borrar esa carpeta. El APK de Android no se versiona:
-va en GitHub Releases.
+**Backend** (http://localhost:3001/api/v1). Sin configurar nada usa Postgres embebido (PGlite), crea y migra
+la base, genera secretos de desarrollo y siembra una cuenta demo:
 
-### 1. Iniciar el Backend API
 ```bash
-cd backend
-npm run dev
-# Servidor escuchando en http://localhost:3001/api/v1
+npm run dev:backend
 ```
 
-### 2. Iniciar el Frontend Móvil
+**Frontend** (http://localhost:5173). En un celular, o con `?device=1`, se ve a pantalla completa:
+
+```bash
+npm run dev:frontend
+```
+
+**Cuenta demo** (solo fuera de producción): el PIN es `DEMO_MERCHANT_PIN` en `backend/src/security/schema.ts`
+(se cambia con `KUOTA_DEMO_PIN`). Los secretos de desarrollo quedan en `backend/.dev-secrets.json` (no se versiona).
+
+### Pruebas y calidad
+
+```bash
+npm run check                # tipos + pruebas del backend + tipos y lint del frontend
+npm --prefix backend test    # solo las pruebas del backend
+```
+
+Con `DATABASE_URL` apuntando a un Postgres, las pruebas corren contra ese servidor en bases temporales.
+El CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)) corre lo mismo en PGlite y en Postgres 16, más
+`npm audit` de producción.
+
+### Seguridad antes de cada APK o despliegue
+
+```bash
+bash security-tests/run-local.sh      # requiere Docker; ataques al backend en modo producción + auditoría del APK
+```
+
+Detalle y hallazgos aceptados en [security-tests/README.md](security-tests/README.md).
+
+### Generar el APK
+
 ```bash
 cd frontend
-npm run dev
-# Aplicación disponible en http://localhost:5173/
+npm run apk:release     # firmado; necesita frontend/android/keystore.properties (ver el .example)
+npm run apk             # depuración, solo para desarrollo
 ```
 
-En una pantalla de celular (o con `?device=1`) la app se muestra a pantalla completa, sin el
-marco del simulador ni el panel de pantallas.
+El APK necesita saber a qué backend hablar: crea `frontend/.env.android` (no se versiona; hay un ejemplo en
+`frontend/.env.example`) con `VITE_API_BASE=https://<tu-backend>/api/v1`. Para probar contra tu PC en la misma
+Wi-Fi usa `VITE_API_BASE=http://<ip-de-tu-pc>:3001/api/v1` y compila con `KUOTA_DEV_LAN=1` (**nunca entregues ese APK**).
+Cómo firmar y publicar: [docs/DESPLIEGUE.md](docs/DESPLIEGUE.md#apk-de-android).
 
-### 2b. Generar el APK de Android (Capacitor)
-Requiere JDK 21 y el Android SDK (con `ANDROID_HOME` o `frontend/android/local.properties`).
-El celular llama al backend por la Wi-Fi, así que primero crea `frontend/.env.android` (no se
-versiona) con la IP de la PC:
-```bash
-echo "VITE_API_BASE=http://<ip-de-tu-pc>:3001/api/v1" > frontend/.env.android
-cd frontend
-npm run apk
-# APK en frontend/android/app/build/outputs/apk/debug/app-debug.apk
-```
-El APK de depuración sirve para instalarlo directo en el celular (no para la Play Store). El
-backend debe estar corriendo en la misma red; sin conexión, la app muestra datos de ejemplo.
+---
 
-### 2c. Seguridad de cobros (Kuota Payments)
-Cobrar con link o QR exige sesión con PIN ligada al dispositivo. Los montos altos, subir
-límites y desvincular dispositivos piden el PIN otra vez. El webhook de pago de 360pay va
-firmado (HMAC, anti-repetición e idempotencia), y hay límites por nivel, reglas antifraude,
-bitácora inmutable y conciliación. El detalle punto por punto frente al plan de seguridad está
-en [docs/SEGURIDAD-PAYMENTS.md](docs/SEGURIDAD-PAYMENTS.md).
+## Convenciones
 
-- **PIN de la cuenta demo** (`mer_carlos`): es la constante `DEMO_MERCHANT_PIN` de
-  `backend/src/security/schema.ts`. Solo existe fuera de producción y se puede cambiar con
-  `KUOTA_DEMO_PIN`.
-- **Secretos:** en desarrollo se generan solos en `backend/.dev-secrets.json` (no se versiona).
-  Ahí también está el token de las rutas `/api/v1/internal/*`. Las variables están en
-  `backend/.env.example`.
-- **QR desde el celular:** para que el QR abra la página de pago en el celular, define
-  `KUOTA_PAY_BASE_URL=http://<ip-de-tu-pc>:5173/pay` en `backend/.env` y arranca el frontend
-  con `npm run dev -- --host`.
-- **Pruebas:** `npm --prefix backend test` (40 pruebas: seguridad de cobros, aislamiento de roles y flujos del
-  núcleo). Con `DATABASE_URL` apuntando a un Postgres, corren contra ese servidor en bases temporales.
+- **Dinero:** siempre en céntimos enteros (`amount_cents`), moneda PEN. Fechas en ISO 8601 UTC, mostradas en `America/Lima`.
+- **Nada inventado:** las pantallas no muestran cifras, promociones ni identidades de ejemplo; si el servidor no responde, muestran un error con reintento.
+- **Mensajes en español** y respuestas de error con el formato `{ error: { code, message } }`.
+- **Finales de línea LF** (ver `.gitattributes`).
+- **Secretos:** nunca en el repositorio. Ejemplos de variables en `backend/.env.example` y `frontend/.env.example`.
 
-### 3. Probar los Endpoints del Backend con cURL o PowerShell
-```powershell
-# Estado del servicio
-Invoke-RestMethod http://localhost:3001/api/v1/health
+## Documentación
 
-# Home agregado del emprendedor
-Invoke-RestMethod http://localhost:3001/api/v1/merchants/me/home
+Índice completo en [docs/README.md](docs/README.md). Para contribuir: [CONTRIBUTING.md](CONTRIBUTING.md). Para reportar una
+vulnerabilidad: [SECURITY.md](SECURITY.md). Historial de cambios: [CHANGELOG.md](CHANGELOG.md).
 
-# Estado de la línea y niveles
-Invoke-RestMethod http://localhost:3001/api/v1/credit/line
-```
+## Licencia
+
+Pendiente de definir por Kuota. Hasta entonces, todos los derechos reservados salvo lo que indique cada dependencia
+(`scrapers/scrap-sunat` es MIT).

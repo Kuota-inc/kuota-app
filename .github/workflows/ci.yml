@@ -14,6 +14,22 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  higiene:
+    name: Higiene del repositorio (secretos y archivos prohibidos)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Archivos que nunca deben estar en git
+        run: |
+          bad=$(git ls-files | grep -E '(^|/)(\.env|\.env\.[a-z]+|\.dev-secrets\.json|keystore\.properties|google-services\.json)$|\.(jks|keystore|pem)$|^docs/gtm/' | grep -vE '\.env\.example$' || true)
+          if [ -n "$bad" ]; then echo "Archivos prohibidos en el repositorio:"; echo "$bad"; exit 1; fi
+      - name: Claves pegadas en el código
+        run: |
+          if git grep -nIE '(sk_live_[A-Za-z0-9]{16,}|re_[A-Za-z0-9]{24,}|AKIA[0-9A-Z]{16}|-----BEGIN (RSA |EC )?PRIVATE KEY-----)' -- ':!security-tests' ':!docs'; then echo "Parece una clave real en el código"; exit 1; fi
+      - name: Finales de línea LF
+        run: |
+          if git ls-files --eol | grep -E 'i/(crlf|mixed)' | grep -vE '\.(bat|cmd)\b|\.(png|jpg|webp|pdf|apk|zip)\b' | grep .; then echo "Hay archivos con CRLF en el repositorio"; exit 1; fi
+
   backend:
     name: Backend (tipos, pruebas en PGlite y Postgres 16, auditoría)
     runs-on: ubuntu-latest

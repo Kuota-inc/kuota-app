@@ -26,7 +26,7 @@ function link(status: 'DRAFT' | 'ACTIVE' | 'PAID') {
   };
 }
 
-function handle(method: string, path: string, body: any, headers: Record<string, string>): Response {
+function handle(method: string, path: string, body: any, _headers: Record<string, string>): Response {
   const p = path.split('?')[0];
   const pinOk = (v: unknown) => v === DEMO_PIN;
   const bad = () => err(401, 'PIN_INVALID', 'PIN incorrecto. Te quedan 4 intentos.', { attempts_left: 4 });

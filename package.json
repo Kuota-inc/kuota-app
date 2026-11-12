@@ -3,11 +3,19 @@
   "version": "1.0.0",
   "description": "Kuota — Fintech de microcrédito y cobros para emprendedores y proveedores en Perú",
   "scripts": {
+    "install:all": "npm --prefix backend install && npm --prefix frontend install",
     "dev:backend": "npm --prefix backend run dev",
     "dev:frontend": "npm --prefix frontend run dev",
     "build:backend": "npm --prefix backend run build",
     "build:frontend": "npm --prefix frontend run build",
-    "build": "npm run build:backend && npm run build:frontend"
+    "build": "npm run build:backend && npm run build:frontend",
+    "typecheck:backend": "npm --prefix backend run typecheck",
+    "typecheck:frontend": "cd frontend && npx tsc -b",
+    "lint:frontend": "npm --prefix frontend run lint",
+    "test:backend": "npm --prefix backend test",
+    "check": "npm run typecheck:backend && npm run test:backend && npm run typecheck:frontend && npm run lint:frontend",
+    "security:local": "bash security-tests/run-local.sh",
+    "apk:release": "npm --prefix frontend run apk:release"
   },
   "keywords": [
     "fintech",
@@ -19,5 +27,17 @@
     "plin"
   ],
   "author": "Kuota Team",
-  "license": "ISC"
+  "license": "ISC",
+  "private": true,
+  "engines": {
+    "node": ">=22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Kuota-inc/kuota-app.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Kuota-inc/kuota-app/issues"
+  },
+  "homepage": "https://github.com/Kuota-inc/kuota-app#readme"
 }
