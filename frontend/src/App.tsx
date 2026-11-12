@@ -10,7 +10,7 @@ import { ADD_RUC_EVENT, SWITCH_EVENT } from './components/ProfileSwitcher';
 import { AddRucSheet } from './screens/dashboard/AddRucSheet';
 import { PaywallSheet } from './screens/dashboard/PaywallSheet';
 import { getActiveProfile, profilesApi, setActiveProfile, type ProfileKind } from './api/profiles';
-import { isBiometricEnabled, resetSettings } from './services/appSettings';
+import { isBiometricEnabled, resetSettings, setBiometricEnabled } from './services/appSettings';
 import { refreshListener, setCaptureHandler } from './services/paymentListener';
 import { api, apiRequest, getMerchantId, getProviderId, setMerchantId, setProviderId } from './api/client';
 import { StatusBar, Style } from '@capacitor/status-bar';
@@ -151,6 +151,7 @@ function AppShell() {
     setSellFlow(null);
     setSellFromProvider(false);
     resetSettings();
+    void KuotaBiometric.disable().catch(() => {}); // el registro de huella es de la persona que cerró sesión
     // Datos de la persona anterior en este teléfono: contactos recientes y avisos de pagos ya vistos.
     try {
       localStorage.removeItem('kuota.recent_contacts');
@@ -353,7 +354,12 @@ function AppShell() {
           await KuotaBiometric.authenticate({ title: 'Desbloquear Kuota', subtitle: 'Usa tu huella o rostro', negativeText: 'Usar PIN' });
           setLocked(false);
           return;
-        } catch {
+        } catch (e: any) {
+          // Cambiaron las huellas del teléfono (o el registro se perdió): la opción se apaga y se pide el PIN.
+          if (e?.code === 'INVALIDATED' || e?.code === 'NOT_REGISTERED') {
+            setBiometricEnabled(false);
+            toastRef.current.info(e.code === 'INVALIDATED' ? 'Cambiaron las huellas del teléfono. Entra con tu PIN y registra tu huella de nuevo en Mi cuenta.' : 'Registra tu huella de nuevo en Mi cuenta para usar el desbloqueo biométrico.');
+          }
           /* cancelada, bloqueada o fallida: se continúa con el PIN */
         }
       }

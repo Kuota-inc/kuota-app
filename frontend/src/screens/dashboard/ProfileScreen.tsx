@@ -28,7 +28,8 @@ import {
 } from 'lucide-react';
 import { API_ORIGIN, api } from '../../api/client';
 import { supportDisplay, whatsappLink } from '../../config/support';
-import { KuotaBiometric, biometricReasonText } from '../../plugins/kuotaBiometric';
+import { KuotaBiometric } from '../../plugins/kuotaBiometric';
+import { BiometricSetupSheet } from '../../components/BiometricSetupSheet';
 import { isBiometricEnabled, setBiometricEnabled } from '../../services/appSettings';
 import { disableListener, enableListener, listenerStatus, onListenerChange, refreshListener, type ListenerStatus } from '../../services/paymentListener';
 import { useDialog } from '../../hooks/useDialog';
@@ -61,32 +62,36 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onLogout }
   const [listenerState, setListenerState] = useState<ListenerStatus>(listenerStatus());
   const isListenerActive = listenerState === 'ACTIVE';
   const [biometricEnabled, setBiometricOn] = useState<boolean>(isBiometricEnabled());
+  const [bioSheet, setBioSheet] = useState(false);
+  // La opción solo vale si hay un registro real vinculado a las huellas del teléfono (puede haberse invalidado).
+  useEffect(() => {
+    if (!isBiometricEnabled()) return;
+    KuotaBiometric.status()
+      .then((st) => {
+        if (!st.registered) {
+          setBiometricEnabled(false);
+          setBiometricOn(false);
+          showToast(st.invalidated ? 'Cambiaron las huellas del teléfono: registra tu huella de nuevo.' : 'Registra tu huella en Kuota para usar el desbloqueo biométrico.');
+        }
+      })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   useEffect(() => {
     void refreshListener().then(setListenerState);
     return onListenerChange(() => setListenerState(listenerStatus()));
   }, []);
 
+  // Activar = registrar la huella (no es solo un interruptor); desactivar borra el registro del teléfono.
   const toggleBiometric = async () => {
     if (biometricEnabled) {
+      await KuotaBiometric.disable().catch(() => {});
       setBiometricEnabled(false);
       setBiometricOn(false);
-      showToast('Huella digital desactivada.');
+      showToast('Huella desactivada y registro borrado del teléfono.');
       return;
     }
-    try {
-      const info = await KuotaBiometric.isAvailable();
-      if (!info.available) {
-        showToast(biometricReasonText(info.reason));
-        return;
-      }
-      // Se confirma con la biometría antes de activarla: así se sabe que el sensor funciona y es de esta persona.
-      await KuotaBiometric.authenticate({ title: 'Activar huella o rostro', subtitle: 'Confirma para desbloquear Kuota con tu biometría', negativeText: 'Cancelar' });
-      setBiometricEnabled(true);
-      setBiometricOn(true);
-      showToast('Listo: desbloquearás Kuota con tu huella o rostro. Los cobros seguirán pidiendo tu PIN.');
-    } catch (e: any) {
-      if (e?.code !== 'CANCELED') showToast(biometricReasonText('UNKNOWN'));
-    }
+    setBioSheet(true);
   };
 
   const toggleListener = async () => {
@@ -166,6 +171,17 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onLogout }
 
   return (
     <div className="flex-1 flex flex-col bg-[#f9f9ff] text-[#151c27] relative pb-10">
+      {bioSheet && (
+        <BiometricSetupSheet
+          onClose={() => setBioSheet(false)}
+          onRegistered={() => {
+            setBiometricEnabled(true);
+            setBiometricOn(true);
+            setBioSheet(false);
+            showToast('Huella registrada. Los cobros seguirán pidiendo tu PIN.');
+          }}
+        />
+      )}
       {photoSheet && <PhotoSourceSheet hasPhoto={!!avatarUrl} onFile={(f) => void handlePhoto(f)} onRemove={() => void removePhoto()} onClose={() => setPhotoSheet(false)} />}
       {/* Toast Notification */}
       <AnimatePresence>
@@ -503,8 +519,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onLogout }
                   <Fingerprint size={18} />
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-[#151c27]">Huella digital / FaceID</p>
-                  <p className="text-[10px] text-[#4a5f7e]">Desbloquea la app con biometría</p>
+                  <p className="text-xs font-bold text-[#151c27]">Huella digital</p>
+                  <p className="text-[10px] text-[#4a5f7e]">{biometricEnabled ? 'Registrada · desbloquea la app sin PIN' : 'Sin registrar · toca para registrar tu huella'}</p>
                 </div>
               </div>
               <div className={`w-10 h-5 rounded-full transition-colors ${biometricEnabled ? 'bg-[#1a3bb0]' : 'bg-slate-200'} flex items-center px-0.5`}>
