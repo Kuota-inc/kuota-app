@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { CheckCircle2, ChevronDown, ChevronRight, Clock, Home, Info, Landmark, LogOut, PiggyBank, Plus, Search, ShieldCheck, TrendingUp, User, Users, Wallet, X } from 'lucide-react';
+import { CheckCircle2, ChevronDown, ChevronRight, Clock, Home, Info, Fingerprint, Landmark, LogOut, PiggyBank, Plus, Search, ShieldCheck, TrendingUp, User, Users, Wallet, X } from 'lucide-react';
 import { api, apiRequest, getMerchantId } from '../../api/client';
 import { paymentsApi } from '../../api/payments';
 import type { PaymentLink } from '../../api/payments';
@@ -9,6 +9,7 @@ import { VenderSheet } from '../../components/VenderSheet';
 import { Avatar } from '../../components/Avatar';
 import { PhotoSourceSheet } from '../../components/PhotoSourceSheet';
 import { photoToAvatar } from '../../utils/image';
+import { biometricPinAvailable, pinFromBiometric } from '../../services/biometricPin';
 import { useToast } from '../../components/toast-context';
 
 interface ProviderProfile {
@@ -79,6 +80,10 @@ export const ProviderHomeScreen: React.FC<{ onLogout: () => void; onSell: () => 
   const [needsPin, setNeedsPin] = useState(false);
   const [venderOpen, setVenderOpen] = useState(false);
   const [photoSheet, setPhotoSheet] = useState(false);
+  const [bioPin, setBioPin] = useState(false);
+  useEffect(() => {
+    void biometricPinAvailable().then(setBioPin);
+  }, []);
   const toast = useToast();
   const [sel, setSel] = useState<string | null>(null);
   const [openDay, setOpenDay] = useState<string | null>(null);
@@ -497,6 +502,15 @@ export const ProviderHomeScreen: React.FC<{ onLogout: () => void; onSell: () => 
                     <label className="text-[11px] text-[#4a5f7e] font-semibold mb-1 block">Tu PIN de 6 dígitos</label>
                     <input type="password" inputMode="numeric" maxLength={6} placeholder="••••••" value={settPin} onChange={(e) => setSettPin(e.target.value)}
                       className="w-full border border-[#e1e8f8] rounded-xl px-3 py-2 text-sm bg-[#f9f9ff] text-[#151c27] placeholder:text-[#b0bdd0]" />
+                    {bioPin && (
+                      <button
+                        type="button"
+                        onClick={() => void pinFromBiometric({ title: 'Confirmar con tu huella', subtitle: 'Guardar tu cuenta de abono' }).then(setSettPin).catch(() => {})}
+                        className="mt-1.5 py-2 text-xs font-bold text-[#1a3bb0] flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <Fingerprint size={15} aria-hidden="true" /> Usar mi huella
+                      </button>
+                    )}
                   </div>
                   {settError && <p className="text-xs text-red-600">{settError}</p>}
                   <button type="button" disabled={settSaving} onClick={handleSaveSettlement} className="w-full py-2.5 rounded-xl bg-[#00248b] text-white text-sm font-bold disabled:opacity-60">

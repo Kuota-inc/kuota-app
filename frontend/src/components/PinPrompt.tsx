@@ -1,9 +1,10 @@
 import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Delete, Loader2, ShieldCheck } from 'lucide-react';
+import { Delete, Fingerprint, Loader2, ShieldCheck } from 'lucide-react';
 import { ApiError } from '../api/client';
 import { CancelledError, setPinHandler, type PinPromptOptions } from '../api/payments';
 import { useSecureScreen } from '../plugins/kuotaSecure';
+import { biometricPinAvailable, forgetBiometric, pinFromBiometric } from '../services/biometricPin';
 import { DialogPanel } from './DialogPanel';
 import { PinPromptContext, type PinRequestState } from './pin-prompt-context';
 
@@ -72,8 +73,17 @@ const PinSheet: React.FC<{ request: PinRequestState; onCancel: () => void }> = (
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState(false);
   const [shakeKey, setShakeKey] = useState(0);
+  // Huella registrada: se ofrece en el hueco del teclado, donde siempre se pide el PIN (app, cobros, confirmaciones).
+  const [bio, setBio] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    void biometricPinAvailable().then((v) => alive && setBio(v));
+    return () => {
+      alive = false;
+    };
+  }, []);
 
-  const submit = async (value: string) => {
+  const submit = async (value: string, fromBio = false) => {
     setBusy(true);
     setError(null);
     try {
@@ -83,7 +93,14 @@ const PinSheet: React.FC<{ request: PinRequestState; onCancel: () => void }> = (
       await new Promise((r) => setTimeout(r, 700)); // deja ver la confirmación
       request.resolve();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'No pudimos verificar el PIN.');
+      if (fromBio && e instanceof ApiError && e.code === 'PIN_INVALID') {
+        // El PIN sellado ya no es el correcto (se cambió): se borra el registro y se pide escribirlo.
+        await forgetBiometric();
+        setBio(false);
+        setError('Tu PIN cambió. Escríbelo y vuelve a registrar tu huella en Mi cuenta.');
+      } else {
+        setError(e instanceof Error ? e.message : 'No pudimos verificar el PIN.');
+      }
       setShakeKey((k) => k + 1);
       setPin('');
       setBusy(false);
@@ -101,6 +118,29 @@ const PinSheet: React.FC<{ request: PinRequestState; onCancel: () => void }> = (
     setPin(next);
     if (error) setError(null);
     if (next.length === 6) void submit(next);
+  };
+
+  const confirmWithFinger = async () => {
+    if (busy || ok) return;
+    setError(null);
+    let value: string;
+    try {
+      value = await pinFromBiometric({
+        title: opts.kind === 'action' ? 'Confirmar con tu huella' : 'Confirmar tu identidad',
+        subtitle: opts.kind === 'action' ? (opts.summary ?? undefined) : undefined
+      });
+    } catch (e: any) {
+      if (e?.code === 'INVALIDATED') {
+        setBio(false);
+        setError('Cambiaron las huellas del teléfono. Usa tu PIN y registra tu huella de nuevo en Mi cuenta.');
+      } else if (e?.code === 'NOT_REGISTERED') {
+        setBio(false);
+      } else if (e?.code === 'LOCKOUT') {
+        setError('Demasiados intentos con la huella. Usa tu PIN.');
+      }
+      return; // cancelada: se sigue con el teclado
+    }
+    await submit(value, true);
   };
 
   // Teclado físico (PC o teclado Bluetooth).
@@ -197,7 +237,20 @@ const PinSheet: React.FC<{ request: PinRequestState; onCancel: () => void }> = (
           <div className="grid grid-cols-3 gap-2">
             {KEYS.map((key, i) =>
               key === '' ? (
-                <span key={i} />
+                bio ? (
+                  <button
+                    key={i}
+                    type="button"
+                    disabled={busy || ok}
+                    onClick={() => void confirmWithFinger()}
+                    aria-label="Usar huella"
+                    className="h-12 rounded-2xl bg-[#e7eefe] border border-[#c9d5f3] text-[#1a3bb0] flex items-center justify-center active:scale-95 transition disabled:opacity-50 cursor-pointer"
+                  >
+                    <Fingerprint size={24} aria-hidden="true" />
+                  </button>
+                ) : (
+                  <span key={i} />
+                )
               ) : (
                 <button
                   key={i}
@@ -213,6 +266,7 @@ const PinSheet: React.FC<{ request: PinRequestState; onCancel: () => void }> = (
             )}
           </div>
 
+          {bio && <p className="text-[11px] text-center font-bold text-[#1a3bb0]">Toca la huella para confirmar sin escribir el PIN</p>}
           <p className="text-[10px] text-center text-[#4a5f7e]">Kuota nunca te pedirá tu PIN por WhatsApp, SMS ni llamada.</p>
           <button
             type="button"

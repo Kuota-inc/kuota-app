@@ -2,6 +2,7 @@
 // confirmación con PIN cuando el backend la pide (STEP_UP_REQUIRED) e
 // idempotencia en la creación de cobros.
 import { Capacitor } from '@capacitor/core';
+import { forgetBiometric } from '../services/biometricPin';
 import { ApiError, apiRequest, getMerchantId, setMerchantId, setMerchantToken, setProviderId, setProviderToken } from './client';
 
 // ------------------------------------------------------------- dispositivo
@@ -78,12 +79,8 @@ const authHeaders = (): Record<string, string> => ({
   'X-Device-Id': deviceId()
 });
 
-function openSession(summary = 'Para cobrar con Kuota confirmamos que eres tú.'): Promise<void> {
-  opening ??= askPin({
-    title: 'Ingresa tu PIN',
-    kind: 'session',
-    summary,
-    verify: async (pin) => {
+/** Verifica el PIN en el servidor y deja abierta la sesión de cobros (también lo usa el registro de huella). */
+export async function openSessionWithPin(pin: string): Promise<void> {
       const r = await apiRequest<{ access_token: string; expires_at: string; identity_token?: string; provider?: { provider_id: string; provider_token: string } | null }>('/auth/sessions', {
         method: 'POST',
         body: JSON.stringify({ pin, device_id: deviceId(), device_label: deviceLabel() })
@@ -97,7 +94,14 @@ function openSession(summary = 'Para cobrar con Kuota confirmamos que eres tú.'
         setProviderToken(r.provider.provider_token);
       }
       session = { token: r.access_token, expiresAt: Date.parse(r.expires_at) };
-    }
+}
+
+function openSession(summary = 'Para cobrar con Kuota confirmamos que eres tú.'): Promise<void> {
+  opening ??= askPin({
+    title: 'Ingresa tu PIN',
+    kind: 'session',
+    summary,
+    verify: openSessionWithPin
   }).finally(() => {
     opening = null;
   });
@@ -283,11 +287,15 @@ export const paymentsApi = {
   closeOtherSessions: () => secureRequest<{ success: boolean; sessions_closed: number }>('/auth/sessions/others/close', { method: 'POST' }),
   revokeDevice: (ref: string) => secureRequest<{ success: boolean }>(`/merchants/me/payments/devices/${encodeURIComponent(ref)}`, { method: 'DELETE' }),
   getAlerts: () => secureRequest<{ data: SecurityAlert[] }>('/merchants/me/payments/alerts'),
-  changePin: (current_pin: string, new_pin: string) =>
-    secureRequest<{ success: boolean; sessions_closed: number; cooldown_until: string }>('/auth/pin/change', {
+  changePin: async (current_pin: string, new_pin: string) => {
+    const r = await secureRequest<{ success: boolean; sessions_closed: number; cooldown_until: string }>('/auth/pin/change', {
       method: 'POST',
       body: JSON.stringify({ current_pin, new_pin })
-    }),
+    });
+    // La huella guardaba el PIN anterior: ya no sirve y hay que registrarla de nuevo.
+    await forgetBiometric();
+    return r;
+  },
 
   // Lado del pagador (sin sesión)
   getPublicLink: (code: string) => apiRequest<PublicLink>(`/payment-links/public/${encodeURIComponent(code)}`),

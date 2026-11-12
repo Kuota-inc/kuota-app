@@ -18,7 +18,6 @@ import com.getcapacitor.PluginCall
 import com.getcapacitor.PluginMethod
 import com.getcapacitor.annotation.CapacitorPlugin
 import java.security.KeyStore
-import java.security.SecureRandom
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
@@ -32,11 +31,12 @@ import javax.crypto.spec.GCMParameterSpec
  *  1. Se crea una clave en el Android Keystore que solo se puede usar con una biometría fuerte reciente
  *     (setUserAuthenticationRequired) y que se invalida si cambian las huellas del teléfono
  *     (setInvalidatedByBiometricEnrollment).
- *  2. La persona pasa su huella una vez: con esa autenticación se cifra un secreto aleatorio y se guarda cifrado.
- *  3. Para desbloquear hay que volver a pasar la huella y descifrar ese secreto con la misma clave: sin una biometría
- *     real no hay desbloqueo (un simple "OK" de la interfaz no basta).
+ *  2. La persona escribe su PIN (el servidor lo verifica) y pasa su huella una vez: con esa autenticación el PIN se cifra
+ *     con la clave y se guarda cifrado. Android no deja leerlo sin una huella válida.
+ *  3. Para desbloquear hay que volver a pasar la huella y descifrar con la misma clave: sin una biometría real no hay
+ *     desbloqueo (un simple "OK" de la interfaz no basta). Donde Kuota pide el PIN, la huella lo entrega ya verificable.
  * Si alguien agrega o quita una huella en el teléfono, la clave se invalida y hay que registrar de nuevo.
- * Sigue siendo solo un candado local: las operaciones con dinero siguen pidiendo el PIN al servidor.
+ * El servidor sigue verificando el PIN en cada operación (con su límite de intentos): la huella solo reemplaza al teclado.
  */
 @CapacitorPlugin(name = "KuotaBiometric")
 class KuotaBiometricPlugin : Plugin() {
@@ -101,7 +101,7 @@ class KuotaBiometricPlugin : Plugin() {
     }
 
     private fun storedParts(): Pair<ByteArray, ByteArray>? {
-        val blob = prefs().getString("blob", null) ?: return null
+        val blob = prefs().getString("pin_blob", null) ?: return null
         val parts = blob.split(":")
         if (parts.size != 2) return null
         return try {
@@ -178,6 +178,11 @@ class KuotaBiometricPlugin : Plugin() {
         val title = call.getString("title") ?: "Registrar tu huella en Kuota"
         val subtitle = call.getString("subtitle")
         val negative = call.getString("negativeText") ?: "Cancelar"
+        val pin = call.getString("pin") ?: ""
+        if (pin.length !in 4..8 || !pin.all { it.isDigit() }) {
+            call.reject("Falta el PIN para registrar la huella.", "FAILED")
+            return
+        }
 
         activity.runOnUiThread {
             val host = activity as? FragmentActivity
@@ -200,10 +205,9 @@ class KuotaBiometricPlugin : Plugin() {
                 override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
                     try {
                         val sealing = result.cryptoObject?.cipher ?: throw IllegalStateException("sin cifrador")
-                        val secret = ByteArray(32).also { SecureRandom().nextBytes(it) }
-                        val sealed = sealing.doFinal(secret)
+                        val sealed = sealing.doFinal(pin.toByteArray(Charsets.UTF_8))
                         prefs().edit()
-                            .putString("blob", Base64.encodeToString(sealing.iv, Base64.NO_WRAP) + ":" + Base64.encodeToString(sealed, Base64.NO_WRAP))
+                            .putString("pin_blob", Base64.encodeToString(sealing.iv, Base64.NO_WRAP) + ":" + Base64.encodeToString(sealed, Base64.NO_WRAP))
                             .apply()
                         call.resolve(JSObject().put("registered", true))
                     } catch (e: Exception) {
@@ -233,7 +237,13 @@ class KuotaBiometricPlugin : Plugin() {
      * Rechaza con code = NOT_REGISTERED | INVALIDATED (cambiaron las huellas del teléfono) | CANCELED | LOCKOUT | FAILED.
      */
     @PluginMethod
-    fun authenticate(call: PluginCall) {
+    fun authenticate(call: PluginCall) = unlock(call, false)
+
+    /** Igual que authenticate, pero devuelve el PIN sellado ({ pin }) para enviarlo al servidor donde Kuota lo pide. */
+    @PluginMethod
+    fun getPin(call: PluginCall) = unlock(call, true)
+
+    private fun unlock(call: PluginCall, returnPin: Boolean) {
         val title = call.getString("title") ?: "Desbloquear Kuota"
         val subtitle = call.getString("subtitle")
         val negative = call.getString("negativeText") ?: "Usar PIN"
@@ -265,8 +275,8 @@ class KuotaBiometricPlugin : Plugin() {
             val prompt = BiometricPrompt(host, executor, object : BiometricPrompt.AuthenticationCallback() {
                 override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
                     try {
-                        result.cryptoObject?.cipher?.doFinal(parts.second) ?: throw IllegalStateException("sin descifrador")
-                        call.resolve()
+                        val plain = result.cryptoObject?.cipher?.doFinal(parts.second) ?: throw IllegalStateException("sin descifrador")
+                        if (returnPin) call.resolve(JSObject().put("pin", String(plain, Charsets.UTF_8))) else call.resolve()
                     } catch (e: Exception) {
                         call.reject("No pudimos verificar tu huella.", "FAILED", e)
                     }

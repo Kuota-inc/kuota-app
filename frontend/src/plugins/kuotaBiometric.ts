@@ -18,8 +18,10 @@ interface KuotaBiometricPlugin {
   status(): Promise<BiometricStatus>;
   /** Abre la pantalla de Android donde se guarda una huella (el sistema es quien las registra). */
   openEnrollment(): Promise<void>;
-  /** Registra la biometría en Kuota: pide la huella una vez. Rechaza con code CANCELED | LOCKOUT | FAILED. */
-  register(options: { title?: string; subtitle?: string; negativeText?: string }): Promise<{ registered: boolean }>;
+  /** Registra la huella: sella el PIN (ya verificado por el servidor) con la clave biométrica. Rechaza con code CANCELED | LOCKOUT | FAILED. */
+  register(options: { pin: string; title?: string; subtitle?: string; negativeText?: string }): Promise<{ registered: boolean }>;
+  /** Pide la huella y devuelve el PIN sellado. Rechaza con code NOT_REGISTERED | INVALIDATED | CANCELED | LOCKOUT | FAILED. */
+  getPin(options: { title?: string; subtitle?: string; negativeText?: string }): Promise<{ pin: string }>;
   /** Desbloqueo con la biometría registrada. Rechaza con code NOT_REGISTERED | INVALIDATED | CANCELED | LOCKOUT | FAILED. */
   authenticate(options: { title?: string; subtitle?: string; negativeText?: string }): Promise<void>;
   /** Quita el registro (borra la clave del teléfono). */
@@ -32,6 +34,9 @@ export const KuotaBiometric = registerPlugin<KuotaBiometricPlugin>('KuotaBiometr
     status: async () => ({ available: false, reason: 'NO_HARDWARE', registered: false, invalidated: false }),
     openEnrollment: async () => {},
     register: async () => {
+      throw Object.assign(new Error('Biometría no disponible en el navegador.'), { code: 'FAILED' });
+    },
+    getPin: async () => {
       throw Object.assign(new Error('Biometría no disponible en el navegador.'), { code: 'FAILED' });
     },
     authenticate: async () => {

@@ -178,7 +178,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onLogout }
             setBiometricEnabled(true);
             setBiometricOn(true);
             setBioSheet(false);
-            showToast('Huella registrada. Los cobros seguirán pidiendo tu PIN.');
+            showToast('Huella registrada. Donde Kuota te pida el PIN, podrás usar tu huella.');
           }}
         />
       )}
@@ -520,7 +520,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onLogout }
                 </div>
                 <div>
                   <p className="text-xs font-bold text-[#151c27]">Huella digital</p>
-                  <p className="text-[10px] text-[#4a5f7e]">{biometricEnabled ? 'Registrada · desbloquea la app sin PIN' : 'Sin registrar · toca para registrar tu huella'}</p>
+                  <p className="text-[10px] text-[#4a5f7e]">{biometricEnabled ? 'Registrada · úsala donde Kuota te pide el PIN' : 'Sin registrar · toca para registrar tu huella'}</p>
                 </div>
               </div>
               <div className={`w-10 h-5 rounded-full transition-colors ${biometricEnabled ? 'bg-[#1a3bb0]' : 'bg-slate-200'} flex items-center px-0.5`}>
