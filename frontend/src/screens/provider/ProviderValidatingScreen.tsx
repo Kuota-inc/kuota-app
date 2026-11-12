@@ -29,7 +29,7 @@ export const ProviderValidatingScreen: React.FC<ProviderValidatingScreenProps> =
   const [providerData, setProviderData] = useState<any>({
     razon_social: null,
     rep_legal: null,
-    approved_limit: 45000,
+    approved_limit: null as number | null,
     fee_rate: '1.00%'
   });
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -93,7 +93,7 @@ export const ProviderValidatingScreen: React.FC<ProviderValidatingScreenProps> =
         if (res?.result) {
           setProviderData((prev: any) => ({
             ...prev,
-            approved_limit: (res.result.approved_limit_cents || 4500000) / 100,
+            approved_limit: res.result.approved_limit_cents ? res.result.approved_limit_cents / 100 : null,
             razon_social: res.result.razon_social ?? prev.razon_social,
             rep_legal: res.result.legal_rep_dni ?? prev.rep_legal
           }));
@@ -366,7 +366,7 @@ export const ProviderValidatingScreen: React.FC<ProviderValidatingScreenProps> =
                   <div className="flex items-baseline justify-between border-b border-emerald-100 pb-2">
                     <div>
                       <div className="text-2xl font-black text-[#0b2545] tracking-tight">
-                        S/ {providerData.approved_limit.toLocaleString('es-PE', { minimumFractionDigits: 2 })}
+                        S/ {providerData.approved_limit != null ? providerData.approved_limit.toLocaleString('es-PE', { minimumFractionDigits: 2 }) : '—'}
                       </div>
                       <div className="text-[10px] text-[#4a5f7e] mt-0.5 font-medium">
                         Límite autorizado para recaudación y liquidación inmediata

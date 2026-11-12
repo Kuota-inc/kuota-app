@@ -151,6 +151,12 @@ function AppShell() {
     setSellFlow(null);
     setSellFromProvider(false);
     resetSettings();
+    // Datos de la persona anterior en este teléfono: contactos recientes y avisos de pagos ya vistos.
+    try {
+      localStorage.removeItem('kuota.recent_contacts');
+    } catch {
+      /* sin almacenamiento */
+    }
     setLocked(false);
     writeFlag(ONBOARDED_KEY, false);
     setCurrentScreen('welcome');

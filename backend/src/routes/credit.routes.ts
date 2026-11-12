@@ -4,6 +4,12 @@ import { db } from '../db/database.js';
 import { getMerchantProfile } from '../security/merchantContext.js';
 import { createOpenpayCharge } from '../integrations/openpay.js';
 import { computeScore, persistScore } from '../services/scoring.service.js';
+import { config } from '../security/config.js';
+
+// Pagar una cuota o liquidar una compra solo marca la deuda como pagada: no mueve dinero. Con dinero real eso regalaría
+// crédito (pedir, "pagar" sin pagar y volver a pedir), así que solo se permite en modo simulado, hasta que el pago lo confirme el banco.
+const paymentNotConfirmable = (res: import('express').Response) =>
+  res.status(409).json({ error: { code: 'PAYMENT_GATEWAY_REQUIRED', message: 'El pago de cuotas se activa cuando conectemos el banco. Aún no se puede registrar un pago sin confirmación.' } });
 
 export const creditRouter = Router();
 
@@ -348,6 +354,7 @@ creditRouter.get('/purchases/active', async (req, res) => {
 
 // PRD 09: Pagar cuota (solo del comercio de la petición; atómico e idempotente)
 creditRouter.post('/installments/:id/pay', async (req, res) => {
+  if (!config.sandboxEnabled) return paymentNotConfirmable(res);
   const merchant = await getMerchantProfile(req);
   const installmentId = req.params.id;
   const inst = await db.prepare(`
@@ -402,6 +409,7 @@ creditRouter.post('/installments/:id/pay', async (req, res) => {
 
 // PRD 09: Liquidación anticipada (solo compras activas del comercio de la petición)
 creditRouter.post('/purchases/:id/settle', async (req, res) => {
+  if (!config.sandboxEnabled) return paymentNotConfirmable(res);
   const merchant = await getMerchantProfile(req);
   const purchaseId = req.params.id;
   const purchase = await db.prepare('SELECT * FROM credit_purchases WHERE id = ? AND merchant_id = ?').get(purchaseId, merchant.id) as any;

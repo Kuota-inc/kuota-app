@@ -10,26 +10,6 @@ interface MerchantWelcomeSummaryScreenProps {
   onGoToLogin?: () => void;
 }
 
-const DEFAULT_WELCOME_DATA = {
-  business: {
-    name: 'Bodega San Martín',
-    ruc: '10478912341',
-    city: 'Lima',
-    status: 'ACTIVE'
-  },
-  credit_line: {
-    total_limit_cents: 140000,
-    level: 1,
-    level_name: 'Semilla',
-    down_payment_pct: 50
-  },
-  next_level: {
-    level: 2,
-    limit_cents: 200000,
-    hint: 'en 60 días con 3 compras puntuales'
-  }
-};
-
 export const MerchantWelcomeSummaryScreen: React.FC<MerchantWelcomeSummaryScreenProps> = ({
   sessionId,
   onGoToDashboard,
@@ -47,7 +27,9 @@ export const MerchantWelcomeSummaryScreen: React.FC<MerchantWelcomeSummaryScreen
       .completeOnboarding(sessionId, {})
       .then((res) => {
         if (!alive) return;
-        setData(res.welcome_summary ?? DEFAULT_WELCOME_DATA);
+        // Sin resumen real no se muestra el de otro negocio de ejemplo: se informa el error.
+        if (!res.welcome_summary) throw new Error('No pudimos cargar el resumen de tu cuenta. Inténtalo de nuevo.');
+        setData(res.welcome_summary);
         return api.getRecommendedProviders().then((provs) => alive && setProviders(provs));
       })
       .catch((err) => {

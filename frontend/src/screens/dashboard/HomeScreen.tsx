@@ -5,6 +5,8 @@ import { AnimatedNumber } from '../../components/AnimatedNumber';
 import { Bell, Sparkles, ChevronRight } from 'lucide-react';
 import { useToast } from '../../components/toast-context';
 import { ProfileSwitcher } from '../../components/ProfileSwitcher';
+import { LoadState } from '../../components/LoadState';
+import { dueText } from '../../utils/dates';
 
 interface HomeScreenProps {
   onNavigateTab: (tab: string) => void;
@@ -14,34 +16,6 @@ interface HomeScreenProps {
   /** true cuando el sheet de notificaciones ya las marcó como vistas. */
   notificationsSeen?: boolean;
 }
-
-const DEFAULT_HOME_DATA = {
-  credit: {
-    available_cents: 95000,
-    total_cents: 140000,
-    used_cents: 45000,
-    debt_balance_cents: 45000
-  },
-  next_installment: {
-    id: 'inst_demo_01',
-    amount_cents: 15000,
-    due_date: '2026-11-15',
-    days_left: 12
-  },
-  level_progress: {
-    current_level: 1,
-    level_name: 'Semilla',
-    current_limit_cents: 140000,
-    next_limit_cents: 200000,
-    punctual_payments: 2,
-    required_payments: 4,
-    progress_pct: 50
-  },
-  score: {
-    score: 742,
-    badge: 'Excelente'
-  }
-};
 
 const containerVariants: Variants = {
   hidden: { opacity: 0 },
@@ -65,15 +39,16 @@ const itemVariants: Variants = {
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateTab, onOpenKuotear, onOpenProfile, onOpenNotifications, notificationsSeen }) => {
   const toast = useToast();
-  const [data, setData] = useState<any>(DEFAULT_HOME_DATA);
+  const [data, setData] = useState<any>(null);
   const [scoreData, setScoreData] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [paying, setPaying] = useState(false);
 
   const loadData = () => {
     api.getHome()
-      .then(setData)
-      .catch(console.error)
+      .then((d) => { setData(d); setLoadError(false); })
+      .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
     api.getMyScore()
       .then(setScoreData)
@@ -108,6 +83,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateTab, onOpenKuo
       </div>
     );
   }
+
+  // Sin respuesta del servidor no se muestran cifras de ejemplo: error con reintento.
+  if (!data) return <LoadState error={loadError} onRetry={() => { setLoading(true); loadData(); }} />;
 
   const unread = notificationsSeen ? 0 : data?.unread_notifications || 0;
   const credit = data?.credit;
@@ -277,13 +255,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateTab, onOpenKuo
               <div className="text-xs font-bold text-[#0b2545] truncate max-w-[190px]">
                 {nextInst.merchant_name}
               </div>
-              <div className="text-[11px] text-[#4a5f7e]">
-                Vence el <strong>{nextInst.due_date}</strong>
-              </div>
+              {(() => {
+                const due = dueText(nextInst.due_date);
+                return <div className={`text-[11px] ${due.late ? 'text-red-600 font-bold' : 'text-[#4a5f7e]'}`}>{due.text}</div>;
+              })()}
               <button
                 type="button"
                 onClick={() => onNavigateTab('calendario')}
-                className="text-[11px] font-bold text-[#1a3bb0] underline cursor-pointer"
+                className="py-2.5 -my-1.5 text-[11px] font-bold text-[#1a3bb0] underline cursor-pointer"
               >
                 Ver calendario
               </button>
@@ -425,32 +404,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateTab, onOpenKuo
         </motion.div>
       )}
 
-      {/* Beneficios de la Semana */}
+      {/* Beneficios: solo con promociones reales cargadas */}
+      {data?.promotions?.length > 0 && (
       <motion.div variants={itemVariants} className="space-y-2 pb-2">
         <div className="flex items-center justify-between text-xs font-bold text-[#0b2545]">
           <span>Beneficios y Promociones</span>
         </div>
-
-        {/* Featured Flyer Banner with interactive hover */}
-        <motion.button
-          type="button"
-          onClick={onOpenKuotear}
-          aria-label="Promoción Comercios Gamarra: 30% de descuento en la inicial. Comprar al crédito"
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          className="block w-full h-28 rounded-2xl overflow-hidden shadow-sm border border-blue-100 relative group cursor-pointer text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[#b8c3ff]"
-        >
-          <img
-            src="/brand/Kuotafly1_1.png"
-            alt=""
-            className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent flex items-end p-2.5">
-            <span className="text-[10px] font-bold text-white bg-[#1a3bb0]/85 px-2.5 py-0.5 rounded-full backdrop-blur shadow-sm">
-              Comercios Gamarra · 30% dcto inicial
-            </span>
-          </div>
-        </motion.button>
 
         <div className="space-y-2">
           {data?.promotions?.map((promo: any) => (
@@ -473,6 +432,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateTab, onOpenKuo
           ))}
         </div>
       </motion.div>
+      )}
     </motion.div>
   );
 };

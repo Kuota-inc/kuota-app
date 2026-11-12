@@ -4,24 +4,15 @@ import { OcrScannerModal } from '../../components/OcrScannerModal';
 import { Camera, Plus, TrendingUp, ShoppingBag, Search, X } from 'lucide-react';
 import { useToast } from '../../components/toast-context';
 import { DialogPanel } from '../../components/DialogPanel';
-
-const DEFAULT_SALES_SUMMARY = {
-  today_cents: 82000,
-  month_cents: 1450000,
-  sales_count: 24,
-  yape_qr_count: 18
-};
-
-const DEFAULT_SCORE = {
-  score: 742,
-  badge: 'Excelente'
-};
+import { LoadState } from '../../components/LoadState';
+import { monthLabel } from '../../utils/dates';
 
 export const SalesScreen: React.FC = () => {
   const toast = useToast();
-  const [summary, setSummary] = useState<any>(DEFAULT_SALES_SUMMARY);
+  const [summary, setSummary] = useState<any>(null);
+  const [summaryError, setSummaryError] = useState(false);
   const [sales, setSales] = useState<any[]>([]);
-  const [score, setScore] = useState<any>(DEFAULT_SCORE);
+  const [score, setScore] = useState<any>(null);
   const [filter, setFilter] = useState<string>('ALL');
   const [search, setSearch] = useState<string>('');
   const [showManualModal, setShowManualModal] = useState<boolean>(false);
@@ -38,8 +29,9 @@ export const SalesScreen: React.FC = () => {
   }, [search]);
 
   const loadSummary = useCallback(() => {
-    api.getSalesSummary().then(setSummary).catch(console.error);
-    api.getHome().then((res) => setScore(res.score || { score: 720 })).catch(console.error);
+    api.getSalesSummary().then((s) => { setSummary(s); setSummaryError(false); }).catch(() => setSummaryError(true));
+    // Mismo score que el Home (calculado en el servidor).
+    api.getMyScore().then(setScore).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -84,6 +76,9 @@ export const SalesScreen: React.FC = () => {
     loadData();
   };
 
+  // Sin respuesta del servidor no se muestran ventas de ejemplo.
+  if (!summary) return <LoadState error={summaryError} onRetry={loadSummary} />;
+
   return (
     <div className="flex-1 p-4 space-y-4 bg-[#f9f9ff]">
       {/* Title */}
@@ -99,7 +94,7 @@ export const SalesScreen: React.FC = () => {
       {/* Monthly Sales Summary Card */}
       <div className="p-4 bg-white rounded-3xl border border-[#e1e8f8] shadow-sm space-y-3">
         <div className="text-[11px] font-bold uppercase tracking-wider text-[#4a5f7e]">
-          Ingresos este mes (Noviembre 2026)
+          Ingresos este mes ({monthLabel()})
         </div>
         <div className="text-3xl font-black text-[#0b2545]">
           S/ {(((summary?.total_revenue_cents || 0)) / 100).toLocaleString('es-PE', { minimumFractionDigits: 2 })}
@@ -142,32 +137,35 @@ export const SalesScreen: React.FC = () => {
 
         <button
           type="button"
-          onClick={() => setShowOcrModal(true)}
-          className="p-3 bg-[#1a3bb0] text-white rounded-2xl font-bold text-xs shadow-md shadow-blue-900/10 hover:bg-[#00248b] flex items-center justify-center gap-2 active:scale-95 transition cursor-pointer"
+          onClick={() => toast.info('Pronto podrás escanear comprobantes. Por ahora registra la venta con "Venta Rápida".')}
+          aria-disabled="true"
+          className="p-3 bg-slate-100 text-slate-500 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 cursor-pointer"
         >
           <Camera size={16} />
-          <span>Escanear OCR</span>
+          <span>Escanear · Próximamente</span>
         </button>
       </div>
 
       {/* Score Kuota Card */}
+      {score && (
       <div className="p-3.5 bg-gradient-to-r from-indigo-900 to-[#1a3bb0] rounded-2xl text-white shadow-md flex items-center justify-between">
         <div className="space-y-0.5">
           <div className="text-[10px] font-semibold text-blue-200 uppercase tracking-wider">
             Score Kuota
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-2xl font-black">{score?.score || 728} pts</span>
+            <span className="text-2xl font-black">{score.total} pts</span>
             <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-bold border border-emerald-400/30">
-              {score?.badge || 'Bueno'}
+              Nivel {score.level} · {score.label}
             </span>
           </div>
-          <div className="text-[10px] text-blue-200">Impulsa tu cupo disponible · Validado hoy</div>
+          <div className="text-[10px] text-blue-200">Se actualiza con tus pagos y ventas comprobadas</div>
         </div>
         <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center">
           <TrendingUp size={24} className="text-emerald-400" />
         </div>
       </div>
+      )}
 
       {/* Search + Filter Tabs */}
       <div className="space-y-2">
@@ -204,7 +202,7 @@ export const SalesScreen: React.FC = () => {
               type="button"
               aria-pressed={filter === tab.id}
               onClick={() => setFilter(tab.id)}
-              className={`px-3 py-1.5 rounded-xl font-bold whitespace-nowrap transition text-xs ${
+              className={`px-3.5 py-2.5 rounded-xl font-bold whitespace-nowrap transition text-xs ${
                 filter === tab.id
                   ? 'bg-[#1a3bb0] text-white shadow-sm'
                   : 'bg-white border border-[#e1e8f8] text-[#4a5f7e]'

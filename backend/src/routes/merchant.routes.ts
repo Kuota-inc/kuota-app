@@ -8,6 +8,7 @@ import { PLANS, planOf, withIgv } from '../security/pricing.js';
 import { RUC_IN_REVIEW, RUC_NOT_YOURS, rucOwnership } from '../security/rucOwnership.js';
 import { getMerchantProfile } from '../security/merchantContext.js';
 import { audit } from '../security/audit.js';
+import { computeScore } from '../services/scoring.service.js';
 import { rateLimit } from '../security/guards.js';
 import { clientIp } from '../security/http.js';
 import { getNotificationState, markSeen, parsePreferences, savePreferences, unreadCount } from './notifications.js';
@@ -158,7 +159,7 @@ merchantRouter.get('/home', async (req, res) => {
   const line = await db.prepare('SELECT * FROM credit_lines WHERE merchant_id = ?').get(merchant.id) as any;
   const level = await db.prepare('SELECT * FROM credit_levels WHERE level = ?').get(line?.level || 1) as any;
 
-  const totalLimit = line?.total_limit_cents || 140000;
+  const totalLimit = line?.total_limit_cents ?? 0;
   const used = line?.used_cents || 0;
   const available = Math.max(0, totalLimit - used);
   const downPaymentPct = level?.down_payment_pct || 50;
@@ -166,7 +167,8 @@ merchantRouter.get('/home', async (req, res) => {
 
   // Next pending installment
   const nextInstallment = await db.prepare(`
-    SELECT i.*, p.plan_code, p.provider_id, prov.legal_name as provider_name
+    SELECT i.*, p.plan_code, p.provider_id, prov.legal_name as provider_name,
+           (SELECT COUNT(*) FROM installments x WHERE x.purchase_id = i.purchase_id) AS total_count
     FROM installments i
     JOIN credit_purchases p ON i.purchase_id = p.id
     JOIN provider_profiles prov ON p.provider_id = prov.id
@@ -180,8 +182,9 @@ merchantRouter.get('/home', async (req, res) => {
     SELECT * FROM promotions WHERE active = 1 ORDER BY ends_in_days ASC LIMIT 3
   `).all();
 
-  // Dynamic greeting based on Lima time
-  const hour = new Date().getHours();
+  // Saludo según la hora de Lima (el servidor corre en UTC)
+  const hour = Number(new Intl.DateTimeFormat('en-US', { hour: 'numeric', hourCycle: 'h23', timeZone: 'America/Lima' }).format(new Date())) % 24;
+  const nextLevelRow = (await db.prepare('SELECT down_payment_pct FROM credit_levels WHERE level = ?').get((line?.level || 1) + 1)) as { down_payment_pct: number } | undefined;
   const greeting = hour < 12 ? 'Buenos días' : hour < 19 ? 'Buenas tardes' : 'Buenas noches';
 
   res.json({
@@ -200,9 +203,9 @@ merchantRouter.get('/home', async (req, res) => {
     },
     next_installment: nextInstallment ? {
       installment_id: nextInstallment.id,
-      merchant_name: nextInstallment.provider_name || 'Confecciones Don Lucho & Hnos.',
+      merchant_name: nextInstallment.provider_name || 'Proveedor Kuota',
       number: nextInstallment.number,
-      total: 3,
+      total: Number(nextInstallment.total_count) || 1,
       due_date: nextInstallment.due_date,
       amount_cents: nextInstallment.amount_cents
     } : null,
@@ -210,7 +213,7 @@ merchantRouter.get('/home', async (req, res) => {
       consecutive_on_time: line?.consecutive_on_time || 0,
       target: 3,
       next_level: (line?.level || 1) < 6 ? (line?.level || 1) + 1 : null,
-      next_down_payment_pct: (line?.level || 1) === 1 ? 40 : 30
+      next_down_payment_pct: nextLevelRow?.down_payment_pct ?? null
     },
     promotions,
     unread_notifications: await unreadCount(merchant.id)
@@ -244,7 +247,7 @@ merchantRouter.get('/kuotear', async (req, res) => {
   const merchant = await getMerchantProfile(req);
   const line = await db.prepare('SELECT * FROM credit_lines WHERE merchant_id = ?').get(merchant.id) as any;
   const level = await db.prepare('SELECT * FROM credit_levels WHERE level = ?').get(line?.level || 1) as any;
-  const score = await db.prepare('SELECT * FROM credit_scores WHERE merchant_id = ?').get(merchant.id) as any;
+  const scoreNow = await computeScore(merchant.id);
 
   // Active purchase verification for Rule 3.2
   const activePurchase = await db.prepare(`
@@ -264,7 +267,7 @@ merchantRouter.get('/kuotear', async (req, res) => {
 
   res.json({
     credit: {
-      available_cents: Math.max(0, (line?.total_limit_cents || 140000) - (line?.used_cents || 0)),
+      available_cents: Math.max(0, (line?.total_limit_cents ?? 0) - (line?.used_cents || 0)),
       level: line?.level || 1,
       level_name: level?.name || 'Brote'
     },
@@ -272,10 +275,8 @@ merchantRouter.get('/kuotear', async (req, res) => {
       due_date: nextInstallment.due_date,
       amount_cents: nextInstallment.amount_cents
     } : null,
-    score: {
-      value: score?.score || 720,
-      label: (score?.score || 720) >= 750 ? 'Excelente' : 'Bueno'
-    },
+    // Mismo score que el Home (calculado, no el contador antiguo).
+    score: { value: scoreNow.total, label: scoreNow.label },
     actions: {
       buy_on_credit: {
         enabled: !activePurchase && line?.status === 'ACTIVE',
@@ -441,16 +442,19 @@ merchantRouter.post('/sales', async (req, res) => {
 // PRD 06: OCR Comprobante Processing & Verification
 merchantRouter.post('/sales/ocr', async (req, res) => {
   const merchant = await getMerchantProfile(req);
-  const amountCents = req.body?.amount_cents && Number(req.body.amount_cents) > 0
-    ? Math.round(Number(req.body.amount_cents))
-    : Math.floor(25 + Math.random() * 250) * 100;
+  // Nunca se inventa un monto: sin lectura real del comprobante (o del aviso de Yape/Plin) no hay venta.
+  const rawAmount = Number(req.body?.amount_cents);
+  if (!Number.isFinite(rawAmount) || rawAmount <= 0 || rawAmount > 100_000_000) {
+    return res.status(422).json({ error: { code: 'AMOUNT_REQUIRED', message: 'Indica el monto del comprobante.' } });
+  }
+  const amountCents = Math.round(rawAmount);
 
   const source = req.body?.source && ['YAPE', 'PLIN', 'MANUAL', 'OCR', 'PAYMENT_LINK'].includes(req.body.source)
     ? req.body.source
     : 'OCR';
 
   const concept = req.body?.concept || (source === 'YAPE' ? 'Comprobante Yape verificado' : source === 'PLIN' ? 'Comprobante Plin verificado' : 'Comprobante OCR verificado');
-  const opRef = req.body?.operation_ref || ('OP-' + Math.floor(100000 + Math.random() * 900000));
+  const opRef = typeof req.body?.operation_ref === 'string' && req.body.operation_ref.trim() ? req.body.operation_ref.trim().slice(0, 40) : null;
 
   const id = 'sale_' + uuidv4().substring(0, 10);
   await db.prepare(`
@@ -460,7 +464,7 @@ merchantRouter.post('/sales/ocr', async (req, res) => {
 
   // No hay lectura real del comprobante: queda como venta declarada (+2), nunca verificada.
   await db.prepare('UPDATE credit_scores SET score = LEAST(850, score + 2) WHERE merchant_id = ?').run(merchant.id);
-  const updatedScore = await db.prepare('SELECT score FROM credit_scores WHERE merchant_id = ?').get(merchant.id) as any;
+  const updatedScore = await computeScore(merchant.id);
 
   res.json({
     id,
@@ -471,19 +475,15 @@ merchantRouter.post('/sales/ocr', async (req, res) => {
     verified: false,
     confidence: 0,
     points_earned: 2,
-    new_score: updatedScore?.score || 728,
+    new_score: updatedScore.total,
     message: 'Venta registrada. Queda como declarada hasta que se pueda verificar el comprobante.'
   });
 });
 
 merchantRouter.get('/score', async (req, res) => {
   const merchant = await getMerchantProfile(req);
-  const score = await db.prepare('SELECT * FROM credit_scores WHERE merchant_id = ?').get(merchant.id) as any;
-  res.json({
-    score: score?.score || 720,
-    level: score?.level || 1,
-    last_validated_at: score?.last_calculated_at || new Date().toISOString()
-  });
+  const b = await computeScore(merchant.id);
+  res.json({ score: b.total, level: b.level, label: b.label, last_validated_at: new Date().toISOString() });
 });
 
 // ── Contactos: ¿este celular ya tiene cuenta Kuota? ─────────────────────────────────────────────

@@ -6,6 +6,7 @@ import { AnimatedNumber } from '../../components/AnimatedNumber';
 import { X, ShoppingBag, QrCode, Calculator, ArrowRight } from 'lucide-react';
 import { useToast } from '../../components/toast-context';
 import { useDialog } from '../../hooks/useDialog';
+import { formatDay } from '../../utils/dates';
 
 interface KuotearModalProps {
   isOpen: boolean;
@@ -13,22 +14,11 @@ interface KuotearModalProps {
   onNavigateTo: (screenKey: string) => void;
 }
 
-const DEFAULT_KUOTEAR_DATA = {
-  line: {
-    available_cents: 95000,
-    total_cents: 140000
-  },
-  benefits: [
-    { text: 'Sin cobro de comisiones sorpresa' },
-    { text: 'Abono directo a cuenta del mayorista' }
-  ]
-};
-
 export const KuotearModal: React.FC<KuotearModalProps> = ({ isOpen, onClose, onNavigateTo }) => {
   const toast = useToast();
   const sheetRef = useRef<HTMLDivElement>(null);
   useDialog(sheetRef, onClose, { enabled: isOpen });
-  const [data, setData] = useState<any>(DEFAULT_KUOTEAR_DATA);
+  const [data, setData] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'menu' | 'simulator'>('menu');
   const [simAmount, setSimAmount] = useState<string>('236');
   const [simulationResult, setSimulationResult] = useState<any>(null);
@@ -107,12 +97,12 @@ export const KuotearModal: React.FC<KuotearModalProps> = ({ isOpen, onClose, onN
                   Línea Kuota Activa
                 </span>
                 <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full font-bold">
-                  {data?.score?.value || 720} pts · {data?.score?.label || 'Bueno'}
+                  {data?.score ? `${data.score.value} pts · ${data.score.label}` : '—'}
                 </span>
               </div>
               <div className="flex items-baseline justify-between">
                 <div className="text-2xl font-black">
-                  S/ <AnimatedNumber value={(data?.credit?.available_cents || 140000) / 100} decimals={2} />
+                  {data?.credit ? <>S/ <AnimatedNumber value={data.credit.available_cents / 100} decimals={2} /></> : 'S/ —'}
                 </div>
                 <span className="text-xs text-blue-100 font-semibold">Disponible para compras</span>
               </div>
@@ -271,7 +261,7 @@ export const KuotearModal: React.FC<KuotearModalProps> = ({ isOpen, onClose, onN
                       <div className="text-[11px] font-bold text-[#0b2545]">Cronograma de 3 cuotas quincenales:</div>
                       {simulationResult.schedule.map((item: any) => (
                         <div key={item.number} className="flex justify-between items-center text-xs py-1 border-b border-slate-50">
-                          <span className="text-[#4a5f7e]">Cuota {item.number} ({item.due_date})</span>
+                          <span className="text-[#4a5f7e]">Cuota {item.number} ({formatDay(item.due_date)})</span>
                           <span className="font-extrabold text-[#0b2545]">S/ {(item.amount_cents / 100).toFixed(2)}</span>
                         </div>
                       ))}

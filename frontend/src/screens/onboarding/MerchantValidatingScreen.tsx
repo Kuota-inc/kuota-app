@@ -25,9 +25,9 @@ export const MerchantValidatingScreen: React.FC<MerchantValidatingScreenProps> =
   const [progress, setProgress] = useState<number>(0);
   const [currentStepIndex, setCurrentStepIndex] = useState<number>(0);
   const [merchantData, setMerchantData] = useState<any>({
-    dni: '47891234',
-    full_name: 'CARLOS ALBERTO MENDOZA QUISPE',
-    approved_limit: 1400,
+    dni: '',
+    full_name: '',
+    approved_limit: null as number | null,
   });
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -79,9 +79,9 @@ export const MerchantValidatingScreen: React.FC<MerchantValidatingScreenProps> =
       .then((res: any) => {
         if (res?.merchant) {
           setMerchantData({
-            dni: res.merchant.dni || '47891234',
-            full_name: res.merchant.full_name || 'CARLOS ALBERTO MENDOZA QUISPE',
-            approved_limit: (res.result?.approved_limit_cents || 140000) / 100,
+            dni: res.merchant.dni ?? '',
+            full_name: res.merchant.full_name ?? '',
+            approved_limit: res.result?.approved_limit_cents ? res.result.approved_limit_cents / 100 : null,
           });
         }
       })
@@ -331,7 +331,7 @@ export const MerchantValidatingScreen: React.FC<MerchantValidatingScreenProps> =
                   <div className="flex items-baseline justify-between border-b border-blue-100 pb-2">
                     <div>
                       <div className="text-2xl font-black text-[#0b2545] tracking-tight">
-                        S/ {merchantData.approved_limit.toLocaleString('es-PE', { minimumFractionDigits: 2 })}
+                        S/ {merchantData.approved_limit != null ? merchantData.approved_limit.toLocaleString('es-PE', { minimumFractionDigits: 2 }) : '—'}
                       </div>
                       <div className="text-[10px] text-[#4a5f7e] mt-0.5 font-medium">
                         Línea disponible para compras a crédito (Plan 3X)

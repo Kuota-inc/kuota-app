@@ -1,3 +1,4 @@
+import { dueText, formatDay } from '../../utils/dates';
 import React, { useState, useEffect } from 'react';
 
 import { api } from '../../api/client';
@@ -304,7 +305,7 @@ export const BuyOnCreditScreen: React.FC<BuyOnCreditScreenProps> = ({ onBack }) 
             <div className="space-y-1 pt-1 border-t border-slate-100">
               {simulation.schedule.map((item: any) => (
                 <div key={item.number} className="flex justify-between items-center text-xs py-0.5">
-                  <span className="text-[#4a5f7e]">Cuota {item.number} · {item.due_date}</span>
+                  <span className="text-[#4a5f7e]">Cuota {item.number} · {formatDay(item.due_date)}</span>
                   <span className="font-extrabold text-[#0b2545]">S/ {(item.amount_cents / 100).toFixed(2)}</span>
                 </div>
               ))}
@@ -415,7 +416,7 @@ export const BuyOnCreditScreen: React.FC<BuyOnCreditScreenProps> = ({ onBack }) 
             )}
             {simulation.schedule.map((item: any) => (
               <div key={item.number} className="flex justify-between">
-                <span className="text-[#4a5f7e]">Cuota {item.number} · {item.due_date}</span>
+                <span className="text-[#4a5f7e]">Cuota {item.number} · {formatDay(item.due_date)}</span>
                 <span className="font-bold text-[#0b2545]">S/ {(item.amount_cents / 100).toFixed(2)}</span>
               </div>
             ))}
@@ -591,7 +592,7 @@ export const BuyOnCreditScreen: React.FC<BuyOnCreditScreenProps> = ({ onBack }) 
                   S/ {((data.next_installment.amount_cents || 4326) / 100).toFixed(2)}
                 </div>
                 <div className="text-[11px] text-blue-100">
-                  Vence el <strong>{data.next_installment.due_date}</strong>
+                  {dueText(data.next_installment.due_date).text}
                 </div>
               </div>
 

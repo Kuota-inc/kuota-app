@@ -6,26 +6,8 @@ import { AnimatedNumber } from '../../components/AnimatedNumber';
 import { Info } from 'lucide-react';
 import { useToast } from '../../components/toast-context';
 import { DialogPanel } from '../../components/DialogPanel';
-
-// Respaldo con la misma forma que GET /credit/line y GET /credit/levels
-// (se muestra en la primera carga y si el backend no responde).
-const DEFAULT_LINE_DATA = {
-  line: {
-    status: 'ACTIVE',
-    total_limit_cents: 140000,
-    used_cents: 45000,
-    available_cents: 95000
-  },
-  level: { level: 1, name: 'Brote', down_payment_pct: 50 },
-  next_level: {
-    level: 2,
-    name: 'Raíz',
-    down_payment_pct: 40,
-    max_line_cents: 350000,
-    progress: { current: 2, target: 3 }
-  },
-  pending_installments_count: 1
-};
+import { LoadState } from '../../components/LoadState';
+import { dueText } from '../../utils/dates';
 
 const DEFAULT_LEVELS = [
   { level: 1, name: 'Brote', down_payment_pct: 50, max_line_cents: 140000 },
@@ -45,7 +27,8 @@ interface CreditLineScreenProps {
 
 export const CreditLineScreen: React.FC<CreditLineScreenProps> = ({ onViewInstallments, onOpenCalendar }) => {
   const toast = useToast();
-  const [lineData, setLineData] = useState<any>(DEFAULT_LINE_DATA);
+  const [lineData, setLineData] = useState<any>(null);
+  const [lineError, setLineError] = useState(false);
   const [levels, setLevels] = useState<any[]>(DEFAULT_LEVELS);
   const [activePurchase, setActivePurchase] = useState<any>(null);
   const [showExplanation, setShowExplanation] = useState<boolean>(false);
@@ -53,7 +36,7 @@ export const CreditLineScreen: React.FC<CreditLineScreenProps> = ({ onViewInstal
   const [listenerGranted, setListenerGranted] = useState<boolean | null>(null);
 
   const loadData = () => {
-    api.getCreditLine().then(setLineData).catch(console.error);
+    api.getCreditLine().then((d) => { setLineData(d); setLineError(false); }).catch(() => setLineError(true));
     api.getCreditLevels().then(setLevels).catch(console.error);
     api.getActivePurchase().then(setActivePurchase).catch(console.error);
   };
@@ -79,6 +62,9 @@ export const CreditLineScreen: React.FC<CreditLineScreenProps> = ({ onViewInstal
       setPaying(false);
     }
   };
+
+  // Sin respuesta del servidor no se muestran cifras de ejemplo.
+  if (!lineData) return <LoadState error={lineError} onRetry={loadData} />;
 
   const line = lineData?.line;
   const currentLevel = lineData?.level;
@@ -118,19 +104,19 @@ export const CreditLineScreen: React.FC<CreditLineScreenProps> = ({ onViewInstal
             <div
               className="h-full bg-emerald-400 rounded-full transition-all duration-500"
               style={{
-                width: `${Math.min(100, Math.round(((line?.available_cents || 0) / (line?.total_limit_cents || 140000)) * 100))}%`
+                width: `${Math.min(100, Math.round(((line?.available_cents || 0) / (line?.total_limit_cents || 1)) * 100))}%`
               }}
             ></div>
           </div>
           <div className="flex justify-between text-[10px] text-blue-200">
             <span>En uso: S/ {((line?.used_cents || 0) / 100).toFixed(2)}</span>
-            <span>Total asignado: S/ {((line?.total_limit_cents || 140000) / 100).toFixed(2)}</span>
+            <span>Total asignado: S/ {((line?.total_limit_cents || 0) / 100).toFixed(2)}</span>
           </div>
         </div>
 
         <button
           onClick={() => setShowExplanation(true)}
-          className="pt-1 flex items-center gap-1 text-[11px] text-blue-200 hover:text-white font-medium"
+          className="py-2.5 -mb-1.5 flex items-center gap-1 text-[11px] text-blue-200 hover:text-white font-medium cursor-pointer"
         >
           <Info size={13} />
           <span>¿Cómo funciona la recarga de tu cupo?</span>
@@ -160,7 +146,7 @@ export const CreditLineScreen: React.FC<CreditLineScreenProps> = ({ onViewInstal
                 <button
                   type="button"
                   onClick={onViewInstallments}
-                  className="text-[11px] text-[#1a3bb0] font-bold underline rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-[#b8c3ff]"
+                  className="py-3 -my-3 px-1 text-[11px] text-[#1a3bb0] font-bold underline rounded cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#b8c3ff]"
                 >
                   Ver todas
                 </button>
@@ -174,7 +160,7 @@ export const CreditLineScreen: React.FC<CreditLineScreenProps> = ({ onViewInstal
                 {activePurchase.provider?.name || 'Confecciones Don Lucho & Hnos.'}
               </div>
               <div className="text-[10px] text-[#4a5f7e]">
-                Cuota {activePurchase.next_installment.number} de {activePurchase.next_installment.total} · Vence el {activePurchase.next_installment.due_date}
+                Cuota {activePurchase.next_installment.number} de {activePurchase.next_installment.total} · {dueText(activePurchase.next_installment.due_date).text}
               </div>
             </div>
 

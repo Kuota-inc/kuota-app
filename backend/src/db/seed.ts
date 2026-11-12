@@ -179,7 +179,10 @@ export async function seedData() {
   await insertLevel.run(5, 'Fruto', 10, 2000000, 3);
   await insertLevel.run(6, 'Cosecha', 0, 3500000, 3);
 
-  // 2. Seed Promotions
+  // Lo que sigue es la cuenta demo: nunca en producción.
+  if (process.env.NODE_ENV === 'production') return;
+
+  // Promociones de ejemplo: solo en desarrollo (en producción serían ofertas inventadas para usuarios reales).
   const insertPromo = db.prepare(`
     INSERT INTO promotions (id, category, tag, headline, discount_pct, partner_name, description, condition, ends_in_days)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -188,8 +191,6 @@ export async function seedData() {
   await insertPromo.run('promo_02', 'FOOD', 'Alimentos', '0% de interés', 0, 'Red de Bodegas', 'Compra abarrotes al por mayor y financia con Kuota QR sin comisiones extra.', 'Solo pago puntual', 5);
   await insertPromo.run('promo_03', 'FOOTWEAR', 'Calzado', 'Paga en 60 días', 0, 'Fabricantes Trujillanos', 'Cuotas quincenales diferidas para abastecimiento de temporada escolar.', 'Nivel 2 en adelante', 10);
 
-  // Lo que sigue es la cuenta demo: nunca en producción.
-  if (process.env.NODE_ENV === 'production') return;
 
   // 3. Seed Default Demo Merchant & Active Purchase (Matching screens 05, 07, 09, 10)
   const insertUser = db.prepare(`

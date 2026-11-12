@@ -119,3 +119,40 @@ describe('Validación de contactos', () => {
     assert.equal(last, 429);
   });
 });
+
+describe('Integridad de los datos del Emprendedor', () => {
+  test('el comprobante nunca inventa un monto', async () => {
+    resetRateLimits();
+    const me = await merchant('73100005', 'LUNA VEGA CARLOS', '930100005', 'Ferretería Luna');
+    const none = await call('POST', '/merchants/me/sales/ocr', {}, me);
+    assert.equal(none.status, 422);
+    assert.equal(none.body.error.code, 'AMOUNT_REQUIRED');
+    const zero = await call('POST', '/merchants/me/sales/ocr', { amount_cents: 0 }, me);
+    assert.equal(zero.status, 422);
+    const ok = await call('POST', '/merchants/me/sales/ocr', { amount_cents: 12550, source: 'YAPE' }, me);
+    assert.equal(ok.status, 200, JSON.stringify(ok.body));
+    assert.equal(ok.body.amount_cents, 12550);
+    assert.equal(ok.body.verified, false);
+    assert.equal(ok.body.operation_ref, null, 'sin referencia real no se inventa una');
+  });
+
+  test('todas las pantallas muestran el mismo score', async () => {
+    resetRateLimits();
+    const me = await merchant('73100006', 'TORRES PAZ ROSA', '930100006', 'Bodega Rosa');
+    const a = (await call('GET', '/credit/score/me', undefined, me)).body;
+    const b = (await call('GET', '/merchants/me/score', undefined, me)).body;
+    const c = (await call('GET', '/merchants/me/kuotear', undefined, me)).body;
+    assert.ok(Number.isInteger(a.total) && a.total > 0);
+    assert.equal(b.score, a.total);
+    assert.equal(c.score.value, a.total);
+    assert.equal(c.score.label, a.label);
+  });
+
+  test('el saludo del Home sigue la hora de Lima', async () => {
+    resetRateLimits();
+    const me = await merchant('73100007', 'CRUZ LEON JUAN', '930100007', 'Tienda Juan');
+    const h = (await call('GET', '/merchants/me/home', undefined, me)).body;
+    const hour = Number(new Intl.DateTimeFormat('en-US', { hour: 'numeric', hourCycle: 'h23', timeZone: 'America/Lima' }).format(new Date())) % 24;
+    assert.equal(h.greeting_prefix, hour < 12 ? 'Buenos días' : hour < 19 ? 'Buenas tardes' : 'Buenas noches');
+  });
+});
