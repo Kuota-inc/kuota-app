@@ -20,6 +20,12 @@ export interface MerchantRow {
   city: string | null;
 }
 
+/** Token público de la foto de perfil del comercio (null si no tiene). */
+export async function getAvatarToken(merchantId: string): Promise<string | null> {
+  const r = (await db.prepare('SELECT token FROM merchant_avatars WHERE merchant_id = ?').get(merchantId)) as { token: string } | undefined;
+  return r?.token ?? null;
+}
+
 export async function getMerchant(id: string): Promise<MerchantRow | null> {
   return (await db.prepare('SELECT * FROM merchant_profiles WHERE id = ?').get(id) as MerchantRow | undefined) ?? null;
 }

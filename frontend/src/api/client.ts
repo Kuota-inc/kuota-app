@@ -186,6 +186,7 @@ export interface ContactLookup {
   kind: 'EMPRENDEDOR' | 'PROVEEDOR' | null;
   display_name: string | null;
   verified: boolean;
+  avatar_url: string | null;
 }
 
 export const api = {
@@ -300,6 +301,10 @@ export const api = {
     apiRequest(`/credit/purchases/${purchaseId}/settle`, {
       method: 'POST'
     }),
+
+  // Foto de perfil: la ven quienes pagan o buscan al comercio por celular.
+  setAvatar: (image: string) => apiRequest<{ avatar_url: string }>('/merchants/me/avatar', { method: 'PUT', body: JSON.stringify({ image }) }),
+  removeAvatar: () => apiRequest<{ avatar_url: null }>('/merchants/me/avatar', { method: 'DELETE' }),
 
   // ¿Este celular ya tiene cuenta Kuota? (el servidor limita las consultas y no devuelve datos de más)
   lookupContact: (phone: string) =>

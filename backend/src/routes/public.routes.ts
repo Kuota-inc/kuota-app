@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { db } from '../db/database.js';
+import { rateLimit } from '../security/guards.js';
 
 export const publicRouter = Router();
 
@@ -67,4 +68,17 @@ publicRouter.get(['/catalogs/provider-seniority-ranges', '/provider-seniority-ra
     { code: '1Y_3Y', label: '1 a 3 años', subtitle: 'Operación consolidada con cartera fija' },
     { code: 'GT_3Y', label: 'Más de 3 años', subtitle: 'Madurez, alto volumen y padrón SUNAT continuo' }
   ]);
+});
+
+// Foto de perfil pública (la ven quienes pagan o buscan al comercio). La URL lleva un token aleatorio que cambia con
+// cada foto, así que puede guardarse en caché sin riesgo de mostrar una foto vieja.
+publicRouter.get('/avatar/:token', rateLimit({ name: 'public-avatar', windowMs: 60_000, max: 120 }), async (req, res) => {
+  const token = String(req.params.token);
+  if (!/^[a-f0-9]{32}$/.test(token)) return res.status(404).end();
+  const row = (await db.prepare('SELECT image_b64 FROM merchant_avatars WHERE token = ?').get(token)) as { image_b64: string } | undefined;
+  if (!row) return res.status(404).end();
+  res.setHeader('Content-Type', 'image/jpeg');
+  res.setHeader('Cache-Control', 'public, max-age=86400, immutable');
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  res.end(Buffer.from(row.image_b64, 'base64'));
 });

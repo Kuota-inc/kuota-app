@@ -8,7 +8,7 @@ import { config } from '../security/config.js';
 import { computeFees, planOf } from '../security/pricing.js';
 import { randomId, randomToken } from '../security/crypto.js';
 import { audit } from '../security/audit.js';
-import { consumeStepUp, getMerchant, requireMerchant, stepUpRequired } from '../security/auth.js';
+import { consumeStepUp, getAvatarToken, getMerchant, requireMerchant, stepUpRequired } from '../security/auth.js';
 import { alertMerchant, paymentEvent, requireFeature } from '../security/events.js';
 import { idempotent, rateLimit } from '../security/guards.js';
 import { clientIp, fail } from '../security/http.js';
@@ -97,7 +97,7 @@ paymentLinkRouter.get(
     const merchant = await getMerchant(link.merchant_id);
     res.json({
       code: publicCode(link.token),
-      merchant: merchantPublicIdentity(merchant ?? { business_name: null, kyc_status: null, ruc: null, city: null }),
+      merchant: merchantPublicIdentity({ ...(merchant ?? { business_name: null, kyc_status: null, ruc: null, city: null }), avatar_token: merchant ? await getAvatarToken(merchant.id) : null }),
       concept: link.concept,
       amount_cents: link.amount_cents,
       currency: link.currency ?? 'PEN',

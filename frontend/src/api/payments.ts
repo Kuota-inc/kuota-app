@@ -209,7 +209,7 @@ export interface PaymentLink {
 
 export interface PublicLink {
   code: string;
-  merchant: { name: string; verification: 'VERIFIED' | 'BASIC'; ruc_masked: string | null; city: string | null };
+  merchant: { name: string; verification: 'VERIFIED' | 'BASIC'; ruc_masked: string | null; city: string | null; avatar_url?: string | null };
   concept: string | null;
   amount_cents: number;
   currency: string;

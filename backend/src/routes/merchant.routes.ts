@@ -11,6 +11,7 @@ import { audit } from '../security/audit.js';
 import { computeScore } from '../services/scoring.service.js';
 import { rateLimit } from '../security/guards.js';
 import { clientIp } from '../security/http.js';
+import { avatarUrl } from '../security/links.js';
 import { getNotificationState, markSeen, parsePreferences, savePreferences, unreadCount } from './notifications.js';
 
 export const merchantRouter = Router();
@@ -298,9 +299,11 @@ merchantRouter.get('/welcome-summary', async (req, res) => {
   const merchant = await getMerchantProfile(req);
   const line = await db.prepare('SELECT * FROM credit_lines WHERE merchant_id = ?').get(merchant.id) as any;
   const level = await db.prepare('SELECT * FROM credit_levels WHERE level = ?').get(line?.level || 1) as any;
+  const avatar = (await db.prepare('SELECT token FROM merchant_avatars WHERE merchant_id = ?').get(merchant.id)) as { token: string } | undefined;
 
   res.json({
     business: {
+      avatar_url: avatarUrl(avatar?.token),
       name: merchant.business_name,
       ruc: merchant.ruc,
       city: merchant.city || 'Lima',
@@ -524,6 +527,7 @@ merchantRouter.post('/contacts/lookup', lookupPerMinute, lookupPerHour, async (r
     : ((await db
         .prepare(`SELECT id, user_id, legal_name FROM provider_profiles WHERE ${digits('whatsapp')} = ? ORDER BY created_at DESC LIMIT 1`)
         .get(phone)) as { id: string; user_id: string | null; legal_name: string | null } | undefined);
+  const avatar = m ? ((await db.prepare('SELECT token FROM merchant_avatars WHERE merchant_id = ?').get(m.id)) as { token: string } | undefined) : undefined;
   const found = !!(m || p);
   const isSelf = (!!m && m.id === me.id) || (!!p && !!p.user_id && p.user_id === me.user_id);
   await audit({ actorType: 'MERCHANT', actorId: me.id, action: 'CONTACT_LOOKUP', result: 'OK', ip: clientIp(req), details: { found } });
@@ -533,6 +537,46 @@ merchantRouter.post('/contacts/lookup', lookupPerMinute, lookupPerHour, async (r
     is_self: isSelf,
     kind: m ? 'EMPRENDEDOR' : p ? 'PROVEEDOR' : null,
     display_name: m ? m.business_name?.trim() || maskedName(m.full_name) : p ? p.legal_name?.trim() || null : null,
-    verified: !!m?.ruc_verified
+    verified: !!m?.ruc_verified,
+    avatar_url: avatarUrl(avatar?.token)
   });
+});
+
+// ── Foto de perfil ──────────────────────────────────────────────────────────────────────────────
+// La app la recorta y la reduce (JPEG 256×256, sin los datos de ubicación de la cámara) antes de enviarla; aquí se
+// vuelve a comprobar todo porque el servidor no puede fiarse del cliente.
+const AVATAR_MAX_BYTES = 120_000;
+
+export function parseAvatar(input: unknown): { ok: true; b64: string } | { ok: false; message: string } {
+  const m = typeof input === 'string' ? /^data:image\/jpeg;base64,([A-Za-z0-9+/]+={0,2})$/.exec(input) : null;
+  if (!m) return { ok: false, message: 'Envía la foto como imagen JPEG.' };
+  const buf = Buffer.from(m[1], 'base64');
+  if (buf.length < 500 || buf.length > AVATAR_MAX_BYTES) return { ok: false, message: 'La foto es muy grande o muy pequeña. Elige otra.' };
+  if (buf[0] !== 0xff || buf[1] !== 0xd8 || buf[2] !== 0xff || buf[buf.length - 2] !== 0xff || buf[buf.length - 1] !== 0xd9) {
+    return { ok: false, message: 'El archivo no es una foto JPEG válida.' };
+  }
+  if (buf.indexOf('Exif\0\0') >= 0) return { ok: false, message: 'La foto trae datos de ubicación de la cámara. Elígela de nuevo desde la app para quitarlos.' };
+  return { ok: true, b64: m[1] };
+}
+
+const avatarLimiter = rateLimit({ name: 'avatar-update', windowMs: 3_600_000, max: 10, key: lookupKey });
+
+merchantRouter.put('/avatar', avatarLimiter, async (req, res) => {
+  const me = await getMerchantProfile(req);
+  const parsed = parseAvatar(req.body?.image);
+  if (!parsed.ok) return res.status(422).json({ error: { code: 'AVATAR_INVALID', message: parsed.message } });
+  const token = crypto.randomBytes(16).toString('hex');
+  await db
+    .prepare(`INSERT INTO merchant_avatars (merchant_id, token, image_b64, updated_at) VALUES (?, ?, ?, utc_now_text())
+              ON CONFLICT(merchant_id) DO UPDATE SET token = excluded.token, image_b64 = excluded.image_b64, updated_at = excluded.updated_at`)
+    .run(me.id, token, parsed.b64);
+  await audit({ actorType: 'MERCHANT', actorId: me.id, action: 'AVATAR_UPDATE', result: 'OK', ip: clientIp(req) });
+  res.json({ avatar_url: avatarUrl(token) });
+});
+
+merchantRouter.delete('/avatar', async (req, res) => {
+  const me = await getMerchantProfile(req);
+  await db.prepare('DELETE FROM merchant_avatars WHERE merchant_id = ?').run(me.id);
+  await audit({ actorType: 'MERCHANT', actorId: me.id, action: 'AVATAR_REMOVE', result: 'OK', ip: clientIp(req) });
+  res.json({ avatar_url: null });
 });

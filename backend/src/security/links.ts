@@ -108,12 +108,15 @@ export async function ownerView(l: LinkRow) {
 }
 
 /** Datos verificados del comercio que ve el pagador antes de pagar. */
-export function merchantPublicIdentity(m: { business_name: string | null; kyc_status: string | null; ruc: string | null; city: string | null }) {
+export const avatarUrl = (token: string | null | undefined) => (token ? `/api/v1/public/avatar/${token}` : null);
+
+export function merchantPublicIdentity(m: { business_name: string | null; kyc_status: string | null; ruc: string | null; city: string | null; avatar_token?: string | null }) {
   const ruc = m.ruc && /^\d{11}$/.test(m.ruc) ? `${m.ruc.slice(0, 4)}•••${m.ruc.slice(-3)}` : null;
   return {
     name: m.business_name ?? 'Comercio Kuota',
     verification: m.kyc_status === 'APPROVED' ? 'VERIFIED' : 'BASIC',
     ruc_masked: ruc,
-    city: m.city ?? null
+    city: m.city ?? null,
+    avatar_url: avatarUrl(m.avatar_token)
   };
 }

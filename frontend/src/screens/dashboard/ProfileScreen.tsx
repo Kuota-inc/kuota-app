@@ -16,6 +16,7 @@ import {
   Store,
   FileText,
   BadgeCheck,
+  Camera,
   CreditCard,
   BarChart3,
   Package,
@@ -32,6 +33,8 @@ import { isBiometricEnabled, setBiometricEnabled } from '../../services/appSetti
 import { disableListener, enableListener, listenerStatus, onListenerChange, refreshListener, type ListenerStatus } from '../../services/paymentListener';
 import { useDialog } from '../../hooks/useDialog';
 import { PlanPanel } from '../../components/PlanPanel';
+import { Avatar } from '../../components/Avatar';
+import { photoToAvatar } from '../../utils/image';
 import { ChangePinPanel, DevicesPanel, LimitsPanel, SecurityActivityPanel } from './PaymentSecurityPanels';
 
 interface ProfileScreenProps {
@@ -49,6 +52,9 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onLogout }
   const [businessName, setBusinessName] = useState<string>('');
   const [rubro, setRubro] = useState<string>('');
   const [zona, setZona] = useState<string>('');
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [avatarBusy, setAvatarBusy] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   // Listener Yape/Plin: refleja el permiso real de Android y la preferencia guardada.
   const [listenerState, setListenerState] = useState<ListenerStatus>(listenerStatus());
@@ -111,6 +117,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onLogout }
       if (!data?.business) return;
       const b = data.business;
       if (b.name) setBusinessName(b.name);
+      setAvatarUrl(b.avatar_url ?? null);
       if (b.ruc) {
         setRucNumber(b.ruc);
         setSelectedRucType(b.ruc.startsWith('20') ? '20' : '10');
@@ -123,6 +130,36 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onLogout }
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
+  };
+
+  // La foto se recorta y se reduce en el teléfono (sin datos de ubicación) y la ven quienes te pagan o te buscan.
+  const onPickPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setAvatarBusy(true);
+    try {
+      const r = await api.setAvatar(await photoToAvatar(file));
+      setAvatarUrl(r.avatar_url);
+      showToast('Foto actualizada. Ya la ven quienes te pagan.');
+    } catch (err: any) {
+      showToast(err?.message || 'No pudimos guardar la foto.');
+    } finally {
+      setAvatarBusy(false);
+    }
+  };
+
+  const removePhoto = async () => {
+    setAvatarBusy(true);
+    try {
+      await api.removeAvatar();
+      setAvatarUrl(null);
+      showToast('Quitaste tu foto.');
+    } catch (err: any) {
+      showToast(err?.message || 'No pudimos quitar la foto.');
+    } finally {
+      setAvatarBusy(false);
+    }
   };
 
   const closeModal = () => setActiveModal(null);
@@ -172,9 +209,17 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onLogout }
         <section className="bg-white rounded-3xl p-4 shadow-sm border border-[#e1e8f8] space-y-3.5">
           <div className="flex items-center gap-3.5">
             <div className="relative">
-              <div className="w-13 h-13 rounded-full bg-[#e7eefe] flex items-center justify-center text-[#00248b] text-lg font-black shadow-inner">
-                {businessName ? businessName.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase() : '?'}
-              </div>
+              <Avatar url={avatarUrl} name={businessName} size={52} className="shadow-inner" />
+              <button
+                type="button"
+                onClick={() => fileRef.current?.click()}
+                disabled={avatarBusy}
+                aria-label={avatarUrl ? 'Cambiar foto de perfil' : 'Agregar foto de perfil'}
+                className="absolute -bottom-1 -left-1 w-6 h-6 rounded-full bg-white border border-[#c9d5f3] text-[#00248b] flex items-center justify-center shadow-sm cursor-pointer disabled:opacity-60"
+              >
+                <Camera size={13} />
+              </button>
+              <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={onPickPhoto} aria-label="Elegir foto de perfil" />
               <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-[#00248b] text-white flex items-center justify-center shadow-sm">
                 <BadgeCheck size={14} />
               </div>
@@ -189,6 +234,15 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onLogout }
               <span className="inline-block px-2 py-0.5 mt-1 rounded-md bg-[#d8e2ff]/70 text-[#00248b] text-[10px] font-bold">
                 Cuenta Comercial &amp; Personal Unificada
               </span>
+              <div className="flex items-center gap-3 mt-1.5 text-[11px] font-bold">
+                <button type="button" onClick={() => fileRef.current?.click()} disabled={avatarBusy} className="py-1.5 text-[#1a3bb0] underline cursor-pointer disabled:opacity-60">
+                  {avatarBusy ? 'Guardando…' : avatarUrl ? 'Cambiar foto' : 'Agregar foto'}
+                </button>
+                {avatarUrl && !avatarBusy && (
+                  <button type="button" onClick={() => void removePhoto()} className="py-1.5 text-[#4a5f7e] underline cursor-pointer">Quitar</button>
+                )}
+              </div>
+              <p className="text-[10px] text-[#4a5f7e] leading-snug">Tu foto la ven quienes te pagan o te buscan por celular.</p>
             </div>
           </div>
 

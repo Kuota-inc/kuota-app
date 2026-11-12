@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, BadgeCheck, Banknote, History, Loader2, MessageCircle, QrCode, ScanLine, Search, ShieldCheck, UserPlus, X } from 'lucide-react';
 import { api, API_ORIGIN, apiRequest, type ContactLookup } from '../../api/client';
 import type { PublicLink } from '../../api/payments';
+import { Avatar } from '../../components/Avatar';
 
 /** Contacto al que se le va a cobrar: solo viaja el celular que escribió el usuario y lo que respondió el servidor. */
 export interface ChargeContact {
@@ -136,9 +137,11 @@ export const CobrosHubScreen: React.FC<{ onBack: () => void; onCharge: (contact:
     return (
       <div className="p-4 rounded-3xl bg-white border border-[#e1e8f8] shadow-sm space-y-3" aria-live="polite">
         <div className="flex items-center gap-3">
-          <span className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-white shrink-0 ${result.registered ? 'bg-gradient-to-br from-[#00248b] to-[#1a3bb0]' : 'bg-slate-400'}`}>
-            {result.registered ? initials(result.display_name) : <UserPlus size={20} aria-hidden="true" />}
-          </span>
+          {result.registered ? (
+            <Avatar url={result.avatar_url} name={result.display_name} size={48} rounded="rounded-2xl" />
+          ) : (
+            <span className="w-12 h-12 rounded-2xl flex items-center justify-center text-white shrink-0 bg-slate-400"><UserPlus size={20} aria-hidden="true" /></span>
+          )}
           <div className="min-w-0 flex-1">
             <p className="font-black text-[#0b2545] truncate">{result.registered ? result.display_name || 'Usuario Kuota' : 'Aún no tiene Kuota'}</p>
             <p className="text-[11px] text-[#4a5f7e]">{result.phone_masked}</p>
@@ -268,7 +271,7 @@ export const CobrosHubScreen: React.FC<{ onBack: () => void; onCharge: (contact:
           <div role="dialog" aria-modal="true" aria-label="Confirmar pago" onClick={(e) => e.stopPropagation()} className="w-full max-w-md bg-white rounded-t-3xl p-5 pb-7 space-y-3">
             <p className="text-xs font-black tracking-wider text-[#1a3bb0]">CONFIRMA ANTES DE PAGAR</p>
             <div className="flex items-center gap-3">
-              <span className="w-12 h-12 rounded-2xl bg-[#eff3ff] text-[#1a3bb0] flex items-center justify-center font-black">{initials(scanned.info.merchant.name)}</span>
+              <Avatar url={scanned.info.merchant.avatar_url} name={scanned.info.merchant.name} size={48} rounded="rounded-2xl" />
               <div className="min-w-0">
                 <p className="font-black text-[#0b2545] truncate">{scanned.info.merchant.name}</p>
                 <p className="text-[11px] text-[#4a5f7e]">{scanned.info.merchant.verification === 'VERIFIED' ? 'Negocio verificado' : 'Negocio sin verificar'}{scanned.info.merchant.ruc_masked ? ` · RUC ${scanned.info.merchant.ruc_masked}` : ''}</p>

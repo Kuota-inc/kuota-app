@@ -30,7 +30,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;c
 .hero{background:linear-gradient(150deg,var(--brand) 0%,var(--brand2) 70%,#3d5bd6 100%);color:#fff;padding:22px 22px 26px;position:relative}
 .hero:after{content:"";position:absolute;right:-40px;top:-40px;width:140px;height:140px;border-radius:50%;background:rgba(255,255,255,.08)}
 .merchant{display:flex;align-items:center;gap:12px;position:relative;z-index:1}
-.avatar{width:46px;height:46px;border-radius:14px;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.3);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:17px}
+.avatar{width:46px;height:46px;border-radius:14px;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.3);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:17px;overflow:hidden}.avatar img{width:100%;height:100%;object-fit:cover;display:block}
 .m-name{font-size:16px;font-weight:700;line-height:1.2;display:flex;align-items:center;gap:6px}
 .m-sub{font-size:12px;opacity:.82;margin-top:2px}
 .vbadge{display:inline-flex;align-items:center;gap:3px;font-size:10.5px;font-weight:700;background:rgba(255,255,255,.18);border-radius:999px;padding:2px 8px}
@@ -167,7 +167,7 @@ function showReady(l){
   var verified=mer.verification==="VERIFIED";
   var sub=[mer.city,mer.ruc_masked?("RUC "+mer.ruc_masked):null].filter(Boolean).join(" · ")||"Comercio afiliado a Kuota";
   var html='<div class="hero">'+
-    '<div class="merchant"><div class="avatar">'+esc(initials(name))+'</div><div><div class="m-name">'+esc(name)+(verified?' <span class="vbadge">'+SHIELD+'Verificado</span>':"")+'</div><div class="m-sub">'+esc(sub)+'</div></div></div>'+
+    '<div class="merchant"><div class="avatar">'+(String(mer.avatar_url||"").indexOf("/api/v1/public/avatar/")===0?'<img alt="" src="'+esc(mer.avatar_url)+'">':esc(initials(name)))+'</div><div><div class="m-name">'+esc(name)+(verified?' <span class="vbadge">'+SHIELD+'Verificado</span>':"")+'</div><div class="m-sub">'+esc(sub)+'</div></div></div>'+
     '<div class="amount-label">Total a pagar</div>'+
     '<div class="amount"><small>S/</small>'+money(l.amount_cents)+'</div>'+
     (l.concept?'<div class="concept">'+esc(l.concept)+'</div>':"")+

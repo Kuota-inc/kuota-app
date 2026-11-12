@@ -156,3 +156,76 @@ describe('Integridad de los datos del Emprendedor', () => {
     assert.equal(h.greeting_prefix, hour < 12 ? 'Buenos días' : hour < 19 ? 'Buenas tardes' : 'Buenas noches');
   });
 });
+
+describe('Foto de perfil', () => {
+  const jpeg = (size = 900, extra?: Buffer) =>
+    Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), extra ?? Buffer.alloc(0), Buffer.alloc(size, 7), Buffer.from([0xff, 0xd9])]);
+  const dataUrl = (b: Buffer, mime = 'jpeg') => `data:image/${mime};base64,${b.toString('base64')}`;
+  const abs = (u: string) => base.replace('/api/v1', '') + u;
+
+  test('se guarda, la ve quien busca o paga, y se puede cambiar y quitar', async () => {
+    resetRateLimits();
+    const me = await merchant('73100008', 'DIAZ ROJAS ELENA', '930100008', 'Panadería Elena');
+    const viewer = await merchant('73100009', 'GARCIA SOTO MARIO', '930100009', 'Bazar Mario');
+    const photo = jpeg();
+
+    const put = await call('PUT', '/merchants/me/avatar', { image: dataUrl(photo) }, me);
+    assert.equal(put.status, 200, JSON.stringify(put.body));
+    assert.match(put.body.avatar_url, /^\/api\/v1\/public\/avatar\/[a-f0-9]{32}$/);
+
+    // Pública (sin sesión), con la imagen exacta y caché larga porque la URL cambia con cada foto.
+    const img = await fetch(abs(put.body.avatar_url));
+    assert.equal(img.status, 200);
+    assert.equal(img.headers.get('content-type'), 'image/jpeg');
+    assert.match(img.headers.get('cache-control') ?? '', /immutable/);
+    assert.deepEqual(Buffer.from(await img.arrayBuffer()), photo);
+
+    // La ve el dueño en su perfil y quien lo busca por celular.
+    const summary = await call('GET', '/merchants/me/welcome-summary', undefined, me);
+    assert.equal(summary.body.business.avatar_url, put.body.avatar_url);
+    const found = await call('POST', '/merchants/me/contacts/lookup', { phone: '930100008' }, viewer);
+    assert.equal(found.body.avatar_url, put.body.avatar_url);
+
+    // Cambiarla invalida la URL anterior; quitarla la deja sin foto.
+    const put2 = await call('PUT', '/merchants/me/avatar', { image: dataUrl(jpeg(1200)) }, me);
+    assert.notEqual(put2.body.avatar_url, put.body.avatar_url);
+    assert.equal((await fetch(abs(put.body.avatar_url))).status, 404);
+    assert.equal((await fetch(abs(put2.body.avatar_url))).status, 200);
+    assert.equal((await call('DELETE', '/merchants/me/avatar', undefined, me)).body.avatar_url, null);
+    assert.equal((await fetch(abs(put2.body.avatar_url))).status, 404);
+    const none = await call('POST', '/merchants/me/contacts/lookup', { phone: '930100008' }, viewer);
+    assert.equal(none.body.avatar_url, null);
+  });
+
+  test('rechaza archivos que no son una foto JPEG segura', async () => {
+    resetRateLimits();
+    const me = await merchant('73100010', 'VEGA LUNA PABLO', '930100010', 'Taller Pablo');
+    const bad = async (image: unknown) => (await call('PUT', '/merchants/me/avatar', { image }, me)).status;
+    assert.equal(await bad(dataUrl(jpeg(), 'png')), 422, 'PNG');
+    assert.equal(await bad(dataUrl(jpeg(), 'svg+xml')), 422, 'SVG (puede traer scripts)');
+    assert.equal(await bad('javascript:alert(1)'), 422);
+    assert.equal(await bad(dataUrl(Buffer.alloc(900, 1))), 422, 'sin cabecera JPEG');
+    assert.equal(await bad(dataUrl(jpeg(100))), 422, 'demasiado pequeña');
+    assert.equal(await bad(dataUrl(jpeg(130_000))), 422, 'demasiado grande');
+    assert.equal(await bad(dataUrl(jpeg(900, Buffer.from('Exif\0\0GPS')))), 422, 'con datos de ubicación (EXIF)');
+    assert.equal(await bad(undefined), 422);
+  });
+
+  test('sin sesión válida no se puede cambiar la foto de otro; el token falso no sirve', async () => {
+    resetRateLimits();
+    const me = await merchant('73100011', 'PAZ RIOS ANA', '930100011', 'Tienda Ana P');
+    const r = await call('PUT', '/merchants/me/avatar', { image: dataUrl(jpeg()) }, { ...me, 'X-Merchant-Token': 'A'.repeat(43) });
+    assert.equal(r.status, 401);
+    assert.equal((await fetch(abs('/api/v1/public/avatar/not-a-token'))).status, 404);
+    assert.equal((await fetch(abs('/api/v1/public/avatar/' + 'a'.repeat(32)))).status, 404);
+  });
+});
+
+describe('Identidad pública del comercio (lo que ve quien paga)', () => {
+  test('incluye la foto solo si el comercio la puso', async () => {
+    const { merchantPublicIdentity } = await import('../src/security/links.js');
+    const base = { business_name: 'Panadería Elena', kyc_status: 'APPROVED', ruc: '20123456789', city: 'Lima' };
+    assert.equal(merchantPublicIdentity(base).avatar_url, null);
+    assert.equal(merchantPublicIdentity({ ...base, avatar_token: 'a'.repeat(32) }).avatar_url, `/api/v1/public/avatar/${'a'.repeat(32)}`);
+  });
+});
