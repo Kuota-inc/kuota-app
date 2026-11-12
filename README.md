@@ -113,5 +113,4 @@ vulnerabilidad: [SECURITY.md](SECURITY.md). Historial de cambios: [CHANGELOG.md]
 
 ## Licencia
 
-Pendiente de definir por Kuota. Hasta entonces, todos los derechos reservados salvo lo que indique cada dependencia
-(`scrapers/scrap-sunat` es MIT).
+Todos los derechos reservados (ver [LICENSE](LICENSE)). El repositorio es público para consultarlo y descargar el APK de pruebas; no concede permiso de uso, copia ni distribución. `scrapers/scrap-sunat` es un submódulo de terceros bajo MIT.

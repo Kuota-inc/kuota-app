@@ -27,7 +27,7 @@
     "plin"
   ],
   "author": "Kuota Team",
-  "license": "ISC",
+  "license": "UNLICENSED",
   "private": true,
   "engines": {
     "node": ">=22"

@@ -73,4 +73,4 @@ Hoy todo funciona en **modo simulado** (`KUOTA_SANDBOX=1`, hallazgo `SBX-01` ace
 - [ ] Configurar el correo de avisos (SMTP o Resend) y el WhatsApp oficial de soporte (`VITE_SUPPORT_WHATSAPP`).
 - [ ] Revisar el [informe de cumplimiento](CUMPLIMIENTO-REGULATORIO.md) y los textos legales con un abogado.
 - [ ] Dominio propio, copias de seguridad automáticas de Postgres y alertas de errores.
-- [ ] Definir la licencia del repositorio y revisar qué documentos pueden seguir siendo públicos.
+- [ ] Revisar con un abogado la licencia del repositorio (hoy: todos los derechos reservados, ver `LICENSE`) y qué documentos pueden seguir siendo públicos.

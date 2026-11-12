@@ -1,0 +1,16 @@
+Copyright (c) 2026 Kuota (Kuota-inc). Todos los derechos reservados.
+All rights reserved.
+
+Este repositorio es público para que se pueda ver, descargar el APK de pruebas y reportar errores.
+Eso NO concede ninguna licencia: sin permiso escrito de Kuota no se puede copiar, modificar, distribuir,
+publicar ni usar este software o su documentación con fines comerciales, ni crear obras derivadas.
+
+This repository is public so it can be viewed, so the test APK can be downloaded and so issues can be reported.
+That does NOT grant any license: without Kuota's written permission you may not copy, modify, distribute,
+publish or use this software or its documentation commercially, nor create derivative works.
+
+Excepciones / Exceptions
+- `scrapers/scrap-sunat` es un submódulo de terceros (debugsito/scrap-sunat) bajo su propia licencia (MIT).
+- Las dependencias de npm y Gradle conservan sus licencias originales.
+
+Marca y diseño: el nombre "Kuota", su logotipo y las pantallas de diseño son de Kuota.

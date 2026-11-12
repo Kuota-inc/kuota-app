@@ -3,6 +3,7 @@
 Formato libre por fecha, de lo más reciente a lo más antiguo. Los detalles están en `git log`.
 
 ## 2026-11-12
+- Licencia explícita (todos los derechos reservados), y en GitHub: secret scanning con push protection, actualizaciones de seguridad de Dependabot, reporte privado de vulnerabilidades y etiquetas del repositorio.
 - APK de pruebas versionado en `releases/` con su SHA-256; documentación completa (arquitectura, despliegue, seguridad, contribuir); CI, plantillas y Dependabot; material de diseño ordenado en `docs/diseno/`; menos avisos de lint.
 
 ## 2026-11-11
