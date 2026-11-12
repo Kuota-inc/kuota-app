@@ -2,7 +2,8 @@
 // del Home y recordatorio del próximo taller.
 import { db } from '../db/database.js';
 
-export const UNREAD_DEMO_COUNT = 2;
+// Todavía no hay bandeja de avisos: no se inventan "no leídos" (antes siempre aparecían 2 con punto rojo).
+export const UNREAD_DEMO_COUNT = 0;
 
 /** Próximo taller: mañana a las 19:00 hora de Lima (UTC-5, sin horario de verano). */
 export function nextWorkshop(now = new Date()) {

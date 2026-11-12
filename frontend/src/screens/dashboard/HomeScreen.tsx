@@ -334,7 +334,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateTab, onOpenKuo
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5 text-xs font-bold text-[#0b2545]">
               <span className="material-symbols-outlined text-base text-[#1a3bb0]">speed</span>
-              <span>Score Kuota · Nivel {scoreData.level} {scoreData.label}</span>
+              <span>Score Kuota · {scoreData.label}</span>
             </div>
             <div className="flex items-center gap-1.5">
               {scoreData.scoring_level >= 1 && (
@@ -365,9 +365,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateTab, onOpenKuo
                 </div>
                 <p className="text-[11px] font-bold text-[#0b2545]">
                   {next ? (
-                    <>Te faltan <span className="text-[#1a3bb0]">{next.at - total} pts</span> para el nivel {next.name} · mejor límite de crédito</>
+                    <>Te faltan <span className="text-[#1a3bb0]">{next.at - total} pts</span> para llegar a {next.name} · mejor límite de crédito</>
                   ) : (
-                    <>¡Llegaste al nivel más alto! Sigue pagando a tiempo para mantenerlo.</>
+                    <>¡Tienes el puntaje más alto! Sigue pagando a tiempo para mantenerlo.</>
                   )}
                 </p>
               </div>

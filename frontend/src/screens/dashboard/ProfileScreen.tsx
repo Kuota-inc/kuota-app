@@ -11,8 +11,6 @@ import {
   AlertTriangle,
   Send,
   ExternalLink,
-  Users,
-  Video,
   Fingerprint,
   KeyRound,
   Store,
@@ -170,36 +168,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onLogout }
 
       {/* Main Body Content */}
       <div className="p-4 space-y-4">
-        {/* 1. Banner Superior: Próxima Capacitación */}
-        <section className="bg-white rounded-2xl p-4 shadow-sm border border-[#e1e8f8] relative overflow-hidden">
-          <div className="absolute -right-4 -top-6 w-24 h-24 bg-blue-200/25 rounded-full blur-xl pointer-events-none"></div>
-          <div className="flex items-center gap-2 mb-2">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#d8e2ff] text-[#00248b] text-[11px] font-bold">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#00248b] animate-pulse"></span>
-              Taller en vivo · Mañana 7:00 PM
-            </span>
-            <span className="text-[11px] text-[#4a5f7e] ml-auto flex items-center gap-1">
-              <Video size={13} className="text-blue-600" /> Zoom
-            </span>
-          </div>
-          <h3 className="text-xs font-bold text-[#151c27] leading-snug mb-3">
-            Mentorías y Formalización: Cómo declarar tus ingresos ante SUNAT sin enredos
-          </h3>
-          <div className="flex items-center justify-between gap-3 pt-1">
-            <div className="flex items-center gap-1.5 text-[#4a5f7e] text-[11px]">
-              <Users size={14} className="text-[#00248b]" />
-              <span>Últimos 12 cupos disponibles</span>
-            </div>
-            <button
-              onClick={() => showToast('¡Cupo reservado con éxito! Recibirás el enlace de Zoom por WhatsApp.')}
-              className="inline-flex items-center justify-center gap-1.5 px-3.5 h-8 rounded-full bg-[#1a3bb0] text-white text-xs font-bold hover:bg-[#00248b] active:scale-95 transition shadow-sm cursor-pointer"
-            >
-              <span>Reservar cupo</span>
-              <ExternalLink size={13} />
-            </button>
-          </div>
-        </section>
-
         {/* 2. Identidad y Datos del Negocio */}
         <section className="bg-white rounded-3xl p-4 shadow-sm border border-[#e1e8f8] space-y-3.5">
           <div className="flex items-center gap-3.5">

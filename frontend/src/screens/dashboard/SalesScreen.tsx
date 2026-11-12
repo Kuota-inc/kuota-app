@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../../api/client';
-import { OcrScannerModal } from '../../components/OcrScannerModal';
-import { Camera, Plus, TrendingUp, ShoppingBag, Search, X } from 'lucide-react';
+import { Plus, TrendingUp, ShoppingBag, Search, X } from 'lucide-react';
 import { useToast } from '../../components/toast-context';
 import { DialogPanel } from '../../components/DialogPanel';
 import { LoadState } from '../../components/LoadState';
@@ -16,7 +15,6 @@ export const SalesScreen: React.FC = () => {
   const [filter, setFilter] = useState<string>('ALL');
   const [search, setSearch] = useState<string>('');
   const [showManualModal, setShowManualModal] = useState<boolean>(false);
-  const [showOcrModal, setShowOcrModal] = useState<boolean>(false);
   const [manualAmount, setManualAmount] = useState<string>('');
   const [manualConcept, setManualConcept] = useState<string>('');
   const [debouncedSearch, setDebouncedSearch] = useState<string>('');
@@ -70,12 +68,6 @@ export const SalesScreen: React.FC = () => {
     }
   };
 
-  const handleOcrSuccess = (res: any) => {
-    const formattedAmount = ((res.amount_cents || 0) / 100).toFixed(2);
-    toast.success(`¡Comprobante de S/ ${formattedAmount} verificado con éxito! (+${res.points_earned || 8} pts Score)`);
-    loadData();
-  };
-
   // Sin respuesta del servidor no se muestran ventas de ejemplo.
   if (!summary) return <LoadState error={summaryError} onRetry={loadSummary} />;
 
@@ -125,25 +117,19 @@ export const SalesScreen: React.FC = () => {
       </div>
 
       {/* Action Buttons: Venta rápida + Scan OCR */}
-      <div className="grid grid-cols-2 gap-2">
+      <div className="space-y-2">
         <button
           type="button"
           onClick={() => setShowManualModal(true)}
-          className="p-3 bg-white rounded-2xl border border-[#1a3bb0]/30 hover:border-[#1a3bb0] text-[#1a3bb0] font-bold text-xs shadow-sm flex items-center justify-center gap-2 active:scale-95 transition cursor-pointer"
+          className="w-full p-3.5 bg-[#1a3bb0] text-white rounded-2xl font-bold text-sm shadow-md shadow-blue-900/10 hover:bg-[#00248b] flex items-center justify-center gap-2 active:scale-[0.98] transition cursor-pointer"
         >
           <Plus size={16} />
           <span>Venta Rápida</span>
         </button>
 
-        <button
-          type="button"
-          onClick={() => toast.info('Pronto podrás escanear comprobantes. Por ahora registra la venta con "Venta Rápida".')}
-          aria-disabled="true"
-          className="p-3 bg-slate-100 text-slate-500 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 cursor-pointer"
-        >
-          <Camera size={16} />
-          <span>Escanear · Próximamente</span>
-        </button>
+        <p className="text-[11px] text-[#4a5f7e] px-1 leading-snug">
+          ¿Cobras por Yape o Plin? Activa el listener en <b>Mi cuenta</b> y tus abonos se registran solos como comprobados.
+        </p>
       </div>
 
       {/* Score Kuota Card */}
@@ -156,7 +142,7 @@ export const SalesScreen: React.FC = () => {
           <div className="flex items-center gap-2">
             <span className="text-2xl font-black">{score.total} pts</span>
             <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-bold border border-emerald-400/30">
-              Nivel {score.level} · {score.label}
+              {score.label}
             </span>
           </div>
           <div className="text-[10px] text-blue-200">Se actualiza con tus pagos y ventas comprobadas</div>
@@ -219,7 +205,7 @@ export const SalesScreen: React.FC = () => {
             <div className="p-6 bg-white rounded-2xl border border-dashed border-[#c5c5d6] text-center text-xs text-[#4a5f7e]">
               {debouncedSearch
                 ? `No encontramos ventas para “${debouncedSearch}”.`
-                : 'No tienes ventas registradas este mes. ¡Agrega tu primera venta rápida o escanea un comprobante Yape!'}
+                : 'No tienes ventas registradas este mes. ¡Agrega tu primera venta rápida o activa el listener de Yape/Plin en Mi cuenta!'}
             </div>
           ) : (
             sales.map((sale) => (
@@ -331,13 +317,6 @@ export const SalesScreen: React.FC = () => {
       )}
 
       {/* OCR Scanner Modal (Android APK & Mobile Ready) */}
-      {showOcrModal && (
-        <OcrScannerModal
-          isOpen
-          onClose={() => setShowOcrModal(false)}
-          onSuccess={handleOcrSuccess}
-        />
-      )}
     </div>
   );
 };

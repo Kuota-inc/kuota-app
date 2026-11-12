@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence, useDragControls, useReducedMotion } from 'framer-motion';
-import { api, type Workshop } from '../../api/client';
-import { workshopWhen } from '../../utils/workshopWhen';
+import { api } from '../../api/client';
 import { useDialog } from '../../hooks/useDialog';
 
 // Bottom sheet "Notificaciones en Kuota" (Stitch · Kuota Fintech Design System).
@@ -33,21 +32,6 @@ const BENEFITS = [
   }
 ];
 
-// Respaldo si el backend no responde: mañana 7:00 PM (Lima).
-const FALLBACK_WORKSHOP: Workshop = {
-  id: 'wk_sunat_formalizacion',
-  title: 'Mentorías y Formalización: Cómo declarar tus ingresos ante SUNAT sin enredos',
-  speaker: 'Especialista Contable B2B',
-  channel: 'Vía Zoom',
-  seats_note: 'Cupos limitados',
-  starts_at: (() => {
-    const d = new Date(Date.now() + 86_400_000);
-    return `${new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Lima' }).format(d)}T19:00:00-05:00`;
-  })(),
-  free_for_clients: true,
-  reminder_set: false
-};
-
 const FILL = { fontVariationSettings: "'FILL' 1" } as const;
 type SaveState = 'idle' | 'saving' | 'saved' | 'error';
 
@@ -66,8 +50,6 @@ const SheetContent: React.FC<{ onClose: () => void; onSeen?: () => void }> = ({ 
   const [loading, setLoading] = useState(true);
   const [offline, setOffline] = useState(false);
   const [pushActive, setPushActive] = useState(true);
-  const [reminderSet, setReminderSet] = useState(false);
-  const [workshop, setWorkshop] = useState<Workshop>(FALLBACK_WORKSHOP);
   const [saveState, setSaveState] = useState<SaveState>('idle');
   const onSeenRef = useRef(onSeen);
   useEffect(() => {
@@ -82,8 +64,6 @@ const SheetContent: React.FC<{ onClose: () => void; onSeen?: () => void }> = ({ 
       .then((s) => {
         if (!alive) return;
         setPushActive(s.push_enabled);
-        setReminderSet(s.workshop.reminder_set);
-        setWorkshop(s.workshop);
       })
       .catch(() => alive && setOffline(true))
       .finally(() => alive && setLoading(false));
@@ -108,19 +88,17 @@ const SheetContent: React.FC<{ onClose: () => void; onSeen?: () => void }> = ({ 
     if (saveState === 'saving' || saveState === 'saved') return;
     setSaveState('saving');
     try {
-      const s = await api.saveNotificationPreferences({ push_enabled: pushActive, workshop_reminder: reminderSet });
+      const s = await api.saveNotificationPreferences({ push_enabled: pushActive, workshop_reminder: false });
       setPushActive(s.push_enabled);
-      setReminderSet(s.workshop.reminder_set);
       setOffline(false);
       setSaveState('saved');
       timers.current.push(window.setTimeout(onClose, reduceMotion ? 300 : 700));
     } catch {
       setSaveState('error');
     }
-  }, [saveState, pushActive, reminderSet, onClose, reduceMotion]);
+  }, [saveState, pushActive, onClose, reduceMotion]);
 
   const spring = reduceMotion ? { duration: 0 } : { type: 'spring' as const, damping: 28, stiffness: 280 };
-  const when = workshopWhen(workshop.starts_at);
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col justify-end">
@@ -270,50 +248,6 @@ const SheetContent: React.FC<{ onClose: () => void; onSeen?: () => void }> = ({ 
               Con las notificaciones pausadas solo verás estos avisos dentro de la app.
             </p>
           )}
-        </div>
-
-        {/* Workshop */}
-        <div className="w-full flex flex-col gap-2 mb-6">
-          <div className="flex items-center justify-between">
-            <span className="font-['Plus_Jakarta_Sans'] text-[13px] font-semibold text-[#4A5F7E] uppercase tracking-wider">
-              Nuestro próximo taller
-            </span>
-            {workshop.free_for_clients && <span className="text-xs font-medium text-[#00248b]">Gratis para clientes</span>}
-          </div>
-          <div className="w-full bg-[#eff3ff] rounded-[22px] p-4 flex flex-col gap-2.5 shadow-sm">
-            <div className="flex items-center gap-1.5">
-              <span className="relative flex w-2 h-2" aria-hidden="true">
-                <span className="absolute inline-flex w-full h-full rounded-full bg-[#ba1a1a] opacity-75 motion-safe:animate-ping" />
-                <span className="relative inline-flex w-2 h-2 rounded-full bg-[#ba1a1a]" />
-              </span>
-              <span className="px-2.5 py-0.5 rounded-full bg-[#ffdad6] text-[#93000a] font-['Plus_Jakarta_Sans'] text-[13px] font-semibold uppercase tracking-tight">
-                Taller en vivo{when && ` · ${when}`}
-              </span>
-            </div>
-            <h3 className="font-['Plus_Jakarta_Sans'] text-[17px] leading-snug font-semibold">{workshop.title}</h3>
-            <div className="flex items-center gap-2 text-[#4A5F7E]">
-              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">videocam</span>
-              <span className="text-xs leading-tight">
-                Expositor: {workshop.speaker} · {workshop.channel} ({workshop.seats_note})
-              </span>
-            </div>
-            <motion.button
-              type="button"
-              whileTap={reduceMotion ? undefined : { scale: 0.98 }}
-              disabled={loading}
-              onClick={() => {
-                setReminderSet((v) => !v);
-                if (saveState === 'error') setSaveState('idle');
-              }}
-              aria-pressed={reminderSet}
-              className={`mt-1 w-full h-11 rounded-full flex items-center justify-center gap-2 font-['Plus_Jakarta_Sans'] text-base font-semibold shadow-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#b8c3ff] disabled:opacity-60 ${
-                reminderSet ? 'bg-[#1a3bb0] text-white' : 'bg-[#d8e2ff] text-[#001a41] hover:bg-[#b6ccfd]'
-              }`}
-            >
-              <span className="material-symbols-outlined text-[18px]" aria-hidden="true">{reminderSet ? 'task_alt' : 'add_alert'}</span>
-              <span>{reminderSet ? '¡Recordatorio agendado!' : 'Recordarme este taller'}</span>
-            </motion.button>
-          </div>
         </div>
 
         {/* Footer */}
