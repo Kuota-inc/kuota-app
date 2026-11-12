@@ -1,0 +1,16 @@
+# Finales de línea: LF en el repositorio y en todos los equipos (evita cambios fantasma entre Windows y el resto).
+* text=auto eol=lf
+# Los scripts de Windows sí necesitan CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+# Binarios: nunca se tocan.
+*.apk binary
+*.aab binary
+*.jks binary
+*.keystore binary
+*.png binary
+*.jpg binary
+*.webp binary
+*.ico binary
+*.jar binary
+*.zip binary
