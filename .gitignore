@@ -55,3 +55,6 @@ docs/gtm/
 
 # Informes locales del pentest
 security-tests/reports/
+
+# El APK de pruebas sí se versiona (releases/Kuota.apk)
+!releases/*.apk
