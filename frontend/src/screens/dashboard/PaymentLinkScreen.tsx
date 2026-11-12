@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { api, ApiError } from '../../api/client';
 import { profilesApi } from '../../api/profiles';
 import { isCancelled, newIdempotencyKey, paymentsApi, type PaymentLink } from '../../api/payments';
-import { Delete, ArrowRight, CheckCircle2, Copy, ArrowLeft, ShieldCheck, Clock, XCircle, Hourglass, Share2, Store, MessageCircle, Link2, Lock, Phone, User, Package, QrCode as QrIcon, Plus, BadgeCheck } from 'lucide-react';
+import { ArrowRight, CheckCircle2, Copy, ArrowLeft, ShieldCheck, Clock, XCircle, Hourglass, Share2, Store, MessageCircle, Link2, Lock, Phone, User, Package, QrCode as QrIcon, Plus, BadgeCheck } from 'lucide-react';
 import { useToast } from '../../components/toast-context';
 import { QrCode } from '../../components/QrCode';
 import { FEE_PCT, MIN_AMOUNT_CENTS, localQuote } from '../../config/fee';
@@ -97,33 +97,6 @@ export const PaymentLinkScreen: React.FC<PaymentLinkScreenProps> = ({ onBack, on
     }, 4000);
     return () => clearInterval(timer);
   }, [watching, linkId, toast]);
-
-  const handleKeyPress = (num: string) => {
-    if (num === '.') {
-      if (!amountStr.includes('.') && amountStr.length < 7) {
-        setAmountStr((amountStr === '0' ? '0' : amountStr) + '.');
-      }
-      return;
-    }
-    if (amountStr.includes('.')) {
-      const decimals = amountStr.split('.')[1] ?? '';
-      if (decimals.length < 2) setAmountStr(amountStr + num);
-      return;
-    }
-    if (amountStr === '0') {
-      setAmountStr(num);
-    } else if (amountStr.length < 6) {
-      setAmountStr(amountStr + num);
-    }
-  };
-
-  const handleDelete = () => {
-    if (amountStr.length > 1) {
-      setAmountStr(amountStr.slice(0, -1));
-    } else {
-      setAmountStr('0');
-    }
-  };
 
   const handleQuickAdd = (val: number) => {
     const current = parseFloat(amountStr) || 0;
@@ -257,15 +230,6 @@ export const PaymentLinkScreen: React.FC<PaymentLinkScreenProps> = ({ onBack, on
         </div>
       )}
 
-      {/* Canal */}
-      <div className="p-3.5 rounded-3xl bg-white border border-[#e1e8f8] shadow-sm space-y-1.5">
-        <div className="flex items-center justify-between gap-2">
-          <span className="flex items-center gap-2 text-xs font-bold text-[#0b2545]"><i className="w-2 h-2 rounded-full bg-emerald-500" /> Canal activo · Link, QR y código 360pay</span>
-          <span className="px-2.5 py-1 rounded-full bg-[#eff3ff] text-[#1a3bb0] text-[10px] font-black shrink-0">{FEE_PCT}% + IGV</span>
-        </div>
-        <p className="text-xs text-[#4a5f7e] leading-relaxed">Genera un cobro de monto fijo y compártelo. Se acredita a tu cuenta vinculada cuando el cliente paga.</p>
-      </div>
-
       {!link ? (
         <>
           <section className="p-4 rounded-3xl bg-white border border-[#e1e8f8] shadow-sm space-y-3.5">
@@ -276,9 +240,18 @@ export const PaymentLinkScreen: React.FC<PaymentLinkScreenProps> = ({ onBack, on
 
             <div className="rounded-2xl bg-[#eff3ff] px-4 py-3 text-center space-y-1">
               <span className="text-[11px] font-bold text-[#4a5f7e]">Monto a cobrar (PEN)</span>
-              <div className="text-4xl font-black text-[#0b2545] tracking-tight tabular-nums">
-                <span className="text-2xl text-[#1a3bb0] mr-1">S/</span>
-                {amountStr.endsWith('.') ? amountStr : parseFloat(amountStr || '0').toLocaleString('es-PE', { minimumFractionDigits: 2 })}
+              <div className="flex items-baseline justify-center gap-1">
+                <span className="text-2xl font-black text-[#1a3bb0]">S/</span>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  value={amountStr === '0' ? '' : amountStr}
+                  onChange={(e) => setAmountStr(e.target.value || '0')}
+                  onFocus={(e) => e.target.select()}
+                  placeholder="0.00"
+                  aria-label="Monto a cobrar"
+                  className="text-4xl font-black text-[#0b2545] tracking-tight tabular-nums bg-transparent outline-none text-center w-36 min-w-0"
+                />
               </div>
               {quote && (
                 <div className="pt-1.5 flex flex-wrap justify-center gap-x-4 gap-y-0.5 text-[11px] text-[#4a5f7e]">
@@ -293,17 +266,6 @@ export const PaymentLinkScreen: React.FC<PaymentLinkScreenProps> = ({ onBack, on
                 <motion.button key={v} whileTap={{ scale: 0.92 }} type="button" onClick={() => handleQuickAdd(v)}
                   className="flex-1 py-1.5 bg-white border border-[#e1e8f8] hover:border-[#1a3bb0] rounded-xl text-xs font-bold text-[#1a3bb0] cursor-pointer">+{v}</motion.button>
               ))}
-            </div>
-
-            <div className="grid grid-cols-3 gap-2">
-              {['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0'].map((digit) => (
-                <motion.button key={digit} whileTap={{ scale: 0.88 }} type="button" onClick={() => handleKeyPress(digit)}
-                  className="py-2.5 bg-white hover:bg-slate-50 text-[#0b2545] font-black text-lg rounded-2xl border border-[#e1e8f8] transition cursor-pointer select-none">{digit}</motion.button>
-              ))}
-              <motion.button whileTap={{ scale: 0.88 }} type="button" onClick={handleDelete} aria-label="Borrar último dígito"
-                className="py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-2xl flex items-center justify-center transition cursor-pointer">
-                <Delete size={20} aria-hidden="true" />
-              </motion.button>
             </div>
 
             <Field icon={<Package size={17} aria-hidden="true" />} label="Concepto o producto">

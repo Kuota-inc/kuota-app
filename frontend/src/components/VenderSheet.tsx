@@ -31,16 +31,18 @@ export const VenderSheet: React.FC<{ onClose: () => void; onCobrar: () => void; 
 
             <button type="button" onClick={() => setInfo(true)}
               className="w-full text-left p-4 rounded-3xl bg-white border border-[#e1e8f8] shadow-sm space-y-3 active:scale-[0.99] transition cursor-pointer">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#e1e8f8] text-[#00248b] text-[11px] font-black"><BadgeCheck size={13} aria-hidden="true" /> Crédito a tus compradores</span>
+              <span className="flex items-center justify-between gap-2">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#e1e8f8] text-[#00248b] text-[11px] font-black"><BadgeCheck size={13} aria-hidden="true" /> Crédito a tus compradores</span>
+                <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 text-[10px] font-black">Próximamente</span>
+              </span>
               <span className="flex items-start gap-3.5">
                 <span className="w-12 h-12 rounded-full bg-[#e1e8f8] text-[#00248b] flex items-center justify-center shrink-0"><HandCoins size={22} aria-hidden="true" /></span>
                 <span className="min-w-0 flex-1">
                   <span className="block text-lg font-black text-[#151c27]">Vender aKuotas!</span>
-                  <span className="block text-sm text-[#4a5f7e] leading-snug mt-1">Financia las compras de tus clientes emprendedores en cuotas, con pagaré digital.</span>
+                  <span className="block text-sm text-[#4a5f7e] leading-snug mt-1">Financia las compras de tus clientes emprendedores en cuotas. El proveedor recibe el monto total en 48 horas.</span>
                 </span>
                 <span className="w-8 h-8 rounded-full bg-[#e1e8f8] text-[#00248b] flex items-center justify-center shrink-0"><ChevronRight size={16} aria-hidden="true" /></span>
               </span>
-              <span className="flex items-center gap-2 px-3.5 py-2.5 rounded-full bg-[#eff3ff] text-[#00248b] text-xs font-bold"><ShieldCheck size={14} aria-hidden="true" /> Cuota inicial directa • pagaré digital</span>
             </button>
 
             <button type="button" onClick={onCobrar}

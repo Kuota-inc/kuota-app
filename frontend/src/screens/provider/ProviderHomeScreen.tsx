@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { CheckCircle2, ChevronDown, ChevronRight, Clock, Home, Info, Fingerprint, Landmark, LogOut, PiggyBank, Plus, Search, ShieldCheck, TrendingUp, User, Users, Wallet, X } from 'lucide-react';
+import { Activity, ArrowLeft, CheckCircle2, ChevronDown, ChevronRight, Clock, Home, Info, Fingerprint, Landmark, LogOut, PiggyBank, Plus, Search, ShieldCheck, TrendingUp, User, Users, Wallet, X } from 'lucide-react';
 import { api, apiRequest, getMerchantId } from '../../api/client';
 import { paymentsApi } from '../../api/payments';
 import type { PaymentLink } from '../../api/payments';
@@ -35,7 +35,7 @@ interface Order {
   settled: boolean;
 }
 
-type Tab = 'inicio' | 'ventas' | 'clientes' | 'depositos' | 'cuenta';
+type Tab = 'inicio' | 'ventas' | 'clientes' | 'perfil' | 'cuenta';
 type Period = 'week' | 'month' | 'all';
 
 const BANKS = ['BCP', 'Interbank', 'Scotiabank', 'BBVA', 'Banco de la Nación', 'BanBif'];
@@ -81,6 +81,9 @@ export const ProviderHomeScreen: React.FC<{ onLogout: () => void; onSell: () => 
   const [q, setQ] = useState('');
   const [needsPin, setNeedsPin] = useState(false);
   const [venderOpen, setVenderOpen] = useState(false);
+  const [actModal, setActModal] = useState(false);
+  const [concView, setConcView] = useState(false);
+  const [concSel, setConcSel] = useState<{ id: string; who: string; channel: string; at: string; cents: number; status: string; ok: boolean } | null>(null);
   const [photoSheet, setPhotoSheet] = useState(false);
   const [bioPin, setBioPin] = useState(false);
   useEffect(() => {
@@ -297,59 +300,28 @@ export const ProviderHomeScreen: React.FC<{ onLogout: () => void; onSell: () => 
               </Card>
             </div>
 
-            {getMerchantId() && (
-              <button type="button" onClick={() => window.dispatchEvent(new CustomEvent(SWITCH_EVENT, { detail: 'EMPRENDEDOR' }))}
-                className="w-full py-3.5 rounded-2xl bg-white border border-[#c9d5f3] text-[#00248b] font-black text-sm flex items-center justify-center gap-2 shadow-sm cursor-pointer active:scale-[0.99]">
-                <Home size={18} aria-hidden="true" /> Ir al Home
-              </button>
-            )}
           </>
         )}
 
-        {tab === 'ventas' && (
+        {tab === 'ventas' && !concView && (
           <>
             <Hero>
-              <p className="text-[11px] tracking-wider text-white/80">TOTAL VENDIDO CON KUOTA</p>
-              <p className="text-4xl font-black tabular-nums">{soles(d.sold)}</p>
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-[11px] tracking-wider text-white/80">TOTAL VENDIDO CON KUOTA</p>
+                  <p className="text-4xl font-black tabular-nums">{soles(d.sold)}</p>
+                </div>
+                <button type="button" onClick={() => setActModal(true)} aria-label="Ver actividad diaria"
+                  className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center cursor-pointer">
+                  <Activity size={18} aria-hidden="true" />
+                </button>
+              </div>
               {Chips}
             </Hero>
-            <Card title="Conciliación de ingresos">
-              <Row label="Total bruto facturado" value={soles(d.sold)} />
-              <Row label="Cobrado en cuenta (neto)" value={soles(d.net)} />
-              <Row label="Comisión Kuota (1 % + IGV)" value={`-${soles(d.fees)}`} />
-              <Row label="Por cobrar (aKuotas!)" value={soles(d.toCollect.reduce((a, o) => a + o.total_cents, 0))} />
-              <Row label="Por confirmar (links)" value={soles(d.pending.reduce((a, l) => a + l.amount_cents, 0))} />
-            </Card>
-            <Card title="Actividad diaria">
-              {d.bars.every((b) => b.pay + b.ak === 0) ? <Empty loading={loading} text="Aún no hay ventas en este periodo." /> : (
-                <>
-                  <p className="text-[11px] text-[#4a5f7e]">Pico máximo: <b className="text-[#1a3bb0]">{d.peak.label} · {soles(d.peak.pay + d.peak.ak)}</b></p>
-                  <div className="flex items-end gap-0.5 h-28" role="img" aria-label="Ventas por día">
-                    {d.bars.map((b) => (
-                      <div key={b.key} className="flex-1 min-w-0 flex flex-col justify-end h-full" title={`${b.label}: ${soles(b.pay + b.ak)}`}>
-                        <div className="w-full bg-[#afc5f6] rounded-t-sm" style={{ height: `${(b.ak / maxBar) * 100}%` }} />
-                        <div className="w-full bg-[#1a3bb0]" style={{ height: `${(b.pay / maxBar) * 100}%` }} />
-                      </div>
-                    ))}
-                  </div>
-                  <div className="flex justify-between text-[10px] text-[#4a5f7e]"><span>{d.bars[0].label}</span><span>{d.bars[d.bars.length - 1].label}</span></div>
-                  <div className="flex gap-4 text-[11px] text-[#4a5f7e]">
-                    <span className="flex items-center gap-1"><i className="w-2.5 h-2.5 rounded-full bg-[#1a3bb0]" />Kuota Payments</span>
-                    <span className="flex items-center gap-1"><i className="w-2.5 h-2.5 rounded-full bg-[#afc5f6]" />aKuotas!</span>
-                  </div>
-                </>
-              )}
-            </Card>
-            <Card title="Ventas por producto">
-              {d.products.length === 0 && <Empty loading={loading} text="Aún no hay cobros pagados en este periodo." />}
-              {d.products.slice(0, 5).map((p, i) => (
-                <div key={p.name} className="space-y-1">
-                  <div className="flex justify-between gap-3 text-sm"><span className="font-bold text-[#151c27] truncate">{i + 1}. {p.name}</span><span className="font-black shrink-0">{soles(p.total)}</span></div>
-                  <div className="h-2 rounded-full bg-[#e1e8f8]"><div className="h-2 rounded-full bg-[#1a3bb0]" style={{ width: `${(p.total / d.products[0].total) * 100}%` }} /></div>
-                  <p className="text-[11px] text-[#4a5f7e]">{p.count} cobro{p.count === 1 ? '' : 's'} · {Math.round((p.total / Math.max(d.gross, 1)) * 100)} % del volumen</p>
-                </div>
-              ))}
-            </Card>
+            <button type="button" onClick={() => setConcView(true)}
+              className="w-full py-3.5 rounded-2xl bg-white border border-[#c9d5f3] text-[#00248b] font-black text-sm flex items-center justify-center gap-2 shadow-sm cursor-pointer active:scale-[0.99]">
+              <TrendingUp size={16} aria-hidden="true" /> Conciliación
+            </button>
             <Card title="Ventas recientes">
               {d.sales.length === 0 && <Empty loading={loading} text="Aún no hay ventas en este periodo." />}
               <div className="divide-y divide-[#f0f4ff]">
@@ -367,6 +339,80 @@ export const ProviderHomeScreen: React.FC<{ onLogout: () => void; onSell: () => 
                 ))}
               </div>
             </Card>
+          </>
+        )}
+
+        {tab === 'ventas' && concView && (
+          <>
+            <div className="flex items-center gap-2 pb-1">
+              <button type="button" onClick={() => { setConcView(false); setConcSel(null); }} aria-label="Volver"
+                className="w-9 h-9 rounded-full bg-[#e1e8f8] flex items-center justify-center cursor-pointer">
+                <ArrowLeft size={18} aria-hidden="true" />
+              </button>
+              <h2 className="text-base font-black text-[#0b2545]">Conciliación</h2>
+            </div>
+            <Hero>
+              <div className="space-y-1">
+                <p className="text-[11px] tracking-wider text-white/80">VOLUMEN YA PAGADO</p>
+                <p className="text-4xl font-black tabular-nums">{soles(d.net)}</p>
+              </div>
+              <div className="grid grid-cols-2 gap-2 rounded-2xl bg-white/10 p-3 text-xs">
+                <div>
+                  <p className="text-white/70">Total vendido</p>
+                  <p className="font-black">{soles(d.sold)}</p>
+                </div>
+                <div>
+                  <p className="text-white/70">Pendiente</p>
+                  <p className="font-black">{soles(d.toCollect.reduce((a, o) => a + o.total_cents, 0) + d.pending.reduce((a, l) => a + l.amount_cents, 0))}</p>
+                </div>
+              </div>
+            </Hero>
+            {!concSel ? (
+              <Card title="Ventas">
+                {d.sales.length === 0 && <Empty loading={loading} text="Aún no hay ventas en este periodo." />}
+                <div className="divide-y divide-[#f0f4ff]">
+                  {d.sales.map((s) => (
+                    <button key={s.id} type="button" onClick={() => setConcSel(s)}
+                      className="w-full flex items-center justify-between gap-3 py-2.5 text-xs text-left cursor-pointer">
+                      <div className="min-w-0">
+                        <p className="font-bold text-[#151c27] truncate">{s.who}</p>
+                        <p className="text-[#4a5f7e]">{s.channel} · {day(s.at)}</p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="font-black text-sm text-[#151c27]">{soles(s.cents)}</p>
+                        <span className={`inline-block mt-0.5 px-2 py-0.5 rounded-full font-bold text-[10px] ${s.ok ? 'bg-emerald-100 text-emerald-800' : 'bg-[#e1e8f8] text-[#1a3bb0]'}`}>{s.status}</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </Card>
+            ) : (
+              <>
+                <button type="button" onClick={() => setConcSel(null)}
+                  className="inline-flex items-center gap-1.5 text-sm font-bold text-[#00248b] cursor-pointer">
+                  <ArrowLeft size={16} aria-hidden="true" /> Volver a ventas
+                </button>
+                <Card title="Detalle de la venta">
+                  {(() => {
+                    const bruto = concSel.cents;
+                    const comBase = Math.max(Math.round(bruto * 0.01), 450);
+                    const igv = Math.round(comBase * 0.18);
+                    const neto = bruto - comBase - igv;
+                    return (
+                      <div className="space-y-2">
+                        <Row label="Monto vendido" value={soles(bruto)} />
+                        <Row label="Comisión Kuota (1 %, mín. S/ 4.50)" value={`-${soles(comBase)}`} />
+                        <Row label="IGV sobre la comisión (18 %)" value={`-${soles(igv)}`} />
+                        <div className="pt-2 border-t border-[#f0f4ff] flex justify-between text-sm font-black">
+                          <span>Monto facturado</span>
+                          <span className="text-emerald-700">{soles(neto)}</span>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </Card>
+              </>
+            )}
           </>
         )}
 
@@ -402,59 +448,74 @@ export const ProviderHomeScreen: React.FC<{ onLogout: () => void; onSell: () => 
           </>
         )}
 
-        {tab === 'depositos' && (
+        {tab === 'perfil' && (
           <>
-            <Hero>
-              <p className="text-[11px] tracking-wider text-white/80">TOTAL DEPOSITADO EN TU CUENTA</p>
-              <p className="text-4xl font-black tabular-nums">{soles(d.net)}</p>
-              {Chips}
-              <div className="rounded-2xl bg-white text-[#0b2545] p-3.5 text-xs">
-                <p className="font-black text-sm">Próximo abono</p>
-                <p className="text-[#4a5f7e]">{d.toCollect.length > 0 ? `${soles(d.toCollect.reduce((a, o) => a + o.total_cents, 0))} en ${d.toCollect.length} pedido${d.toCollect.length === 1 ? '' : 's'} por liquidar` : 'No tienes abonos programados.'}</p>
+            <Card title="Foto de perfil">
+              <div className="flex items-center gap-3.5">
+                <Avatar url={profile?.avatar_url} name={name} size={64} />
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs text-[#4a5f7e] leading-snug">La ven quienes te pagan o te buscan por celular.</p>
+                  <button type="button" onClick={() => setPhotoSheet(true)} className="mt-1 py-2 text-sm font-bold text-[#1a3bb0] underline cursor-pointer">
+                    {profile?.avatar_url ? 'Cambiar foto' : 'Agregar foto'}
+                  </button>
+                </div>
               </div>
-            </Hero>
-            <Card title="Histórico de liquidaciones">
-              {d.settlements.length === 0 && <Empty loading={loading} text="Aún no hay cobros liquidados en este periodo." />}
-              <div className="divide-y divide-[#f0f4ff]">
-                {d.settlements.map((x) => {
-                  const base = Math.round(x.fee / 1.18);
-                  const open = openDay === x.key;
-                  return (
-                    <div key={x.key} className="py-2.5 text-xs">
-                      <button type="button" onClick={() => setOpenDay(open ? null : x.key)} aria-expanded={open} className="w-full flex items-center justify-between gap-3 text-left cursor-pointer">
-                        <span className="min-w-0">
-                          <span className="block font-bold text-sm text-[#151c27]">{new Date(x.at).toLocaleDateString('es-PE', { weekday: 'long', day: '2-digit', month: 'short' })}</span>
-                          <span className="block text-[#4a5f7e]">{x.n} venta{x.n === 1 ? '' : 's'} incluida{x.n === 1 ? '' : 's'} · Bruto {soles(x.gross)}</span>
-                        </span>
-                        <span className="text-right shrink-0">
-                          <span className="block font-black text-sm text-[#151c27]">{soles(x.net)}</span>
-                          <span className="inline-block mt-0.5 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold">Abonado</span>
-                        </span>
+            </Card>
+            <Card title="Datos de la empresa">
+              <Row label="RUC" value={profile?.ruc_masked} />
+              <Row label="Rubro" value={profile?.category} />
+              <Row label="WhatsApp" value={profile?.whatsapp_masked} />
+              <Row label="Tarifa por cobro" value={profile?.fee_bps != null ? `${profile.fee_bps / 100} % + IGV (mín. S/ 4.50)` : null} />
+              <p className="text-[11px] text-[#4a5f7e]">{st.hint}</p>
+            </Card>
+            <Card title="Cuenta de abono" icon={<Landmark size={14} />}>
+              <div className="flex items-center justify-between">
+                {profile?.settlement ? <Row label={profile.settlement.bank || 'Banco'} value={profile.settlement.account_masked} /> : <p className="text-xs text-[#4a5f7e]">Aún no registraste una cuenta para recibir tus pagos.</p>}
+                <button type="button" onClick={() => { setShowSettForm((v) => !v); setSettError(null); }} className="text-[11px] font-bold text-[#1a3bb0] flex items-center gap-0.5 shrink-0 ml-3 cursor-pointer">
+                  {profile?.settlement ? 'Editar' : 'Registrar'}{showSettForm ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                </button>
+              </div>
+              {showSettForm && (
+                <div className="pt-2 space-y-2 border-t border-[#f0f4ff]">
+                  <div>
+                    <label className="text-[11px] text-[#4a5f7e] font-semibold mb-1 block">Banco</label>
+                    <select value={settBank} onChange={(e) => setSettBank(e.target.value)} className="w-full border border-[#e1e8f8] rounded-xl px-3 py-2 text-sm bg-[#f9f9ff] text-[#151c27]">
+                      {BANKS.map((b) => <option key={b}>{b}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[11px] text-[#4a5f7e] font-semibold mb-1 block">CCI (20 dígitos)</label>
+                    <input type="text" inputMode="numeric" maxLength={24} placeholder="002 123 456789012345 00" value={settCci} onChange={(e) => setSettCci(e.target.value)}
+                      className="w-full border border-[#e1e8f8] rounded-xl px-3 py-2 text-sm bg-[#f9f9ff] text-[#151c27] placeholder:text-[#b0bdd0]" />
+                  </div>
+                  <div>
+                    <label className="text-[11px] text-[#4a5f7e] font-semibold mb-1 block">Tu PIN de 6 dígitos</label>
+                    <input type="password" inputMode="numeric" maxLength={6} placeholder="••••••" value={settPin} onChange={(e) => setSettPin(e.target.value)}
+                      className="w-full border border-[#e1e8f8] rounded-xl px-3 py-2 text-sm bg-[#f9f9ff] text-[#151c27] placeholder:text-[#b0bdd0]" />
+                    {bioPin && (
+                      <button
+                        type="button"
+                        onClick={() => void pinFromBiometric({ title: 'Confirmar con tu huella', subtitle: 'Guardar tu cuenta de abono' }).then(setSettPin).catch(() => {})}
+                        className="mt-1.5 py-2 text-xs font-bold text-[#1a3bb0] flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <Fingerprint size={15} aria-hidden="true" /> Usar mi huella
                       </button>
-                      {open && (
-                        <div className="mt-2 rounded-2xl bg-[#eff3ff] p-3 space-y-1.5">
-                          <div className="flex justify-between"><span>Venta bruta ({x.n} cobro{x.n === 1 ? '' : 's'})</span><b>{soles(x.gross)}</b></div>
-                          <div className="flex justify-between text-red-600"><span>Comisión de cobranza Kuota</span><b>-{soles(base)}</b></div>
-                          <div className="flex justify-between text-red-600"><span>IGV de la comisión (18 %)</span><b>-{soles(x.fee - base)}</b></div>
-                          <div className="flex justify-between pt-1.5 border-t border-[#d8e2ff] text-sm font-black text-[#0b2545]"><span>Monto neto depositado</span><span>{soles(x.net)}</span></div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+                    )}
+                  </div>
+                  {settError && <p className="text-xs text-red-600">{settError}</p>}
+                  <button type="button" disabled={settSaving} onClick={handleSaveSettlement} className="w-full py-2.5 rounded-xl bg-[#00248b] text-white text-sm font-bold disabled:opacity-60">
+                    {settSaving ? 'Guardando…' : 'Guardar cuenta'}
+                  </button>
+                </div>
+              )}
             </Card>
-            <Card title="Cuenta bancaria de abono" icon={<Landmark size={14} />}>
-              {profile?.settlement ? <Row label={profile.settlement.bank || 'Banco'} value={profile.settlement.account_masked} /> : <p className="text-xs text-[#4a5f7e]">Aún no registraste una cuenta. Hazlo en Cuenta.</p>}
-            </Card>
-            <Card title="Transparencia: regla de comisión mínima">
-              <p className="text-xs text-[#4a5f7e]">Para cobros pequeños aplica la comisión base de S/ 4.50 + IGV. Ejemplo con una venta de S/ 200.00:</p>
-              <div className="grid grid-cols-3 gap-2 text-center text-xs rounded-2xl bg-[#eff3ff] p-3">
-                <div><p className="text-[#4a5f7e]">Bruto</p><p className="font-black">S/ 200.00</p></div>
-                <div><p className="text-red-600">Tarifa + IGV</p><p className="font-black text-red-600">-S/ 5.31</p></div>
-                <div><p className="text-[#4a5f7e]">Abono neto</p><p className="font-black">S/ 194.69</p></div>
-              </div>
-            </Card>
+            <div className="p-3 rounded-2xl bg-[#eff3ff] border border-[#d8e2ff] flex items-start gap-2 text-[11px] text-[#2b3f66] leading-snug">
+              <ShieldCheck size={16} className="shrink-0 mt-0.5 text-[#1a3bb0]" aria-hidden="true" />
+              <span>Tu cuenta solo puede estar abierta en un equipo a la vez. Vendes con la misma clave en tus dos perfiles.</span>
+            </div>
+            <button type="button" onClick={onLogout} className="w-full py-3.5 rounded-2xl bg-white border border-[#e1e8f8] text-red-600 font-bold text-sm flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99]">
+              <LogOut size={16} aria-hidden="true" /> Cerrar sesión
+            </button>
           </>
         )}
 
@@ -560,6 +621,40 @@ export const ProviderHomeScreen: React.FC<{ onLogout: () => void; onSell: () => 
         </div>
       )}
 
+      {actModal && (
+        <div className="fixed inset-0 z-[66] flex items-end justify-center bg-black/45" onClick={() => setActModal(false)}>
+          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md bg-[#f9f9ff] rounded-t-3xl p-5 pb-7 space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-black text-[#0b2545]">Actividad diaria</h2>
+              <button type="button" onClick={() => setActModal(false)} aria-label="Cerrar"
+                className="w-9 h-9 rounded-full bg-[#e1e8f8] flex items-center justify-center cursor-pointer">
+                <X size={16} aria-hidden="true" />
+              </button>
+            </div>
+            {d.bars.every((b) => b.pay + b.ak === 0) ? (
+              <p className="text-xs text-[#4a5f7e]">Aún no hay ventas en este periodo.</p>
+            ) : (
+              <>
+                <p className="text-[11px] text-[#4a5f7e]">Pico máximo: <b className="text-[#1a3bb0]">{d.peak.label} · {soles(d.peak.pay + d.peak.ak)}</b></p>
+                <div className="flex items-end gap-0.5 h-28" role="img" aria-label="Ventas por día">
+                  {d.bars.map((b) => (
+                    <div key={b.key} className="flex-1 min-w-0 flex flex-col justify-end h-full" title={`${b.label}: ${soles(b.pay + b.ak)}`}>
+                      <div className="w-full bg-[#afc5f6] rounded-t-sm" style={{ height: `${(b.ak / maxBar) * 100}%` }} />
+                      <div className="w-full bg-[#1a3bb0]" style={{ height: `${(b.pay / maxBar) * 100}%` }} />
+                    </div>
+                  ))}
+                </div>
+                <div className="flex justify-between text-[10px] text-[#4a5f7e]"><span>{d.bars[0].label}</span><span>{d.bars[d.bars.length - 1].label}</span></div>
+                <div className="flex gap-4 text-[11px] text-[#4a5f7e]">
+                  <span className="flex items-center gap-1"><i className="w-2.5 h-2.5 rounded-full bg-[#1a3bb0]" />Kuota Payments</span>
+                  <span className="flex items-center gap-1"><i className="w-2.5 h-2.5 rounded-full bg-[#afc5f6]" />aKuotas!</span>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       {photoSheet && <PhotoSourceSheet hasPhoto={!!profile?.avatar_url} onFile={(f) => void handlePhoto(f)} onRemove={() => void removePhoto()} onClose={() => setPhotoSheet(false)} />}
 
       {venderOpen && (
@@ -577,7 +672,7 @@ export const ProviderHomeScreen: React.FC<{ onLogout: () => void; onSell: () => 
           <span className="-mt-6 w-14 h-14 rounded-full bg-gradient-to-br from-[#00248b] to-[#1a3bb0] text-white flex items-center justify-center shadow-lg"><Plus size={28} aria-hidden="true" /></span>Vender
         </button>
         {navItem('clientes', 'Clientes', Users)}
-        {navItem('depositos', 'Depósitos', Wallet)}
+        {navItem('perfil', 'Perfil', User)}
       </nav>
     </div>
   );
