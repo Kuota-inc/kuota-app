@@ -18,7 +18,7 @@ jobs:
     name: Higiene del repositorio (secretos y archivos prohibidos)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Archivos que nunca deben estar en git
         run: |
           bad=$(git ls-files | grep -E '(^|/)(\.env|\.env\.[a-z]+|\.dev-secrets\.json|keystore\.properties|google-services\.json)$|\.(jks|keystore|pem)$|^docs/gtm/' | grep -vE '\.env\.example$' || true)
@@ -47,7 +47,7 @@ jobs:
           --health-cmd "pg_isready -U postgres"
           --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -72,7 +72,7 @@ jobs:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -100,7 +100,7 @@ jobs:
     env:
       IMAGE: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/kuota/backend:${{ github.sha }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
