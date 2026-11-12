@@ -155,6 +155,12 @@ providerPaymentsRouter.post('/session', limiter, async (req, res) => {
     });
     // Misma clave en los dos perfiles.
     await setMerchantPinHash(merchantId, prov.pin_hash);
+    // Misma foto: la del proveedor pasa a la cuenta de cobros (una sola foto por persona).
+    const pav = await coreDb.get<{ image_b64: string }>('SELECT image_b64 FROM provider_avatars WHERE provider_id = ?', prov.id);
+    if (pav) {
+      await coreDb.run('INSERT INTO merchant_avatars (merchant_id, token, image_b64) VALUES (?, ?, ?) ON CONFLICT (merchant_id) DO NOTHING', merchantId, crypto.randomBytes(16).toString('hex'), pav.image_b64);
+      await coreDb.run('DELETE FROM provider_avatars WHERE provider_id = ?', prov.id);
+    }
     merchant = { id: merchantId };
     await audit({ actorType: 'SYSTEM', actorId: 'provider:' + prov.id, action: 'PROVIDER_PAYMENTS_ACCOUNT_CREATED', target: merchantId, result: 'OK', ip, deviceId, details: { ruc_verified: rucVerified } });
   }

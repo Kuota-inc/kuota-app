@@ -34,6 +34,7 @@ import { disableListener, enableListener, listenerStatus, onListenerChange, refr
 import { useDialog } from '../../hooks/useDialog';
 import { PlanPanel } from '../../components/PlanPanel';
 import { Avatar } from '../../components/Avatar';
+import { PhotoSourceSheet } from '../../components/PhotoSourceSheet';
 import { photoToAvatar } from '../../utils/image';
 import { ChangePinPanel, DevicesPanel, LimitsPanel, SecurityActivityPanel } from './PaymentSecurityPanels';
 
@@ -54,7 +55,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onLogout }
   const [zona, setZona] = useState<string>('');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [avatarBusy, setAvatarBusy] = useState(false);
-  const fileRef = useRef<HTMLInputElement>(null);
+  const [photoSheet, setPhotoSheet] = useState(false);
 
   // Listener Yape/Plin: refleja el permiso real de Android y la preferencia guardada.
   const [listenerState, setListenerState] = useState<ListenerStatus>(listenerStatus());
@@ -133,10 +134,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onLogout }
   };
 
   // La foto se recorta y se reduce en el teléfono (sin datos de ubicación) y la ven quienes te pagan o te buscan.
-  const onPickPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = '';
-    if (!file) return;
+  const handlePhoto = async (file: File) => {
     setAvatarBusy(true);
     try {
       const r = await api.setAvatar(await photoToAvatar(file));
@@ -168,6 +166,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onLogout }
 
   return (
     <div className="flex-1 flex flex-col bg-[#f9f9ff] text-[#151c27] relative pb-10">
+      {photoSheet && <PhotoSourceSheet hasPhoto={!!avatarUrl} onFile={(f) => void handlePhoto(f)} onRemove={() => void removePhoto()} onClose={() => setPhotoSheet(false)} />}
       {/* Toast Notification */}
       <AnimatePresence>
         {toastMessage && (
@@ -212,14 +211,13 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onLogout }
               <Avatar url={avatarUrl} name={businessName} size={52} className="shadow-inner" />
               <button
                 type="button"
-                onClick={() => fileRef.current?.click()}
+                onClick={() => setPhotoSheet(true)}
                 disabled={avatarBusy}
                 aria-label={avatarUrl ? 'Cambiar foto de perfil' : 'Agregar foto de perfil'}
                 className="absolute -bottom-1 -left-1 w-6 h-6 rounded-full bg-white border border-[#c9d5f3] text-[#00248b] flex items-center justify-center shadow-sm cursor-pointer disabled:opacity-60"
               >
                 <Camera size={13} />
               </button>
-              <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={onPickPhoto} aria-label="Elegir foto de perfil" />
               <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-[#00248b] text-white flex items-center justify-center shadow-sm">
                 <BadgeCheck size={14} />
               </div>
@@ -235,7 +233,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onLogout }
                 Cuenta Comercial &amp; Personal Unificada
               </span>
               <div className="flex items-center gap-3 mt-1.5 text-[11px] font-bold">
-                <button type="button" onClick={() => fileRef.current?.click()} disabled={avatarBusy} className="py-1.5 text-[#1a3bb0] underline cursor-pointer disabled:opacity-60">
+                <button type="button" onClick={() => setPhotoSheet(true)} disabled={avatarBusy} className="py-1.5 text-[#1a3bb0] underline cursor-pointer disabled:opacity-60">
                   {avatarBusy ? 'Guardando…' : avatarUrl ? 'Cambiar foto' : 'Agregar foto'}
                 </button>
                 {avatarUrl && !avatarBusy && (

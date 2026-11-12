@@ -6,6 +6,10 @@ import type { PaymentLink } from '../../api/payments';
 import { ProfileSwitcher, SWITCH_EVENT } from '../../components/ProfileSwitcher';
 import { useDialog } from '../../hooks/useDialog';
 import { VenderSheet } from '../../components/VenderSheet';
+import { Avatar } from '../../components/Avatar';
+import { PhotoSourceSheet } from '../../components/PhotoSourceSheet';
+import { photoToAvatar } from '../../utils/image';
+import { useToast } from '../../components/toast-context';
 
 interface ProviderProfile {
   id: string;
@@ -17,6 +21,7 @@ interface ProviderProfile {
   approved_limit_cents: number | null;
   settlement: { bank: string | null; account_masked: string | null } | null;
   whatsapp_masked: string | null;
+  avatar_url?: string | null;
 }
 
 interface Order {
@@ -73,6 +78,8 @@ export const ProviderHomeScreen: React.FC<{ onLogout: () => void; onSell: () => 
   const [q, setQ] = useState('');
   const [needsPin, setNeedsPin] = useState(false);
   const [venderOpen, setVenderOpen] = useState(false);
+  const [photoSheet, setPhotoSheet] = useState(false);
+  const toast = useToast();
   const [sel, setSel] = useState<string | null>(null);
   const [openDay, setOpenDay] = useState<string | null>(null);
   const sheetRef = useRef<HTMLDivElement>(null);
@@ -102,6 +109,26 @@ export const ProviderHomeScreen: React.FC<{ onLogout: () => void; onSell: () => 
   useEffect(() => {
     void loadLinks();
   }, [tab]);
+
+  // Foto: se recorta y se reduce en el teléfono (sin ubicación); la ven quienes te pagan o te buscan por celular.
+  const handlePhoto = async (file: File) => {
+    try {
+      const r = await api.setProviderAvatar(await photoToAvatar(file));
+      setProfile((p) => (p ? { ...p, avatar_url: r.avatar_url } : p));
+      toast.success('Foto actualizada. Ya la ven quienes te pagan.');
+    } catch (e: any) {
+      toast.error(e?.message || 'No pudimos guardar la foto.');
+    }
+  };
+  const removePhoto = async () => {
+    try {
+      await api.removeProviderAvatar();
+      setProfile((p) => (p ? { ...p, avatar_url: null } : p));
+      toast.success('Quitaste tu foto.');
+    } catch (e: any) {
+      toast.error(e?.message || 'No pudimos quitar la foto.');
+    }
+  };
 
   const handleSaveSettlement = async () => {
     setSettError(null);
@@ -215,7 +242,7 @@ export const ProviderHomeScreen: React.FC<{ onLogout: () => void; onSell: () => 
         </div>
         <ProfileSwitcher active="PROVIDER" />
         <button type="button" onClick={() => setTab('cuenta')} aria-label="Mi cuenta"
-          className="w-10 h-10 rounded-full bg-[#00248b] text-white flex items-center justify-center cursor-pointer shrink-0"><User size={18} aria-hidden="true" /></button>
+          className="w-10 h-10 rounded-full bg-[#00248b] text-white flex items-center justify-center cursor-pointer shrink-0 overflow-hidden">{profile?.avatar_url ? <Avatar url={profile.avatar_url} name={name} size={40} /> : <User size={18} aria-hidden="true" />}</button>
       </header>
 
       <div className="flex-1 overflow-y-auto px-4.5 pb-4 space-y-3">
@@ -428,6 +455,17 @@ export const ProviderHomeScreen: React.FC<{ onLogout: () => void; onSell: () => 
 
         {tab === 'cuenta' && (
           <>
+            <Card title="Foto de perfil">
+              <div className="flex items-center gap-3.5">
+                <Avatar url={profile?.avatar_url} name={name} size={64} />
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs text-[#4a5f7e] leading-snug">La ven quienes te pagan o te buscan por celular.</p>
+                  <button type="button" onClick={() => setPhotoSheet(true)} className="mt-1 py-2 text-sm font-bold text-[#1a3bb0] underline cursor-pointer">
+                    {profile?.avatar_url ? 'Cambiar foto' : 'Agregar foto'}
+                  </button>
+                </div>
+              </div>
+            </Card>
             <Card title="Datos de la empresa">
               <Row label="RUC" value={profile?.ruc_masked} />
               <Row label="Rubro" value={profile?.category} />
@@ -507,6 +545,8 @@ export const ProviderHomeScreen: React.FC<{ onLogout: () => void; onSell: () => 
           </div>
         </div>
       )}
+
+      {photoSheet && <PhotoSourceSheet hasPhoto={!!profile?.avatar_url} onFile={(f) => void handlePhoto(f)} onRemove={() => void removePhoto()} onClose={() => setPhotoSheet(false)} />}
 
       {venderOpen && (
         <VenderSheet

@@ -1,4 +1,5 @@
 import { dueText, formatDay } from '../../utils/dates';
+import { Avatar } from '../../components/Avatar';
 import React, { useState, useEffect } from 'react';
 
 import { api } from '../../api/client';
@@ -188,9 +189,13 @@ export const BuyOnCreditScreen: React.FC<BuyOnCreditScreenProps> = ({ onBack }) 
                 onClick={() => handleSelectProvider(prov)}
                 className="w-full p-3.5 bg-white rounded-2xl border border-[#e1e8f8] hover:border-[#1a3bb0] flex items-start gap-3 text-left transition group cursor-pointer shadow-sm"
               >
-                <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center shrink-0 text-[#1a3bb0] group-hover:bg-[#1a3bb0] group-hover:text-white transition">
-                  <Package size={20} />
-                </div>
+                {prov.avatar_url ? (
+                  <Avatar url={prov.avatar_url} name={prov.name} size={40} rounded="rounded-xl" />
+                ) : (
+                  <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center shrink-0 text-[#1a3bb0]">
+                    <Package size={20} />
+                  </div>
+                )}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <span className="text-xs font-black text-[#0b2545] leading-tight">{prov.name}</span>

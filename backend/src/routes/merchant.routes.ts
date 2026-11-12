@@ -570,6 +570,7 @@ merchantRouter.put('/avatar', avatarLimiter, async (req, res) => {
     .prepare(`INSERT INTO merchant_avatars (merchant_id, token, image_b64, updated_at) VALUES (?, ?, ?, utc_now_text())
               ON CONFLICT(merchant_id) DO UPDATE SET token = excluded.token, image_b64 = excluded.image_b64, updated_at = excluded.updated_at`)
     .run(me.id, token, parsed.b64);
+  await db.prepare('DELETE FROM provider_avatars WHERE provider_id IN (SELECT id FROM provider_profiles WHERE user_id = ?)').run(me.user_id ?? '');
   await audit({ actorType: 'MERCHANT', actorId: me.id, action: 'AVATAR_UPDATE', result: 'OK', ip: clientIp(req) });
   res.json({ avatar_url: avatarUrl(token) });
 });
@@ -577,6 +578,7 @@ merchantRouter.put('/avatar', avatarLimiter, async (req, res) => {
 merchantRouter.delete('/avatar', async (req, res) => {
   const me = await getMerchantProfile(req);
   await db.prepare('DELETE FROM merchant_avatars WHERE merchant_id = ?').run(me.id);
+  await db.prepare('DELETE FROM provider_avatars WHERE provider_id IN (SELECT id FROM provider_profiles WHERE user_id = ?)').run(me.user_id ?? '');
   await audit({ actorType: 'MERCHANT', actorId: me.id, action: 'AVATAR_REMOVE', result: 'OK', ip: clientIp(req) });
   res.json({ avatar_url: null });
 });

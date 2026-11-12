@@ -305,6 +305,9 @@ export const api = {
   // Foto de perfil: la ven quienes pagan o buscan al comercio por celular.
   setAvatar: (image: string) => apiRequest<{ avatar_url: string }>('/merchants/me/avatar', { method: 'PUT', body: JSON.stringify({ image }) }),
   removeAvatar: () => apiRequest<{ avatar_url: null }>('/merchants/me/avatar', { method: 'DELETE' }),
+  // Lo mismo para un proveedor (si ya tiene cuenta de cobros, el servidor usa la misma foto en los dos perfiles).
+  setProviderAvatar: (image: string) => apiRequest<{ avatar_url: string }>('/providers/avatar', { method: 'PUT', body: JSON.stringify({ image }) }),
+  removeProviderAvatar: () => apiRequest<{ avatar_url: null }>('/providers/avatar', { method: 'DELETE' }),
 
   // ¿Este celular ya tiene cuenta Kuota? (el servidor limita las consultas y no devuelve datos de más)
   lookupContact: (phone: string) =>

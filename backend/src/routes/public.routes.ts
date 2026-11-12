@@ -75,7 +75,9 @@ publicRouter.get(['/catalogs/provider-seniority-ranges', '/provider-seniority-ra
 publicRouter.get('/avatar/:token', rateLimit({ name: 'public-avatar', windowMs: 60_000, max: 120 }), async (req, res) => {
   const token = String(req.params.token);
   if (!/^[a-f0-9]{32}$/.test(token)) return res.status(404).end();
-  const row = (await db.prepare('SELECT image_b64 FROM merchant_avatars WHERE token = ?').get(token)) as { image_b64: string } | undefined;
+  const row = (await db
+    .prepare('SELECT image_b64 FROM merchant_avatars WHERE token = ? UNION ALL SELECT image_b64 FROM provider_avatars WHERE token = ? LIMIT 1')
+    .get(token, token)) as { image_b64: string } | undefined;
   if (!row) return res.status(404).end();
   res.setHeader('Content-Type', 'image/jpeg');
   res.setHeader('Cache-Control', 'public, max-age=86400, immutable');

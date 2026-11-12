@@ -139,3 +139,51 @@ describe('Kuota Payments en el perfil Provider', () => {
     assert.ok(!r.body.access_token, 'no recibe sesión de la víctima');
   });
 });
+
+describe('Foto del proveedor', () => {
+  const jpeg = (size = 900) => 'data:image/jpeg;base64,' + Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(size, 5), Buffer.from([0xff, 0xd9])]).toString('base64');
+  const origin = () => base.replace('/api/v1', '');
+
+  test('un proveedor sin cuenta de cobros pone su foto y esta pasa a su cuenta de Emprendedor al abrirla', async () => {
+    resetRateLimits();
+    const prov = await providerOnly('20100041953', '984000333');
+    const device = 'provpay_device_00001';
+
+    // Sin sesión de proveedor no hay foto.
+    assert.equal((await call('PUT', '/providers/avatar', { image: jpeg() })).status, 401);
+    assert.equal((await call('PUT', '/providers/avatar', { image: jpeg() }, { ...prov, 'X-Provider-Token': 'A'.repeat(43) })).status, 401);
+    assert.equal((await call('PUT', '/providers/avatar', { image: 'data:image/png;base64,AAAA' }, prov)).status, 422);
+
+    const put = await call('PUT', '/providers/avatar', { image: jpeg() }, prov);
+    assert.equal(put.status, 200, JSON.stringify(put.body));
+    assert.equal((await call('GET', '/providers/me', undefined, prov)).body.avatar_url, put.body.avatar_url);
+    const img = await fetch(origin() + put.body.avatar_url);
+    assert.equal(img.status, 200);
+    assert.equal(img.headers.get('content-type'), 'image/jpeg');
+
+    // Al abrir Kuota Payments la foto viaja a su cuenta de cobros (una sola foto por persona).
+    resetRateLimits();
+    const s = await call('POST', '/providers/payments/session', { pin: PIN, device_id: device }, prov);
+    assert.equal(s.status, 201, JSON.stringify(s.body));
+    const hdr = { Authorization: `Bearer ${s.body.access_token}`, 'X-Device-Id': device, 'X-Merchant-Id': s.body.merchant_id };
+    const summary = await call('GET', '/merchants/me/welcome-summary', undefined, hdr);
+    assert.match(summary.body.business.avatar_url, /^\/api\/v1\/public\/avatar\/[a-f0-9]{32}$/);
+    assert.equal((await call('GET', '/providers/me', undefined, prov)).body.avatar_url, summary.body.business.avatar_url, 'misma foto en los dos perfiles');
+    assert.equal((await fetch(origin() + put.body.avatar_url)).status, 404, 'la foto anterior deja de existir');
+
+    // Cambiarla desde el panel de proveedor cambia la de la cuenta de cobros; quitarla la quita en los dos.
+    const put2 = await call('PUT', '/providers/avatar', { image: jpeg(1200) }, prov);
+    assert.equal((await call('GET', '/merchants/me/welcome-summary', undefined, hdr)).body.business.avatar_url, put2.body.avatar_url);
+    assert.equal((await call('DELETE', '/providers/avatar', undefined, prov)).body.avatar_url, null);
+    assert.equal((await call('GET', '/merchants/me/welcome-summary', undefined, hdr)).body.business.avatar_url, null);
+    assert.equal((await call('GET', '/providers/me', undefined, prov)).body.avatar_url, null);
+  });
+
+  test('los proveedores recomendados salen de la base de datos, no de una lista escrita a mano', async () => {
+    const r = await call('GET', '/providers/recommended');
+    assert.equal(r.status, 200);
+    assert.ok(Array.isArray(r.body));
+    assert.ok(!JSON.stringify(r.body).includes('Alicorp'), 'no se inventan empresas reales como socias');
+    for (const p of r.body) assert.ok('avatar_url' in p);
+  });
+});

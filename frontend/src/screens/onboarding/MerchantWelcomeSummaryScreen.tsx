@@ -208,8 +208,8 @@ export const MerchantWelcomeSummaryScreen: React.FC<MerchantWelcomeSummaryScreen
           </div>
         </div>
 
-        {/* Recommended Providers */}
-        <div className="space-y-2">
+        {/* Recommended Providers: solo proveedores reales registrados */}
+        <div className={providers.length > 0 ? 'space-y-2' : 'hidden'}>
           <div className="flex justify-between items-center text-xs font-bold text-[#0b2545]">
             <span>Proveedores recomendados para ti</span>
             <span className="text-[10px] text-[#1a3bb0]">Ver todos</span>

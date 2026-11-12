@@ -10,6 +10,10 @@ import { config } from '../security/config.js';
 import { audit } from '../security/audit.js';
 import { verifyPin } from '../security/crypto.js';
 import { checkCci } from '../security/cci.js';
+import { rateLimit } from '../security/guards.js';
+import { clientIp } from '../security/http.js';
+import { avatarUrl } from '../security/links.js';
+import { parseAvatar } from './merchant.routes.js';
 
 const sha256 = (v: string) => crypto.createHash('sha256').update(v).digest('hex');
 
@@ -681,6 +685,49 @@ providerRouter.get('/orders', async (req, res) => {
   });
 });
 
+// Token de la foto de un proveedor: la de su cuenta de cobros (Emprendedor) si la tiene; si no, la suya.
+const AVATAR_TOKEN_SQL = `SELECT COALESCE(
+  (SELECT a.token FROM merchant_avatars a JOIN merchant_profiles m ON m.id = a.merchant_id JOIN provider_profiles p ON p.user_id = m.user_id WHERE p.id = ?),
+  (SELECT token FROM provider_avatars WHERE provider_id = ?)
+) AS token`;
+
+const providerAvatarLimiter = rateLimit({ name: 'provider-avatar', windowMs: 3_600_000, max: 10, key: (req) => `${clientIp(req)}:${req.headers['x-provider-id'] ?? ''}` });
+
+// Foto del proveedor. Si ya tiene cuenta de cobros se guarda ahí (una sola foto por persona).
+providerRouter.put('/avatar', providerAvatarLimiter, async (req, res) => {
+  const id = await authProvider(req, res);
+  if (id === undefined) return;
+  if (!id) return res.status(401).json({ error: { code: 'PROVIDER_AUTH_REQUIRED', message: 'Inicia sesión para continuar.' } });
+  const parsed = parseAvatar(req.body?.image);
+  if (!parsed.ok) return res.status(422).json({ error: { code: 'AVATAR_INVALID', message: parsed.message } });
+  const token = crypto.randomBytes(16).toString('hex');
+  const merchant = (await db.prepare('SELECT m.id FROM provider_profiles p JOIN merchant_profiles m ON m.user_id = p.user_id WHERE p.id = ?').get(id)) as { id: string } | undefined;
+  if (merchant) {
+    await db
+      .prepare(`INSERT INTO merchant_avatars (merchant_id, token, image_b64, updated_at) VALUES (?, ?, ?, utc_now_text())
+                ON CONFLICT(merchant_id) DO UPDATE SET token = excluded.token, image_b64 = excluded.image_b64, updated_at = excluded.updated_at`)
+      .run(merchant.id, token, parsed.b64);
+    await db.prepare('DELETE FROM provider_avatars WHERE provider_id = ?').run(id);
+  } else {
+    await db
+      .prepare(`INSERT INTO provider_avatars (provider_id, token, image_b64, updated_at) VALUES (?, ?, ?, utc_now_text())
+                ON CONFLICT(provider_id) DO UPDATE SET token = excluded.token, image_b64 = excluded.image_b64, updated_at = excluded.updated_at`)
+      .run(id, token, parsed.b64);
+  }
+  await audit({ actorType: 'MERCHANT', actorId: id, action: 'AVATAR_UPDATE', result: 'OK', ip: clientIp(req), details: { role: 'PROVIDER' } });
+  res.json({ avatar_url: avatarUrl(token) });
+});
+
+providerRouter.delete('/avatar', async (req, res) => {
+  const id = await authProvider(req, res);
+  if (id === undefined) return;
+  if (!id) return res.status(401).json({ error: { code: 'PROVIDER_AUTH_REQUIRED', message: 'Inicia sesión para continuar.' } });
+  await db.prepare('DELETE FROM provider_avatars WHERE provider_id = ?').run(id);
+  await db.prepare('DELETE FROM merchant_avatars WHERE merchant_id IN (SELECT m.id FROM provider_profiles p JOIN merchant_profiles m ON m.user_id = p.user_id WHERE p.id = ?)').run(id);
+  await audit({ actorType: 'MERCHANT', actorId: id, action: 'AVATAR_REMOVE', result: 'OK', ip: clientIp(req), details: { role: 'PROVIDER' } });
+  res.json({ avatar_url: null });
+});
+
 // Panel del proveedor: su perfil (datos sensibles enmascarados). Exige X-Provider-Id + X-Provider-Token.
 providerRouter.get('/me', async (req, res) => {
   const id = await authProvider(req, res);
@@ -698,8 +745,10 @@ providerRouter.get('/me', async (req, res) => {
   ).get(id)) as Record<string, any> | undefined;
   if (!p) return res.status(404).json({ error: { code: 'PROVIDER_NOT_FOUND', message: 'Proveedor no encontrado.' } });
   const mask = (v: unknown, keep: number) => (typeof v === 'string' && v.length > keep ? '•'.repeat(v.length - keep) + v.slice(-keep) : v ?? null);
+  const av = (await db.prepare(AVATAR_TOKEN_SQL).get(id, id)) as { token: string | null } | undefined;
   res.json({
     id: p.id,
+    avatar_url: avatarUrl(av?.token),
     business_name: p.legal_name,
     ruc_masked: mask(p.ruc, 3),
     category: p.category,
@@ -745,42 +794,35 @@ providerRouter.post('/activate', async (req, res) => {
 });
 
 // PRD 04: Proveedores recomendados para comercios
-providerRouter.get('/recommended', (req, res) => {
-  res.json([
-    {
-      id: 'prov_donlucho',
-      name: 'Confecciones Don Lucho & Hnos.',
-      category: 'Textil e Insumos',
-      badge: 'Mayorista Verificado',
-      max_credit_cents: 120000,
-      zone: 'Gamarra, Lima',
-      rating: 4.9
-    },
-    {
-      id: 'prov_distlima',
-      name: 'Distribuidora Lima Mayorista',
-      category: 'Abarrotes y Alimentos',
-      badge: 'Top Proveedor',
-      max_credit_cents: 80000,
-      zone: 'Mercado Central, Lima',
-      rating: 4.8
-    },
-    {
-      id: 'prov_alicorp',
-      name: 'Alicorp Distribución Directa',
-      category: 'Insumos Alimentarios',
-      badge: 'Oficial',
-      max_credit_cents: 140000,
-      zone: 'Callao, Lima',
-      rating: 5.0
-    }
-  ]);
+// PRD 04: Proveedores recomendados para comercios. Antes era una lista escrita a mano con empresas reales
+// (p. ej. Alicorp "Oficial") que no tenían convenio con Kuota: ahora salen solo de los proveedores registrados.
+providerRouter.get('/recommended', async (_req, res) => {
+  const rows = (await db.prepare(`
+    SELECT pp.id, pp.legal_name AS name, pp.category, pp.approved_limit_cents, pl.city, pl.district,
+           (${AVATAR_TOKEN_SQL.replace(/\?/g, 'pp.id')}) AS avatar_token
+    FROM provider_profiles pp
+    LEFT JOIN provider_locations pl ON pl.provider_id = pp.id AND pl.is_primary = 1
+    WHERE pp.kyc_status = 'APPROVED'
+    ORDER BY pp.created_at ASC
+    LIMIT 3
+  `).all()) as any[];
+  res.json(rows.map((p) => ({
+    id: p.id,
+    name: p.name || 'Proveedor Kuota',
+    category: p.category || 'General',
+    badge: 'Verificado',
+    max_credit_cents: p.approved_limit_cents || 140000,
+    zone: [p.district, p.city].filter(Boolean).join(', ') || 'Lima',
+    rating: null,
+    avatar_url: avatarUrl(p.avatar_token)
+  })));
 });
 
 // P2P aKuotas: lista de proveedores afiliados desde la base de datos
 providerRouter.get('/affiliated', async (_req, res) => {
   const rows = await db.prepare(`
     SELECT pp.id, pp.legal_name AS name, pp.category, pp.fee_bps,
+           (${AVATAR_TOKEN_SQL.replace(/\?/g, 'pp.id')}) AS avatar_token,
            pp.approved_limit_cents AS max_order_cents,
            pl.address_line AS address, pl.district, pl.city,
            u.phone
@@ -804,6 +846,7 @@ providerRouter.get('/affiliated', async (_req, res) => {
     min_order_cents: 10000,
     max_order_cents: p.max_order_cents || 140000,
     rating: null,
-    reviews: 0
+    reviews: 0,
+    avatar_url: avatarUrl(p.avatar_token)
   })));
 });
