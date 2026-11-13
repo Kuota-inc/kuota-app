@@ -5,7 +5,7 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../../api/client';
 import {
   ShoppingBag, CheckCircle2, MapPin, AlertCircle, ArrowLeft,
-  Search, Star, ChevronRight, Package, ArrowRight, Check
+  Search, Star, ChevronRight, Package, ArrowRight, Check, QrCode
 } from 'lucide-react';
 import { useToast } from '../../components/toast-context';
 
@@ -225,15 +225,17 @@ export const BuyOnCreditScreen: React.FC<BuyOnCreditScreenProps> = ({ onBack }) 
     );
   }
 
-  // Step: Enter amount
+  // Step: Enter amount (estilo Yape)
   if (createStep === 'enter_amount' && selectedProvider) {
     const amountNum = parseFloat(amountInput) || 0;
     const amountCents = Math.round(amountNum * 100);
     const withinRange = amountCents >= selectedProvider.min_order_cents && amountCents <= selectedProvider.max_order_cents;
+    const canSimulate = amountNum > 0 && withinRange;
 
     return (
-      <div className="flex-1 p-4 space-y-3 bg-[#f9f9ff]">
-        <div className="flex items-center gap-2.5 pb-1">
+      <div className="flex-1 flex flex-col bg-[#f9f9ff]">
+        {/* Top bar */}
+        <div className="flex items-center gap-2.5 px-4 pt-4 pb-2">
           <button
             type="button"
             onClick={() => setCreateStep('select_provider')}
@@ -241,73 +243,61 @@ export const BuyOnCreditScreen: React.FC<BuyOnCreditScreenProps> = ({ onBack }) 
           >
             <ArrowLeft size={16} />
           </button>
-          <div>
-            <h1 className="text-base font-black text-[#0b2545] tracking-tight">Monto de compra</h1>
-            <p className="text-[10px] text-[#4a5f7e]">Paso 2 de 3 · Ingresa el monto total</p>
-          </div>
+          <span className="text-sm font-black text-[#0b2545]">Monto de compra</span>
         </div>
 
-        {/* Selected provider summary */}
-        <div className="p-3 bg-white rounded-2xl border border-blue-100 flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center text-[#1a3bb0] shrink-0">
-            <Package size={18} />
+        {/* Provider name centered */}
+        <div className="flex flex-col items-center pt-4 pb-2 px-4">
+          <div className="w-14 h-14 rounded-2xl bg-blue-50 flex items-center justify-center text-[#1a3bb0] mb-2 shadow-sm">
+            {selectedProvider.avatar_url
+              ? <Avatar url={selectedProvider.avatar_url} name={selectedProvider.name} size={56} rounded="rounded-2xl" />
+              : <Package size={26} />}
           </div>
-          <div className="flex-1 min-w-0">
-            <div className="text-xs font-black text-[#0b2545] truncate">{selectedProvider.name}</div>
-            <div className="text-[10px] text-[#4a5f7e]">{selectedProvider.zone}</div>
-          </div>
+          <span className="text-base font-black text-[#0b2545]">{selectedProvider.name}</span>
+          <span className="text-[10px] text-[#4a5f7e] mt-0.5">{selectedProvider.zone}</span>
         </div>
 
-        {/* Amount input */}
-        <div className="p-4 bg-white rounded-2xl border border-[#e1e8f8] space-y-3 shadow-sm">
-          <label className="text-xs font-bold text-[#0b2545] block">Monto total de la compra (S/)</label>
-          <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-lg font-black text-[#4a5f7e]">S/</span>
+        {/* Big amount center */}
+        <div className="flex flex-col items-center px-4 py-4">
+          <div className="flex items-baseline gap-1.5 mb-1">
+            <span className="text-xl font-black text-[#4a5f7e]">S/</span>
             <input
               type="number"
-              inputMode="decimal"
+              inputMode="numeric"
               value={amountInput}
               onChange={e => { setAmountInput(e.target.value); setSimulation(null); }}
-              placeholder="0.00"
-              className="w-full pl-10 pr-4 py-3 text-2xl font-black text-[#0b2545] bg-blue-50/50 border border-blue-100 rounded-xl focus:outline-none focus:border-[#1a3bb0]"
+              placeholder="0"
+              className="text-5xl font-black text-[#0b2545] bg-transparent border-none outline-none text-center w-48 placeholder:text-[#c5c5d6]"
             />
           </div>
-          <p className="text-[10px] text-[#4a5f7e]">
-            Rango permitido: S/ {(selectedProvider.min_order_cents / 100).toFixed(0)} – S/ {(selectedProvider.max_order_cents / 100).toFixed(0)}
+          <p className="text-[11px] text-[#4a5f7e]">
+            Rango: S/ {(selectedProvider.min_order_cents / 100).toFixed(0)} – S/ {(selectedProvider.max_order_cents / 100).toFixed(0)}
           </p>
+          {amountNum > 0 && !withinRange && (
+            <p className="text-[11px] text-red-500 font-bold mt-1">Monto fuera del rango permitido</p>
+          )}
         </div>
 
-        {/* Simulation result */}
+        {/* Simulation result — single card */}
         {simulation && (
-          <div className="p-3.5 bg-white rounded-2xl border border-blue-100 shadow-sm space-y-2.5">
-            <div className="text-[11px] font-black text-[#0b2545] uppercase tracking-wider">Desglose Plan Kuota 3X</div>
+          <div className="mx-4 p-4 bg-white rounded-3xl border border-blue-100 shadow-sm space-y-3">
+            <div className="text-center">
+              <span className="text-2xl font-black text-[#0b2545]">S/ {(simulation.purchase_cents / 100).toFixed(2)}</span>
+              <p className="text-[10px] text-[#4a5f7e] mt-0.5">Total de la compra</p>
+            </div>
             <div className="grid grid-cols-2 gap-2 text-xs">
-              <div className="p-2 bg-blue-50/50 rounded-xl">
-                <span className="text-[10px] text-[#4a5f7e]">Cuota inicial (50%)</span>
-                <div className="font-extrabold text-[#0b2545]">S/ {(simulation.down_payment_cents / 100).toFixed(2)}</div>
-                <span className="text-[10px] text-amber-700 font-bold">Pago al confirmar</span>
+              <div className="p-2.5 bg-amber-50 rounded-2xl border border-amber-100 text-center">
+                <div className="text-[10px] text-amber-700 font-bold">Cuota inicial (50%)</div>
+                <div className="font-extrabold text-amber-900">S/ {(simulation.down_payment_cents / 100).toFixed(2)}</div>
+                <div className="text-[9px] text-amber-600 mt-0.5">Pagas ahora al proveedor</div>
               </div>
-              <div className="p-2 bg-blue-50/50 rounded-xl">
-                <span className="text-[10px] text-[#4a5f7e]">Saldo financiado</span>
+              <div className="p-2.5 bg-blue-50 rounded-2xl border border-blue-100 text-center">
+                <div className="text-[10px] text-[#1a3bb0] font-bold">Saldo financiado</div>
                 <div className="font-extrabold text-[#1a3bb0]">S/ {(simulation.financed_cents / 100).toFixed(2)}</div>
-                <span className="text-[10px] text-[#4a5f7e]">en 3 cuotas quincenales</span>
+                <div className="text-[9px] text-[#4a5f7e] mt-0.5">en 3 cuotas quincenales</div>
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-2 text-xs">
-              <div className="p-2 bg-amber-50 rounded-xl border border-amber-100">
-                <span className="text-[10px] text-amber-700">Interés total</span>
-                <div className="font-extrabold text-amber-900">S/ {((simulation.interest_cents ?? 0) / 100).toFixed(2)}</div>
-              </div>
-              <div className="p-2 bg-amber-50 rounded-xl border border-amber-100">
-                <span className="text-[10px] text-amber-700">Total en cuotas</span>
-                <div className="font-extrabold text-amber-900">S/ {((simulation.total_repayment_cents ?? 0) / 100).toFixed(2)}</div>
-              </div>
-              <div className="p-2 bg-amber-50 rounded-xl border border-amber-100">
-                <span className="text-[10px] text-amber-700">TEA / TCEA</span>
-                <div className="font-extrabold text-amber-900">{simulation.tea_pct != null ? `${Number(simulation.tea_pct).toFixed(1)} %` : '—'}</div>
-              </div>
-            </div>
-            <div className="space-y-1 pt-1 border-t border-slate-100">
+            <div className="space-y-1 border-t border-slate-100 pt-2">
               {simulation.schedule.map((item: any) => (
                 <div key={item.number} className="flex justify-between items-center text-xs py-0.5">
                   <span className="text-[#4a5f7e]">Cuota {item.number} · {formatDay(item.due_date)}</span>
@@ -315,34 +305,39 @@ export const BuyOnCreditScreen: React.FC<BuyOnCreditScreenProps> = ({ onBack }) 
                 </div>
               ))}
             </div>
+            <div className="space-y-1 pt-1 border-t border-slate-100">
+              <div className="flex justify-between items-center px-1 py-1.5 bg-slate-50 rounded-xl text-xs">
+                <span className="text-[#4a5f7e]">Interés total</span>
+                <span className="font-bold text-[#0b2545]">S/ {((simulation.interest_cents ?? 0) / 100).toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between items-center px-1 py-1.5 bg-slate-50 rounded-xl text-xs">
+                <span className="text-[#4a5f7e]">Total en cuotas</span>
+                <span className="font-bold text-[#0b2545]">S/ {((simulation.total_repayment_cents ?? 0) / 100).toFixed(2)}</span>
+              </div>
+            </div>
           </div>
         )}
 
-        <div className="space-y-2 pt-1">
+        {/* Fixed bottom button */}
+        <div className="mt-auto px-4 pb-6 pt-4">
           {!simulation ? (
             <button
               type="button"
               onClick={handleSimulate}
-              disabled={!amountInput || amountNum <= 0 || loadingSim}
-              className="w-full py-3 bg-slate-100 hover:bg-slate-200 text-[#0b2545] rounded-2xl text-sm font-bold transition disabled:opacity-50 cursor-pointer"
+              disabled={!canSimulate || loadingSim}
+              className="w-full py-3.5 bg-[#1a3bb0] hover:bg-[#163299] text-white rounded-2xl text-sm font-black transition disabled:opacity-40 cursor-pointer"
             >
-              {loadingSim ? 'Calculando...' : 'Ver simulación de cuotas'}
+              {loadingSim ? 'Calculando...' : 'Ver simulación'}
             </button>
           ) : (
             <button
               type="button"
               onClick={() => setCreateStep('confirm')}
-              disabled={!withinRange}
-              className="w-full py-3 bg-[#1a3bb0] hover:bg-[#163299] text-white rounded-2xl text-sm font-bold transition disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
+              className="w-full py-3.5 bg-[#1a3bb0] hover:bg-[#163299] text-white rounded-2xl text-sm font-black transition cursor-pointer flex items-center justify-center gap-2"
             >
-              <span>Continuar a confirmación</span>
+              <span>Continuar</span>
               <ArrowRight size={16} />
             </button>
-          )}
-          {simulation && !withinRange && (
-            <p className="text-[10px] text-red-600 text-center font-bold">
-              El monto debe estar entre S/ {(selectedProvider.min_order_cents / 100).toFixed(0)} y S/ {(selectedProvider.max_order_cents / 100).toFixed(0)}
-            </p>
           )}
         </div>
       </div>
@@ -413,26 +408,12 @@ export const BuyOnCreditScreen: React.FC<BuyOnCreditScreenProps> = ({ onBack }) 
               <span className="text-[#4a5f7e]">Total a pagar en cuotas</span>
               <span className="font-bold text-[#0b2545]">S/ {((simulation.total_repayment_cents ?? 0) / 100).toFixed(2)}</span>
             </div>
-            {simulation.tea_pct != null && (
-              <div className="flex justify-between pb-1 mb-1 border-b border-slate-200">
-                <span className="text-[#4a5f7e]">TEA / TCEA (tasa efectiva anual)</span>
-                <span className="font-bold text-[#0b2545]">{Number(simulation.tea_pct).toFixed(1)} %</span>
-              </div>
-            )}
             {simulation.schedule.map((item: any) => (
               <div key={item.number} className="flex justify-between">
                 <span className="text-[#4a5f7e]">Cuota {item.number} · {formatDay(item.due_date)}</span>
                 <span className="font-bold text-[#0b2545]">S/ {(item.amount_cents / 100).toFixed(2)}</span>
               </div>
             ))}
-          </div>
-        </div>
-
-        <div className="p-3 bg-amber-50 rounded-2xl border border-amber-200 flex items-start gap-2 text-[11px] text-amber-900">
-          <AlertCircle size={15} className="text-amber-700 shrink-0 mt-0.5" />
-          <div>
-            <strong>Regla 3.2:</strong> Al confirmar, esta será tu única compra activa hasta saldar las 3 cuotas.
-            El proveedor recibirá el pago completo de S/ {(simulation.purchase_cents / 100).toFixed(2)} desde Kuota.
           </div>
         </div>
 
@@ -465,7 +446,7 @@ export const BuyOnCreditScreen: React.FC<BuyOnCreditScreenProps> = ({ onBack }) 
         <div className="text-center space-y-2">
           <h2 className="text-xl font-black text-[#0b2545]">¡Compra realizada!</h2>
           <p className="text-sm text-[#4a5f7e]">
-            Tu cuota inicial fue procesada. {selectedProvider?.name} recibirá el pago completo desde Kuota.
+            Tu cuota inicial fue entregada al proveedor. Las 3 cuotas restantes están activas.
           </p>
         </div>
         {simulation && (
@@ -637,7 +618,8 @@ export const BuyOnCreditScreen: React.FC<BuyOnCreditScreenProps> = ({ onBack }) 
           <div>
             <h2 className="text-base font-black text-[#0b2545]">¡Tu línea está lista!</h2>
             <p className="text-xs text-[#4a5f7e] mt-1">
-              No tienes compras activas. Busca un proveedor aliado de la red Kuota para comprar tu mercadería al crédito con 50% ahora y el resto en 3 cuotas.
+              Escanea el QR de tu proveedor para comprar al crédito: 50% ahora y el resto en 3 cuotas.
+              Solo puedes tener 1 compra activa a la vez.
             </p>
           </div>
           <button
@@ -645,8 +627,8 @@ export const BuyOnCreditScreen: React.FC<BuyOnCreditScreenProps> = ({ onBack }) 
             onClick={startNewPurchase}
             className="w-full py-3 bg-[#1a3bb0] hover:bg-[#163299] text-white rounded-2xl text-sm font-black transition cursor-pointer flex items-center justify-center gap-2 shadow-md"
           >
-            <Search size={16} />
-            <span>Buscar proveedor aliado</span>
+            <QrCode size={16} />
+            <span>Escanear QR del proveedor</span>
           </button>
         </div>
       )}

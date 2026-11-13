@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { FEE_PCT } from '../../config/fee';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../../api/client';
 import { AnimatedNumber } from '../../components/AnimatedNumber';
@@ -110,15 +109,6 @@ export const KuotearModal: React.FC<KuotearModalProps> = ({ isOpen, onClose, onN
 
             {activeTab === 'menu' ? (
               <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="text-xs font-black uppercase tracking-wider text-[#4a5f7e]">
-                    Selector de Operación: Comprar o Vender
-                  </div>
-                  <span className="text-[10px] text-[#1a3bb0] font-bold bg-blue-50 px-2 py-0.5 rounded-full">
-                    2 opciones
-                  </span>
-                </div>
-
                 {/* Option 1: Comprar al crédito */}
                 <motion.button
                   whileTap={{ scale: 0.97 }}
@@ -137,9 +127,6 @@ export const KuotearModal: React.FC<KuotearModalProps> = ({ isOpen, onClose, onN
                       <div className="flex items-center gap-1.5">
                         <span className="text-xs font-black text-[#0b2545] tracking-tight">
                           Comprar mercadería al crédito
-                        </span>
-                        <span className="text-[10px] font-black uppercase bg-blue-100 text-[#1a3bb0] px-1.5 py-0.2 rounded">
-                          Plan 3X
                         </span>
                       </div>
                       <div className="text-[11px] text-[#4a5f7e] mt-0.5 leading-snug">
@@ -170,9 +157,6 @@ export const KuotearModal: React.FC<KuotearModalProps> = ({ isOpen, onClose, onN
                       <div className="flex items-center gap-1.5">
                         <span className="text-xs font-black text-[#0b2545] tracking-tight">
                           Vender y cobrar a clientes
-                        </span>
-                        <span className="text-[10px] font-black uppercase bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded">
-                          Tarifa {FEE_PCT}%
                         </span>
                       </div>
                       <div className="text-[11px] text-[#4a5f7e] mt-0.5 leading-snug">
