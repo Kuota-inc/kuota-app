@@ -133,7 +133,7 @@ function AppShell() {
 
   const goTo = (screen: string) => {
     trackScreen(screen);
-    goTo(screen);
+    setCurrentScreen(screen);
   };
 
   useEffect(() => {
