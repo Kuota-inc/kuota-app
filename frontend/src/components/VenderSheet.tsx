@@ -29,8 +29,8 @@ export const VenderSheet: React.FC<{ onClose: () => void; onCobrar: () => void; 
               <p className="text-sm text-[#4a5f7e] mt-1 leading-snug">¿Qué canal deseas usar para concretar la venta de tu negocio?</p>
             </div>
 
-            <button type="button" onClick={() => setInfo(true)}
-              className="w-full text-left p-4 rounded-3xl bg-white border border-[#e1e8f8] shadow-sm space-y-3 active:scale-[0.99] transition cursor-pointer">
+            <div
+              className="w-full text-left p-4 rounded-3xl bg-white border border-[#e1e8f8] shadow-sm space-y-3 opacity-60 cursor-not-allowed">
               <span className="flex items-center justify-between gap-2">
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#e1e8f8] text-[#00248b] text-[11px] font-black"><BadgeCheck size={13} aria-hidden="true" /> Crédito a tus compradores</span>
                 <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 text-[10px] font-black">Próximamente</span>
@@ -43,7 +43,7 @@ export const VenderSheet: React.FC<{ onClose: () => void; onCobrar: () => void; 
                 </span>
                 <span className="w-8 h-8 rounded-full bg-[#e1e8f8] text-[#00248b] flex items-center justify-center shrink-0"><ChevronRight size={16} aria-hidden="true" /></span>
               </span>
-            </button>
+            </div>
 
             <button type="button" onClick={onCobrar}
               className="w-full text-left p-4 rounded-3xl bg-white border border-[#e1e8f8] shadow-sm space-y-3 active:scale-[0.99] transition cursor-pointer">

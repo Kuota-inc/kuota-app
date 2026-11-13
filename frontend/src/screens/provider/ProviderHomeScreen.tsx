@@ -404,7 +404,7 @@ export const ProviderHomeScreen: React.FC<{ onLogout: () => void; onSell: () => 
                         <Row label="Comisión Kuota (1 %, mín. S/ 4.50)" value={`-${soles(comBase)}`} />
                         <Row label="IGV sobre la comisión (18 %)" value={`-${soles(igv)}`} />
                         <div className="pt-2 border-t border-[#f0f4ff] flex justify-between text-sm font-black">
-                          <span>Monto facturado</span>
+                          <span>Monto abonado (neto)</span>
                           <span className="text-emerald-700">{soles(neto)}</span>
                         </div>
                       </div>

@@ -2,6 +2,11 @@
 <!-- Política de red de Kuota: solo HTTPS, solo certificados del sistema (no los instalados por el usuario)
      y certificados fijados (pinning) para el backend. -->
 <network-security-config>
+    <!-- Capacitor sirve la app desde http://localhost; debe permitirse cleartext solo ahí -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">localhost</domain>
+    </domain-config>
+
     <base-config cleartextTrafficPermitted="false">
         <trust-anchors>
             <certificates src="system" />
