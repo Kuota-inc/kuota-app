@@ -14,38 +14,38 @@ let initialized = false;
 
 export function initAnalytics() {
   if (initialized || !PH_KEY) return;
-  posthog.init(PH_KEY, {
-    api_host: PH_HOST,
-    capture_pageview: false,
-    capture_pageleave: false,
-    autocapture: false,
-    session_recording: { maskAllInputs: true, maskTextSelector: '*' },
-    persistence: 'memory', // sin localStorage — datos sensibles en Keystore, no en browser storage
-    disable_session_recording: true, // activar solo cuando legal lo valide
-  });
-  initialized = true;
+  try {
+    posthog.init(PH_KEY, {
+      api_host: PH_HOST,
+      capture_pageview: false,
+      capture_pageleave: false,
+      autocapture: false,
+      session_recording: { maskAllInputs: true, maskTextSelector: '*' },
+      persistence: 'memory',
+      disable_session_recording: true,
+    });
+    initialized = true;
+  } catch {
+    /* analytics nunca debe romper la app */
+  }
 }
 
-/** Llama al iniciar sesión (login o restaurar sesión). id = merchant_id o provider_id. */
 export function identifyUser(id: string, role: 'MERCHANT' | 'PROVIDER') {
   if (!initialized) return;
-  posthog.identify(id, { role });
+  try { posthog.identify(id, { role }); } catch { /* noop */ }
 }
 
-/** Llama al cerrar sesión. */
 export function resetUser() {
   if (!initialized) return;
-  posthog.reset();
+  try { posthog.reset(); } catch { /* noop */ }
 }
 
-/** Trackea una pantalla cuando el usuario la abre. */
 export function trackScreen(screen: string, props?: Record<string, unknown>) {
   if (!initialized) return;
-  posthog.capture('screen_view', { screen, ...props });
+  try { posthog.capture('screen_view', { screen, ...props }); } catch { /* noop */ }
 }
 
-/** Trackea cualquier evento de acción. */
 export function track(event: string, props?: Record<string, unknown>) {
   if (!initialized) return;
-  posthog.capture(event, props);
+  try { posthog.capture(event, props); } catch { /* noop */ }
 }

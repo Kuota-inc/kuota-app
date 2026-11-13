@@ -16,7 +16,12 @@ if (!APK) {
   process.exit(2);
 }
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'kuota-apk-'));
-execFileSync('unzip', ['-q', '-o', APK, '-d', tmp]);
+if (process.platform === 'win32') {
+  // jar xf works on Windows (JDK already required for Gradle)
+  execFileSync('jar', ['xf', APK], { cwd: tmp });
+} else {
+  execFileSync('unzip', ['-q', '-o', APK, '-d', tmp]);
+}
 
 const results = [];
 const SEV = { CRITICO: 4, ALTO: 3, MEDIO: 2, BAJO: 1, INFO: 0 };
