@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../../api/client';
+import { identifyUser } from '../../lib/analytics';
 import {
   Building2,
   CheckCircle2,
@@ -123,6 +124,7 @@ export const ProviderFiscalScreen: React.FC<ProviderFiscalScreenProps> = ({ sess
         whatsapp
       });
 
+      if (res.provider_id) identifyUser(res.provider_id, 'PROVIDER');
       onNext(res.request_id || 'PRV-89420-PE');
     } catch (err: any) {
       toast.error(err.message || 'Error al confirmar registro.');

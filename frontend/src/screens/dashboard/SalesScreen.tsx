@@ -5,6 +5,7 @@ import { useToast } from '../../components/toast-context';
 import { DialogPanel } from '../../components/DialogPanel';
 import { LoadState } from '../../components/LoadState';
 import { monthLabel } from '../../utils/dates';
+import { track } from '../../lib/analytics';
 
 export const SalesScreen: React.FC = () => {
   const toast = useToast();
@@ -57,7 +58,9 @@ export const SalesScreen: React.FC = () => {
     e.preventDefault();
     if (!manualAmount || parseFloat(manualAmount) <= 0) return;
     try {
-      await api.createManualSale(Math.round(parseFloat(manualAmount) * 100), manualConcept || 'Venta rápida');
+      const amountCents = Math.round(parseFloat(manualAmount) * 100);
+      await api.createManualSale(amountCents, manualConcept || 'Venta rápida');
+      track('manual_sale_recorded', { amount_cents: amountCents });
       setShowManualModal(false);
       setManualAmount('');
       setManualConcept('');

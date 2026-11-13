@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { apiRequest, setMerchantId, setMerchantToken, setProviderId, setProviderToken } from '../../api/client';
 import { deviceId } from '../../api/payments';
+import { identifyUser } from '../../lib/analytics';
 import { Capacitor } from '@capacitor/core';
 import {
   ArrowLeft,
@@ -111,10 +112,14 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, onBack }) =
         setMerchantId(null);
         setProviderId(res.provider_id);
         if (res.provider_token) setProviderToken(res.provider_token);
+        identifyUser(res.provider_id, 'PROVIDER');
         onSuccess('PROVIDER');
         return;
       }
-      if (res.merchant_id) setMerchantId(res.merchant_id);
+      if (res.merchant_id) {
+        setMerchantId(res.merchant_id);
+        identifyUser(res.merchant_id, 'MERCHANT');
+      }
       if (res.identity_token) setMerchantToken(res.identity_token);
       onSuccess(undefined, applyLoginProfiles(res));
     } catch (err: any) {
@@ -156,10 +161,14 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, onBack }) =
         setMerchantId(null);
         setProviderId(res.provider_id);
         if (res.provider_token) setProviderToken(res.provider_token);
+        identifyUser(res.provider_id, 'PROVIDER');
         onSuccess('PROVIDER');
         return;
       }
-      if (res.merchant_id) setMerchantId(res.merchant_id);
+      if (res.merchant_id) {
+        setMerchantId(res.merchant_id);
+        identifyUser(res.merchant_id, 'MERCHANT');
+      }
       if (res.identity_token) setMerchantToken(res.identity_token);
       onSuccess();
     } catch (err: any) {

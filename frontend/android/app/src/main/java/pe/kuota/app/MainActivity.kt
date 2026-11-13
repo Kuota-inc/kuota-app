@@ -3,6 +3,7 @@ package pe.kuota.app
 import android.os.Bundle
 import android.view.WindowManager
 import com.getcapacitor.BridgeActivity
+import com.posthog.android.PostHogAndroid
 
 class MainActivity : BridgeActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -11,6 +12,13 @@ class MainActivity : BridgeActivity() {
         registerPlugin(KuotaBiometricPlugin::class.java)
         registerPlugin(KuotaVaultPlugin::class.java)
         super.onCreate(savedInstanceState)
+
+        if (KuotaApplication.postHogReady) {
+            PostHogAndroid.getInstance().logger.info(
+                "native bridge ready",
+                mapOf("event" to "native_bridge_ready"),
+            )
+        }
     }
 
     // Al pasar a segundo plano se marca la ventana como segura: la miniatura de "apps recientes"
