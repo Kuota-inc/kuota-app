@@ -1,3 +1,4 @@
+import { track } from '../../lib/analytics';
 import { dueText, formatDay } from '../../utils/dates';
 import { Avatar } from '../../components/Avatar';
 import React, { useState, useEffect, Suspense } from 'react';
@@ -51,6 +52,7 @@ export const BuyOnCreditScreen: React.FC<BuyOnCreditScreenProps> = ({ onBack }) 
   }, []);
 
   const startNewPurchase = () => {
+    track('buy_qr_scan_opened');
     setCreateStep('scan_qr');
     setSelectedProvider(null);
     setAmountInput('');
@@ -62,13 +64,16 @@ export const BuyOnCreditScreen: React.FC<BuyOnCreditScreenProps> = ({ onBack }) 
     try {
       const prov = await api.getProviderByQr(text);
       setSelectedProvider(prov);
+      track('buy_qr_scan_success', { provider_id: prov.id });
       setCreateStep('enter_amount');
     } catch {
+      track('buy_qr_scan_failed');
       toast.error('QR no reconocido. Usa la búsqueda por nombre.');
     }
   };
 
   const openSearchSheet = async () => {
+    track('buy_search_sheet_opened');
     setShowSearchSheet(true);
     if (providers.length === 0) {
       setLoadingProviders(true);
@@ -113,6 +118,7 @@ export const BuyOnCreditScreen: React.FC<BuyOnCreditScreenProps> = ({ onBack }) 
         total_cents: simulation.purchase_cents,
         installments: 3
       });
+      track('buy_purchase_confirmed', { provider_id: selectedProvider.id, total_cents: simulation.purchase_cents });
       setCreateStep('success');
     } catch (err: any) {
       toast.error(err.message || 'Error al crear la compra');

@@ -24,6 +24,7 @@ import { ToastProvider, ToastViewport } from './components/Toast';
 import { PinPromptHost, PinPromptProvider } from './components/PinPrompt';
 import { ensurePaymentsAccountForProvider, forgetSession, isCancelled, logout as logoutPayments, unlockWithPin } from './api/payments';
 import { RotateCcw, Store, Building2, KeyRound, UserCircle } from 'lucide-react';
+import { identifyUser, initAnalytics, resetUser, trackScreen } from './lib/analytics';
 
 // Pantallas que no son la inicial se cargan bajo demanda (bundle inicial más liviano).
 const ProviderHomeScreen = lazy(() => import('./screens/provider/ProviderHomeScreen').then((m) => ({ default: m.ProviderHomeScreen })));
@@ -130,18 +131,32 @@ function AppShell() {
   const [pinOrigin, setPinOrigin] = useState<'MERCHANT' | 'PROVIDER'>('MERCHANT');
   const device = useDeviceMode();
 
+  const goTo = (screen: string) => {
+    trackScreen(screen);
+    goTo(screen);
+  };
+
+  useEffect(() => {
+    initAnalytics();
+    const mid = getMerchantId();
+    const pid = getProviderId();
+    if (mid) identifyUser(mid, 'MERCHANT');
+    else if (pid) identifyUser(pid, 'PROVIDER');
+  }, []);
+
   // Handle Role selection from Welcome Screen (PRD 01)
   const handleSelectRole = (role: 'MERCHANT' | 'PROVIDER', newSessionId: string) => {
     setSessionId(newSessionId);
     if (role === 'MERCHANT') {
-      setCurrentScreen('onboarding_merchant_identity');
+      goTo('onboarding_merchant_identity');
     } else {
-      setCurrentScreen('onboarding_provider_fiscal');
+      goTo('onboarding_provider_fiscal');
     }
   };
 
   // Cerrar sesión: revoca la sesión de cobros (PIN) en el servidor y vuelve al registro.
   const handleLogout = () => {
+    resetUser();
     void logoutPayments().catch(() => {});
     if (getProviderId()) void apiRequest('/providers/logout', { method: 'POST' }).catch(() => {});
     setMerchantId(null);
@@ -160,7 +175,7 @@ function AppShell() {
     }
     setLocked(false);
     writeFlag(ONBOARDED_KEY, false);
-    setCurrentScreen('welcome');
+    goTo('welcome');
     setActiveTab('inicio');
   };
 
@@ -174,7 +189,7 @@ function AppShell() {
     } catch {
       /* si no se puede consultar, el servidor igual bloquea la venta */
     }
-    setCurrentScreen('dashboard');
+    goTo('dashboard');
     setActiveTab('cobros');
   };
 
@@ -185,7 +200,7 @@ function AppShell() {
       setActiveProfile(p);
       setSellFromProvider(false);
       setActiveTab('inicio');
-      setCurrentScreen(p === 'PROVIDER' ? 'provider_home' : 'dashboard');
+      goTo(p === 'PROVIDER' ? 'provider_home' : 'dashboard');
     };
     const onAddRuc = () => setSellFlow('add_ruc_profile');
     window.addEventListener(SWITCH_EVENT, onSwitch);
@@ -236,7 +251,7 @@ function AppShell() {
         setActiveProfile('EMPRENDEDOR');
         setSellFromProvider(false);
         setActiveTab('inicio');
-        setCurrentScreen('dashboard');
+        goTo('dashboard');
         toastRef.current.error('Tu perfil Proveedor se cerró. Inicia sesión otra vez con tu PIN para usarlo.');
         return;
       }
@@ -253,58 +268,58 @@ function AppShell() {
     switch (currentScreen) {
       // Merchant flow steps
       case 'login':
-        setCurrentScreen('welcome');
+        goTo('welcome');
         break;
       case 'onboarding_merchant_identity':
-        setCurrentScreen('welcome');
+        goTo('welcome');
         break;
       case 'onboarding_merchant_validating':
-        setCurrentScreen('onboarding_merchant_identity');
+        goTo('onboarding_merchant_identity');
         break;
       case 'onboarding_merchant_activity':
-        setCurrentScreen('onboarding_merchant_identity');
+        goTo('onboarding_merchant_identity');
         break;
       case 'onboarding_merchant_products':
-        setCurrentScreen('onboarding_merchant_activity');
+        goTo('onboarding_merchant_activity');
         break;
       case 'onboarding_merchant_summary':
-        setCurrentScreen('onboarding_merchant_products');
+        goTo('onboarding_merchant_products');
         break;
 
       // Provider flow steps
       case 'onboarding_provider_fiscal':
-        setCurrentScreen('welcome');
+        goTo('welcome');
         break;
       case 'onboarding_provider_validating':
-        setCurrentScreen('onboarding_provider_fiscal');
+        goTo('onboarding_provider_fiscal');
         break;
       case 'onboarding_provider_activity':
-        setCurrentScreen('onboarding_provider_fiscal');
+        goTo('onboarding_provider_fiscal');
         break;
       case 'onboarding_provider_gps':
-        setCurrentScreen('onboarding_provider_activity');
+        goTo('onboarding_provider_activity');
         break;
       case 'onboarding_provider_notifications':
-        setCurrentScreen('onboarding_provider_gps');
+        goTo('onboarding_provider_gps');
         break;
       case 'onboarding_provider_savings':
-        setCurrentScreen('onboarding_provider_notifications');
+        goTo('onboarding_provider_notifications');
         break;
       case 'onboarding_security_pin':
         if (pinOrigin === 'PROVIDER') {
-          setCurrentScreen('onboarding_provider_savings');
+          goTo('onboarding_provider_savings');
         } else {
-          setCurrentScreen('onboarding_merchant_summary');
+          goTo('onboarding_merchant_summary');
         }
         break;
 
       case 'profile':
-        setCurrentScreen('dashboard');
+        goTo('dashboard');
         setActiveTab('inicio');
         break;
 
       default:
-        setCurrentScreen('welcome');
+        goTo('welcome');
     }
   };
 
@@ -323,15 +338,15 @@ function AppShell() {
       } else if (showBack) {
         handleBack();
       } else if (currentScreen === 'login') {
-        setCurrentScreen('welcome');
+        goTo('welcome');
       } else if (currentScreen === 'welcome' || currentScreen === 'provider_home') {
         NativeApp.exitApp();
       } else if (sellFromProvider) {
         setSellFromProvider(false);
         setActiveTab('inicio');
-        setCurrentScreen('provider_home');
+        goTo('provider_home');
       } else if (currentScreen !== 'dashboard' || activeTab !== 'inicio') {
-        setCurrentScreen('dashboard');
+        goTo('dashboard');
         setActiveTab('inicio');
       } else {
         NativeApp.exitApp();
@@ -436,7 +451,7 @@ function AppShell() {
 
   // Reset to initial screen
   const handleReset = () => {
-    setCurrentScreen('welcome');
+    goTo('welcome');
     setActiveTab('inicio');
     setIsKuotearOpen(false);
   };
@@ -445,7 +460,7 @@ function AppShell() {
   const renderScreen = () => {
     switch (currentScreen) {
       case 'welcome':
-        return <WelcomeScreen onSelectRole={handleSelectRole} onLogin={() => setCurrentScreen('login')} onSessionResolved={setSessionId} />;
+        return <WelcomeScreen onSelectRole={handleSelectRole} onLogin={() => goTo('login')} onSessionResolved={setSessionId} />;
 
       case 'provider_home':
         return (
@@ -473,15 +488,15 @@ function AppShell() {
               writeFlag(ONBOARDED_KEY, true);
               if (profiles && profiles.length > 1) {
                 // Dos perfiles: el modal de elección va antes de cualquier pantalla de inicio.
-                setCurrentScreen('dashboard');
+                goTo('dashboard');
                 setChooser(true);
                 return;
               }
               const p: ProfileKind = role === 'PROVIDER' ? 'PROVIDER' : 'EMPRENDEDOR';
               setActiveProfile(p);
-              setCurrentScreen(p === 'PROVIDER' ? 'provider_home' : 'dashboard');
+              goTo(p === 'PROVIDER' ? 'provider_home' : 'dashboard');
             }}
-            onBack={() => setCurrentScreen('welcome')}
+            onBack={() => goTo('welcome')}
           />
         );
 
@@ -492,7 +507,7 @@ function AppShell() {
             sessionId={sessionId}
             onNext={(reqId) => {
               setMerchantRequestId(reqId);
-              setCurrentScreen('onboarding_merchant_validating');
+              goTo('onboarding_merchant_validating');
             }}
           />
         );
@@ -500,21 +515,21 @@ function AppShell() {
         return (
           <MerchantValidatingScreen
             requestId={merchantRequestId}
-            onNext={() => setCurrentScreen('onboarding_merchant_activity')}
+            onNext={() => goTo('onboarding_merchant_activity')}
           />
         );
       case 'onboarding_merchant_activity':
         return (
           <MerchantActivityScreen
             sessionId={sessionId}
-            onNext={() => setCurrentScreen('onboarding_merchant_products')}
+            onNext={() => goTo('onboarding_merchant_products')}
           />
         );
       case 'onboarding_merchant_products':
         return (
           <MerchantProductsScreen
             sessionId={sessionId}
-            onNext={() => setCurrentScreen('onboarding_merchant_summary')}
+            onNext={() => goTo('onboarding_merchant_summary')}
           />
         );
       case 'onboarding_merchant_summary':
@@ -524,9 +539,9 @@ function AppShell() {
             onGoToDashboard={() => {
               setPinOrigin('MERCHANT');
               setPinInitialStep('create');
-              setCurrentScreen('onboarding_security_pin');
+              goTo('onboarding_security_pin');
             }}
-            onGoToLogin={() => setCurrentScreen('login')}
+            onGoToLogin={() => goTo('login')}
           />
         );
 
@@ -540,14 +555,14 @@ function AppShell() {
             initialStep={pinInitialStep}
             onComplete={() => {
               writeFlag(ONBOARDED_KEY, true);
-              setCurrentScreen('dashboard');
+              goTo('dashboard');
               setActiveTab('inicio');
             }}
             onBack={() => {
               if (pinOrigin === 'PROVIDER') {
-                setCurrentScreen('onboarding_provider_savings');
+                goTo('onboarding_provider_savings');
               } else {
-                setCurrentScreen('onboarding_merchant_summary');
+                goTo('onboarding_merchant_summary');
               }
             }}
           />
@@ -560,7 +575,7 @@ function AppShell() {
             sessionId={sessionId}
             onNext={(reqId) => {
               setProviderRequestId(reqId);
-              setCurrentScreen('onboarding_provider_validating');
+              goTo('onboarding_provider_validating');
             }}
           />
         );
@@ -568,25 +583,25 @@ function AppShell() {
         return (
           <ProviderValidatingScreen
             requestId={providerRequestId}
-            onNext={() => setCurrentScreen('onboarding_provider_activity')}
+            onNext={() => goTo('onboarding_provider_activity')}
           />
         );
       case 'onboarding_provider_activity':
         return (
           <ProviderActivityScreen
-            onNext={() => setCurrentScreen('onboarding_provider_gps')}
+            onNext={() => goTo('onboarding_provider_gps')}
           />
         );
       case 'onboarding_provider_gps':
         return (
           <ProviderGpsScreen
-            onNext={() => setCurrentScreen('onboarding_provider_notifications')}
+            onNext={() => goTo('onboarding_provider_notifications')}
           />
         );
       case 'onboarding_provider_notifications':
         return (
           <ProviderNotificationsScreen
-            onNext={() => setCurrentScreen('onboarding_provider_savings')}
+            onNext={() => goTo('onboarding_provider_savings')}
           />
         );
       case 'onboarding_provider_savings':
@@ -595,7 +610,7 @@ function AppShell() {
             onFinish={() => {
               setPinOrigin('PROVIDER');
               setPinInitialStep('create');
-              setCurrentScreen('onboarding_security_pin');
+              goTo('onboarding_security_pin');
             }}
           />
         );
@@ -605,7 +620,7 @@ function AppShell() {
         return (
           <ProfileScreen
             onBack={() => {
-              setCurrentScreen('dashboard');
+              goTo('dashboard');
               setActiveTab('inicio');
             }}
             onLogout={handleLogout}
@@ -621,12 +636,12 @@ function AppShell() {
           return (
             <BuyOnCreditScreen
               onBack={() => {
-                setCurrentScreen('dashboard');
+                goTo('dashboard');
                 setActiveTab('inicio');
               }}
               onNavigateTab={(tab) => {
                 setSellFromProvider(false);
-                setCurrentScreen('dashboard');
+                goTo('dashboard');
                 setActiveTab(tab);
               }}
             />
@@ -640,10 +655,10 @@ function AppShell() {
                 if (sellFromProvider) {
                   setSellFromProvider(false);
                   setActiveTab('inicio');
-                  setCurrentScreen('provider_home');
+                  goTo('provider_home');
                   return;
                 }
-                setCurrentScreen('dashboard');
+                goTo('dashboard');
                 setActiveTab('inicio');
               }}
               onNavigateTab={(tab) => {
@@ -651,10 +666,10 @@ function AppShell() {
                   // Vendiendo como Provider no se sale al Emprendedor: se vuelve a su panel.
                   setSellFromProvider(false);
                   setActiveTab('inicio');
-                  setCurrentScreen('provider_home');
+                  goTo('provider_home');
                   return;
                 }
-                setCurrentScreen('dashboard');
+                goTo('dashboard');
                 setActiveTab(tab);
               }}
             />
@@ -673,7 +688,7 @@ function AppShell() {
           return (
             <ProfileScreen
               onBack={() => {
-                setCurrentScreen('dashboard');
+                goTo('dashboard');
                 setActiveTab('inicio');
               }}
               onLogout={handleLogout}
@@ -684,14 +699,14 @@ function AppShell() {
           return (
             <HomeScreen
               onNavigateTab={(tab) => {
-                setCurrentScreen('dashboard');
+                goTo('dashboard');
                 setActiveTab(tab);
               }}
               onOpenKuotear={() => setIsKuotearOpen(true)}
               onOpenNotifications={() => setIsNotificationsOpen(true)}
               notificationsSeen={notificationsSeen}
               onOpenProfile={() => {
-                setCurrentScreen('dashboard');
+                goTo('dashboard');
                 setActiveTab('perfil');
               }}
             />
@@ -700,14 +715,14 @@ function AppShell() {
         return (
           <HomeScreen
             onNavigateTab={(tab) => {
-              setCurrentScreen('dashboard');
+              goTo('dashboard');
               setActiveTab(tab);
             }}
             onOpenKuotear={() => setIsKuotearOpen(true)}
             onOpenNotifications={() => setIsNotificationsOpen(true)}
             notificationsSeen={notificationsSeen}
             onOpenProfile={() => {
-              setCurrentScreen('dashboard');
+              goTo('dashboard');
               setActiveTab('perfil');
             }}
           />
@@ -721,7 +736,7 @@ function AppShell() {
       <div className="relative">
         <PhoneSimulator
           currentScreenKey={currentScreen}
-          onNavigate={(key) => setCurrentScreen(key)}
+          onNavigate={(key) => goTo(key)}
           activeTab={activeTab}
           onTabChange={(tab) => {
             if (tab === 'kuotear') {
@@ -729,7 +744,7 @@ function AppShell() {
             } else if (tab === 'cobros') {
               void requestSell();
             } else {
-              setCurrentScreen('dashboard');
+              goTo('dashboard');
               setActiveTab(tab);
             }
           }}
@@ -813,7 +828,7 @@ function AppShell() {
                 setChooser(false);
                 setActiveProfile(p);
                 setActiveTab('inicio');
-                setCurrentScreen(p === 'PROVIDER' ? 'provider_home' : 'dashboard');
+                goTo(p === 'PROVIDER' ? 'provider_home' : 'dashboard');
               }}
               onLogout={handleLogout}
             />
@@ -843,7 +858,7 @@ function AppShell() {
               onActivated={() => {
                 setSellFlow(null);
                 appToast.success('Kuota Payments activado.');
-                setCurrentScreen('dashboard');
+                goTo('dashboard');
                 setActiveTab('cobros');
               }}
             />
@@ -883,7 +898,7 @@ function AppShell() {
           </div>
           <div className="grid grid-cols-2 gap-1.5 text-xs">
             <button
-              onClick={() => setCurrentScreen('welcome')}
+              onClick={() => goTo('welcome')}
               className={`p-2 rounded-xl text-left font-medium transition ${
                 currentScreen === 'welcome' ? 'bg-[#1a3bb0] text-white font-bold' : 'bg-slate-700/60 hover:bg-slate-700 text-slate-300'
               }`}
@@ -891,7 +906,7 @@ function AppShell() {
               01 · Bienvenida / Perfil
             </button>
             <button
-              onClick={() => setCurrentScreen('onboarding_merchant_identity')}
+              onClick={() => goTo('onboarding_merchant_identity')}
               className={`p-2 rounded-xl text-left font-medium transition flex items-center justify-between ${
                 currentScreen === 'onboarding_merchant_identity' ? 'bg-[#1a3bb0] text-white font-bold' : 'bg-slate-700/60 hover:bg-slate-700 text-slate-300'
               }`}
@@ -900,7 +915,7 @@ function AppShell() {
               <span className="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
             </button>
             <button
-              onClick={() => setCurrentScreen('onboarding_merchant_validating')}
+              onClick={() => goTo('onboarding_merchant_validating')}
               className={`p-2 rounded-xl text-left font-medium transition flex items-center justify-between ${
                 currentScreen === 'onboarding_merchant_validating' ? 'bg-[#1a3bb0] text-white font-bold' : 'bg-slate-700/60 hover:bg-slate-700 text-slate-300'
               }`}
@@ -909,7 +924,7 @@ function AppShell() {
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
             </button>
             <button
-              onClick={() => setCurrentScreen('onboarding_merchant_activity')}
+              onClick={() => goTo('onboarding_merchant_activity')}
               className={`p-2 rounded-xl text-left font-medium transition ${
                 currentScreen === 'onboarding_merchant_activity' ? 'bg-[#1a3bb0] text-white font-bold' : 'bg-slate-700/60 hover:bg-slate-700 text-slate-300'
               }`}
@@ -917,7 +932,7 @@ function AppShell() {
               02 · Actividad Comercial
             </button>
             <button
-              onClick={() => setCurrentScreen('onboarding_merchant_products')}
+              onClick={() => goTo('onboarding_merchant_products')}
               className={`p-2 rounded-xl text-left font-medium transition ${
                 currentScreen === 'onboarding_merchant_products' ? 'bg-[#1a3bb0] text-white font-bold' : 'bg-slate-700/60 hover:bg-slate-700 text-slate-300'
               }`}
@@ -925,7 +940,7 @@ function AppShell() {
               03 · Añadir Productos
             </button>
             <button
-              onClick={() => setCurrentScreen('onboarding_merchant_summary')}
+              onClick={() => goTo('onboarding_merchant_summary')}
               className={`p-2 rounded-xl text-left font-medium transition ${
                 currentScreen === 'onboarding_merchant_summary' ? 'bg-[#1a3bb0] text-white font-bold' : 'bg-slate-700/60 hover:bg-slate-700 text-slate-300'
               }`}
@@ -934,7 +949,7 @@ function AppShell() {
             </button>
             <button
               onClick={() => {
-                setCurrentScreen('dashboard');
+                goTo('dashboard');
                 setActiveTab('inicio');
               }}
               className={`p-2 rounded-xl text-left font-medium transition ${
@@ -945,7 +960,7 @@ function AppShell() {
             </button>
             <button
               onClick={() => {
-                setCurrentScreen('dashboard');
+                goTo('dashboard');
                 setActiveTab('ventas');
               }}
               className={`p-2 rounded-xl text-left font-medium transition ${
@@ -956,7 +971,7 @@ function AppShell() {
             </button>
             <button
               onClick={() => {
-                setCurrentScreen('dashboard');
+                goTo('dashboard');
                 setIsKuotearOpen(true);
               }}
               className={`p-2 rounded-xl text-left font-medium transition ${
@@ -967,7 +982,7 @@ function AppShell() {
             </button>
             <button
               onClick={() => {
-                setCurrentScreen('dashboard');
+                goTo('dashboard');
                 setActiveTab('cobros');
               }}
               className={`p-2 rounded-xl text-left font-medium transition ${
@@ -978,7 +993,7 @@ function AppShell() {
             </button>
             <button
               onClick={() => {
-                setCurrentScreen('dashboard');
+                goTo('dashboard');
                 setActiveTab('comprar_credito');
               }}
               className={`p-2 rounded-xl text-left font-medium transition ${
@@ -989,7 +1004,7 @@ function AppShell() {
             </button>
             <button
               onClick={() => {
-                setCurrentScreen('dashboard');
+                goTo('dashboard');
                 setActiveTab('credito');
               }}
               className={`p-2 rounded-xl text-left font-medium transition ${
@@ -1009,7 +1024,7 @@ function AppShell() {
           </div>
           <div className="grid grid-cols-2 gap-1.5 text-xs">
             <button
-              onClick={() => setCurrentScreen('onboarding_provider_fiscal')}
+              onClick={() => goTo('onboarding_provider_fiscal')}
               className={`p-2 rounded-xl text-left font-medium transition flex items-center justify-between ${
                 currentScreen === 'onboarding_provider_fiscal' ? 'bg-emerald-600 text-white font-bold' : 'bg-slate-700/60 hover:bg-slate-700 text-slate-300'
               }`}
@@ -1018,7 +1033,7 @@ function AppShell() {
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
             </button>
             <button
-              onClick={() => setCurrentScreen('onboarding_provider_validating')}
+              onClick={() => goTo('onboarding_provider_validating')}
               className={`p-2 rounded-xl text-left font-medium transition ${
                 currentScreen === 'onboarding_provider_validating' ? 'bg-emerald-600 text-white font-bold' : 'bg-slate-700/60 hover:bg-slate-700 text-slate-300'
               }`}
@@ -1026,7 +1041,7 @@ function AppShell() {
               12 · Validando Datos (KYC)
             </button>
             <button
-              onClick={() => setCurrentScreen('onboarding_provider_activity')}
+              onClick={() => goTo('onboarding_provider_activity')}
               className={`p-2 rounded-xl text-left font-medium transition ${
                 currentScreen === 'onboarding_provider_activity' ? 'bg-emerald-600 text-white font-bold' : 'bg-slate-700/60 hover:bg-slate-700 text-slate-300'
               }`}
@@ -1034,7 +1049,7 @@ function AppShell() {
               13 · Actividad Comercial
             </button>
             <button
-              onClick={() => setCurrentScreen('onboarding_provider_gps')}
+              onClick={() => goTo('onboarding_provider_gps')}
               className={`p-2 rounded-xl text-left font-medium transition ${
                 currentScreen === 'onboarding_provider_gps' ? 'bg-emerald-600 text-white font-bold' : 'bg-slate-700/60 hover:bg-slate-700 text-slate-300'
               }`}
@@ -1042,7 +1057,7 @@ function AppShell() {
               14 · Confirmación GPS
             </button>
             <button
-              onClick={() => setCurrentScreen('onboarding_provider_notifications')}
+              onClick={() => goTo('onboarding_provider_notifications')}
               className={`p-2 rounded-xl text-left font-medium transition ${
                 currentScreen === 'onboarding_provider_notifications' ? 'bg-emerald-600 text-white font-bold' : 'bg-slate-700/60 hover:bg-slate-700 text-slate-300'
               }`}
@@ -1050,7 +1065,7 @@ function AppShell() {
               15 · Notificaciones (Preview)
             </button>
             <button
-              onClick={() => setCurrentScreen('onboarding_provider_savings')}
+              onClick={() => goTo('onboarding_provider_savings')}
               className={`p-2 rounded-xl text-left font-medium transition ${
                 currentScreen === 'onboarding_provider_savings' ? 'bg-emerald-600 text-white font-bold' : 'bg-slate-700/60 hover:bg-slate-700 text-slate-300'
               }`}
@@ -1070,7 +1085,7 @@ function AppShell() {
             <button
               onClick={() => {
                 setPinInitialStep('create');
-                setCurrentScreen('onboarding_security_pin');
+                goTo('onboarding_security_pin');
               }}
               className={`p-2 rounded-xl text-left font-medium transition flex items-center justify-between ${
                 currentScreen === 'onboarding_security_pin' && pinInitialStep === 'create'
@@ -1084,7 +1099,7 @@ function AppShell() {
             <button
               onClick={() => {
                 setPinInitialStep('confirm');
-                setCurrentScreen('onboarding_security_pin');
+                goTo('onboarding_security_pin');
               }}
               className={`p-2 rounded-xl text-left font-medium transition flex items-center justify-between ${
                 currentScreen === 'onboarding_security_pin' && pinInitialStep === 'confirm'
@@ -1106,7 +1121,7 @@ function AppShell() {
           </div>
           <button
             onClick={() => {
-              setCurrentScreen('dashboard');
+              goTo('dashboard');
               setActiveTab('perfil');
             }}
             className={`w-full p-2.5 rounded-xl text-left font-medium transition flex items-center justify-between text-xs ${

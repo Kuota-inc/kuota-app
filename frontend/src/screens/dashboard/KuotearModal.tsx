@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { track } from '../../lib/analytics';
 import { api } from '../../api/client';
 import { AnimatedNumber } from '../../components/AnimatedNumber';
 import { X, ShoppingBag, QrCode, Calculator, ArrowRight } from 'lucide-react';
@@ -114,6 +115,7 @@ export const KuotearModal: React.FC<KuotearModalProps> = ({ isOpen, onClose, onN
                   whileTap={{ scale: 0.97 }}
                   whileHover={{ y: -2 }}
                   onClick={() => {
+                    track('kuotear_buy_tapped');
                     onClose();
                     onNavigateTo('buy_on_credit');
                   }}
@@ -144,6 +146,7 @@ export const KuotearModal: React.FC<KuotearModalProps> = ({ isOpen, onClose, onN
                   whileTap={{ scale: 0.97 }}
                   whileHover={{ y: -2 }}
                   onClick={() => {
+                    track('kuotear_sell_tapped');
                     onClose();
                     onNavigateTo('payment_link');
                   }}
