@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { api } from '../../api/client';
+import { identifyUser } from '../../lib/analytics';
 import { AnimatedNumber } from '../../components/AnimatedNumber';
 import { CheckCircle2, Sparkles, ArrowRight, Store } from 'lucide-react';
 
@@ -27,6 +28,7 @@ export const MerchantWelcomeSummaryScreen: React.FC<MerchantWelcomeSummaryScreen
       .completeOnboarding(sessionId, {})
       .then((res) => {
         if (!alive) return;
+        if (res.merchant_id) identifyUser(res.merchant_id, 'MERCHANT');
         // Sin resumen real no se muestra el de otro negocio de ejemplo: se informa el error.
         if (!res.welcome_summary) throw new Error('No pudimos cargar el resumen de tu cuenta. Inténtalo de nuevo.');
         setData(res.welcome_summary);

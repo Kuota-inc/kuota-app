@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { api } from '../../api/client';
+import { track } from '../../lib/analytics';
 import {
   Sparkles,
   ArrowRight,
@@ -128,6 +129,7 @@ export const MerchantActivityScreen: React.FC<MerchantActivityScreenProps> = ({ 
         seniority_range: seniority,
         business_name: businessName.trim()
       });
+      track('merchant_activity_saved', { category, seniority_range: seniority });
       onNext();
     } catch (err: any) {
       toast.error(err.message || 'Error al guardar la actividad');

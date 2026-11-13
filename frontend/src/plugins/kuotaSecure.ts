@@ -3,11 +3,29 @@ import { Capacitor, registerPlugin } from '@capacitor/core';
 
 interface KuotaSecurePlugin {
   setSecure(options: { enabled: boolean }): Promise<void>;
+  identifyAnalytics(options: { distinctId: string; role: 'MERCHANT' | 'PROVIDER' }): Promise<void>;
+  resetAnalytics(): Promise<void>;
 }
 
 const KuotaSecure = registerPlugin<KuotaSecurePlugin>('KuotaSecure', {
-  web: { setSecure: async () => {} }
+  web: {
+    setSecure: async () => {},
+    identifyAnalytics: async () => {},
+    resetAnalytics: async () => {},
+  }
 });
+
+/** Mantiene los errores y eventos nativos asociados al mismo id opaco que el WebView. */
+export function identifyNativeAnalytics(distinctId: string, role: 'MERCHANT' | 'PROVIDER') {
+  if (!Capacitor.isNativePlatform()) return;
+  void KuotaSecure.identifyAnalytics({ distinctId, role }).catch(() => {});
+}
+
+/** Separa la siguiente sesión nativa de la persona que acaba de cerrar sesión. */
+export function resetNativeAnalytics() {
+  if (!Capacitor.isNativePlatform()) return;
+  void KuotaSecure.resetAnalytics().catch(() => {});
+}
 
 // Contador: la captura queda bloqueada mientras haya al menos una pantalla sensible visible.
 let active = 0;

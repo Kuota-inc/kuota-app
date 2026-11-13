@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { api } from '../../api/client';
+import { track } from '../../lib/analytics';
 import {
   ArrowRight,
   Check,
@@ -59,6 +60,7 @@ export const ProviderActivityScreen: React.FC<ProviderActivityScreenProps> = ({ 
     setSaving(true);
     try {
       await api.saveProviderActivity({ category, seniority_range: seniority });
+      track('provider_activity_saved', { category, seniority_range: seniority });
       onNext();
     } catch (err: any) {
       toast.error(err.message || 'Error al guardar actividad');

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { api } from '../../api/client';
+import { track } from '../../lib/analytics';
 import { Plus, Trash2, ArrowRight, Sparkles, CheckCircle } from 'lucide-react';
 import { useToast } from '../../components/toast-context';
 
@@ -51,6 +52,10 @@ export const MerchantProductsScreen: React.FC<MerchantProductsScreenProps> = ({ 
         }));
 
       await api.saveProducts(sessionId, validPayload);
+      track('merchant_catalog_saved', {
+        product_count: validPayload.length,
+        frequent_product_count: validPayload.filter((product) => product.is_frequent).length
+      });
       onNext();
     } catch (err: any) {
       toast.error(err.message || 'Error al guardar productos');

@@ -133,7 +133,7 @@ function AppShell() {
 
   const goTo = (screen: string) => {
     trackScreen(screen);
-    goTo(screen);
+    setCurrentScreen(screen);
   };
 
   useEffect(() => {
@@ -485,6 +485,10 @@ function AppShell() {
         return (
           <LoginScreen
             onSuccess={(role, profiles) => {
+              const merchantId = getMerchantId();
+              const providerId = getProviderId();
+              if (merchantId) identifyUser(merchantId, 'MERCHANT');
+              else if (providerId) identifyUser(providerId, 'PROVIDER');
               writeFlag(ONBOARDED_KEY, true);
               if (profiles && profiles.length > 1) {
                 // Dos perfiles: el modal de elección va antes de cualquier pantalla de inicio.
