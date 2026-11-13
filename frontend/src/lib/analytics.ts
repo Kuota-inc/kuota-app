@@ -6,6 +6,7 @@
  *  - Los montos viajan como enteros en centavos (no string con coma).
  */
 import posthog from 'posthog-js';
+import { identifyNativeAnalyticsUser, resetNativeAnalyticsUser } from '../plugins/kuotaSecure';
 
 const PH_KEY = import.meta.env.VITE_POSTHOG_KEY as string | undefined;
 const PH_HOST = (import.meta.env.VITE_POSTHOG_HOST as string | undefined) ?? 'https://us.i.posthog.com';
@@ -26,16 +27,17 @@ export function initAnalytics() {
   initialized = true;
 }
 
-/** Llama al iniciar sesión (login o restaurar sesión). id = merchant_id o provider_id. */
+/** Llama al iniciar sesión, registro o restaurar sesión. id = merchant_id o provider_id. */
 export function identifyUser(id: string, role: 'MERCHANT' | 'PROVIDER') {
-  if (!initialized) return;
-  posthog.identify(id, { role });
+  if (!id) return;
+  if (initialized) posthog.identify(id, { role });
+  identifyNativeAnalyticsUser(id, role);
 }
 
 /** Llama al cerrar sesión. */
 export function resetUser() {
-  if (!initialized) return;
-  posthog.reset();
+  if (initialized) posthog.reset();
+  resetNativeAnalyticsUser();
 }
 
 /** Trackea una pantalla cuando el usuario la abre. */

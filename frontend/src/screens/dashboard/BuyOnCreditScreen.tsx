@@ -138,6 +138,7 @@ export const BuyOnCreditScreen: React.FC<BuyOnCreditScreenProps> = ({ onBack }) 
     setPaying(true);
     try {
       await api.payInstallment(installmentId);
+      track('credit_installment_paid', { installment_id: installmentId });
       toast.success('¡Cuota pagada con éxito! Tu línea disponible se ha recargado.');
       loadData();
     } catch (err: any) {
@@ -151,6 +152,7 @@ export const BuyOnCreditScreen: React.FC<BuyOnCreditScreenProps> = ({ onBack }) 
     if (!confirm('¿Deseas liquidar anticipadamente toda la compra? Se liberará la Regla 3.2 para comprar nuevamente.')) return;
     try {
       await api.settlePurchase(purchaseId);
+      track('credit_purchase_settled', { purchase_id: purchaseId });
       toast.success('¡Compra liquidada con éxito! Has desbloqueado una nueva compra.');
       loadData();
     } catch (err: any) {

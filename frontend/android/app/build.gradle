@@ -1,6 +1,13 @@
 apply plugin: 'com.android.application'
 apply plugin: 'kotlin-android'
 
+// .env.android is used by Vite's Android mode and is intentionally untracked.
+def posthogEnv = new Properties()
+def posthogEnvFile = rootProject.file('../.env.android')
+if (posthogEnvFile.exists()) posthogEnv.load(new FileInputStream(posthogEnvFile))
+def posthogProjectToken = System.getenv('VITE_POSTHOG_KEY') ?: posthogEnv.getProperty('VITE_POSTHOG_KEY', '')
+def posthogHost = System.getenv('VITE_POSTHOG_HOST') ?: posthogEnv.getProperty('VITE_POSTHOG_HOST', '')
+
 android {
     namespace = "pe.kuota.app"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -11,12 +18,18 @@ android {
         versionCode 5
         versionName "1.3"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField "String", "POSTHOG_PROJECT_TOKEN", "\"${posthogProjectToken}\""
+        buildConfigField "String", "POSTHOG_HOST", "\"${posthogHost}\""
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
              // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    buildFeatures {
+        buildConfig true
+    }
+
     // Firma de release: android/keystore.properties (NO se versiona) con storeFile, storePassword, keyAlias, keyPassword.
     def ksFile = rootProject.file('keystore.properties')
     def ks = new Properties()
@@ -55,6 +68,7 @@ dependencies {
     implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
     implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
     implementation "androidx.biometric:biometric:1.1.0"
+    implementation 'com.posthog:posthog-android:3.+'
     implementation project(':capacitor-android')
     testImplementation "junit:junit:$junitVersion"
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
