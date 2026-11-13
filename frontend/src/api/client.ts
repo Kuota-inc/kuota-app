@@ -1,15 +1,9 @@
 import { deviceId } from './payments';
 import { vaultGet, vaultSet } from '../services/secureVault';
 
-// URL del backend: VITE_API_BASE (p. ej. la IP de la PC en la red Wi-Fi para el APK,
-// ver .env.android). Sin ella, el backend de desarrollo en el mismo host que sirvió la
-// página: así la página de pago abierta en otro celular (http://<ip-pc>:5173/pay/…)
-// llega al backend de la PC y no a su propio localhost.
-function defaultApiBase(): string {
-  const host = typeof window !== 'undefined' ? window.location.hostname : '';
-  return `http://${host && /^[\w.-]+$/.test(host) ? host : 'localhost'}:3001/api/v1`;
-}
-export const API_BASE = ((import.meta.env.VITE_API_BASE as string | undefined) || defaultApiBase()).replace(/\/+$/, '');
+// URL del backend: VITE_API_BASE o Railway en producción.
+// Para desarrollo local: VITE_API_BASE=http://<ip-pc>:3001/api/v1 en .env.local
+export const API_BASE = ((import.meta.env.VITE_API_BASE as string | undefined) || 'https://kuota-app-production.up.railway.app/api/v1').replace(/\/+$/, '');
 /** Origen del backend (sin /api/v1): sirve las páginas legales y el Libro de Reclamaciones. */
 export const API_ORIGIN = (() => {
   try {
