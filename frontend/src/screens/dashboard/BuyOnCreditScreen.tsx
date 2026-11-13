@@ -1,11 +1,13 @@
 import { dueText, formatDay } from '../../utils/dates';
 import { Avatar } from '../../components/Avatar';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
+
+const QrScannerModal = React.lazy(() => import('../../components/QrScannerModal').then(m => ({ default: m.QrScannerModal })));
 
 import { api } from '../../api/client';
 import {
   ShoppingBag, CheckCircle2, MapPin, AlertCircle, ArrowLeft,
-  Search, Star, ChevronRight, Package, ArrowRight, Check, QrCode
+  Search, Star, ChevronRight, Package, ArrowRight, Check, QrCode, ScanLine
 } from 'lucide-react';
 import { useToast } from '../../components/toast-context';
 
@@ -14,7 +16,7 @@ interface BuyOnCreditScreenProps {
   onNavigateTab: (tab: string) => void;
 }
 
-type CreateStep = 'select_provider' | 'enter_amount' | 'confirm' | 'success';
+type CreateStep = 'scan_qr' | 'select_provider' | 'enter_amount' | 'confirm' | 'success';
 
 export const BuyOnCreditScreen: React.FC<BuyOnCreditScreenProps> = ({ onBack }) => {
   const toast = useToast();
@@ -32,6 +34,7 @@ export const BuyOnCreditScreen: React.FC<BuyOnCreditScreenProps> = ({ onBack }) 
   const [loadingSim, setLoadingSim] = useState(false);
   const [creating, setCreating] = useState(false);
   const [paying, setPaying] = useState<boolean>(false);
+  const [showSearchSheet, setShowSearchSheet] = useState(false);
 
   const loadData = () => {
     setLoading(true);
@@ -47,20 +50,37 @@ export const BuyOnCreditScreen: React.FC<BuyOnCreditScreenProps> = ({ onBack }) 
     loadData();
   }, []);
 
-  const startNewPurchase = async () => {
-    setLoadingProviders(true);
-    try {
-      const list = await api.getAffiliatedProviders();
-      setProviders(list);
-    } catch {
-      toast.error('No se pudieron cargar los proveedores aliados.');
-    } finally {
-      setLoadingProviders(false);
-    }
-    setCreateStep('select_provider');
+  const startNewPurchase = () => {
+    setCreateStep('scan_qr');
     setSelectedProvider(null);
     setAmountInput('');
     setSimulation(null);
+    setShowSearchSheet(false);
+  };
+
+  const handleQrResult = async (text: string) => {
+    try {
+      const prov = await api.getProviderByQr(text);
+      setSelectedProvider(prov);
+      setCreateStep('enter_amount');
+    } catch {
+      toast.error('QR no reconocido. Usa la búsqueda por nombre.');
+    }
+  };
+
+  const openSearchSheet = async () => {
+    setShowSearchSheet(true);
+    if (providers.length === 0) {
+      setLoadingProviders(true);
+      try {
+        const list = await api.getAffiliatedProviders();
+        setProviders(list);
+      } catch {
+        toast.error('No se pudieron cargar los proveedores aliados.');
+      } finally {
+        setLoadingProviders(false);
+      }
+    }
   };
 
   const handleSelectProvider = (prov: any) => {
@@ -142,7 +162,89 @@ export const BuyOnCreditScreen: React.FC<BuyOnCreditScreenProps> = ({ onBack }) 
 
   // ── CREATION FLOW ─────────────────────────────────────────────────────────
 
-  // Step: Select provider
+  // Step: Scan QR
+  if (createStep === 'scan_qr') {
+    const filtered = providers.filter(p =>
+      p.name.toLowerCase().includes(providerSearch.toLowerCase()) ||
+      p.category.toLowerCase().includes(providerSearch.toLowerCase())
+    );
+    return (
+      <div className="flex-1 relative bg-black">
+        <Suspense fallback={
+          <div className="flex-1 flex items-center justify-center bg-black">
+            <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin" />
+          </div>
+        }>
+          <QrScannerModal
+            title="Escanea el QR del proveedor"
+            hint="Apunta la cámara al QR del proveedor aliado Kuota."
+            onResult={handleQrResult}
+            onClose={() => setCreateStep(null)}
+          />
+        </Suspense>
+
+        {/* Lupa — abre búsqueda por nombre */}
+        <button
+          type="button"
+          onClick={openSearchSheet}
+          aria-label="Buscar por nombre"
+          className="absolute top-4 right-16 w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-white z-[70] cursor-pointer"
+        >
+          <Search size={18} aria-hidden="true" />
+        </button>
+
+        {/* Search bottom sheet */}
+        {showSearchSheet && (
+          <div className="absolute inset-0 z-[72] flex flex-col justify-end bg-black/50">
+            <div className="bg-[#f9f9ff] rounded-t-[28px] p-4 space-y-3 max-h-[75vh] flex flex-col">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-black text-[#0b2545]">Buscar proveedor</span>
+                <button type="button" onClick={() => setShowSearchSheet(false)} className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center cursor-pointer">
+                  <ArrowLeft size={16} className="text-[#1a3bb0]" />
+                </button>
+              </div>
+              <div className="relative">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#4a5f7e]" />
+                <input
+                  type="text"
+                  value={providerSearch}
+                  onChange={e => setProviderSearch(e.target.value)}
+                  placeholder="Nombre o categoría..."
+                  autoFocus
+                  className="w-full pl-9 pr-3 py-2.5 text-xs bg-white border border-[#e1e8f8] rounded-xl focus:outline-none focus:border-[#1a3bb0] text-[#0b2545]"
+                />
+              </div>
+              <div className="overflow-y-auto space-y-2 flex-1">
+                {loadingProviders ? (
+                  <div className="flex justify-center py-6">
+                    <div className="w-6 h-6 border-2 border-[#1a3bb0] border-t-transparent rounded-full animate-spin" />
+                  </div>
+                ) : filtered.map(prov => (
+                  <button
+                    key={prov.id}
+                    type="button"
+                    onClick={() => { setSelectedProvider(prov); setCreateStep('enter_amount'); setShowSearchSheet(false); }}
+                    className="w-full p-3 bg-white rounded-2xl border border-[#e1e8f8] hover:border-[#1a3bb0] flex items-center gap-3 text-left transition cursor-pointer shadow-sm"
+                  >
+                    <div className="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center text-[#1a3bb0] shrink-0">
+                      <Package size={18} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs font-black text-[#0b2545] truncate">{prov.name}</div>
+                      <div className="text-[10px] text-[#4a5f7e]">{prov.category} · {prov.zone}</div>
+                    </div>
+                    <ChevronRight size={14} className="text-[#4a5f7e] shrink-0" />
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Step: Select provider (kept for direct access fallback)
   if (createStep === 'select_provider') {
     const filtered = providers.filter(p =>
       p.name.toLowerCase().includes(providerSearch.toLowerCase()) ||

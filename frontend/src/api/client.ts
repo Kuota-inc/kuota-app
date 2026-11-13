@@ -382,6 +382,7 @@ export const api = {
   activateProvider: () => apiRequest('/providers/activate', { method: 'POST' }),
   getRecommendedProviders: () => apiRequest('/providers/recommended'),
   getAffiliatedProviders: () => apiRequest('/providers/affiliated'),
+  getProviderByQr: (code: string) => apiRequest(`/providers/by-qr?code=${encodeURIComponent(code)}`),
   createPurchase: (data: { provider_id: string; total_cents: number; installments?: number }) =>
     apiRequest('/credit/purchases', {
       method: 'POST',

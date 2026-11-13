@@ -4,7 +4,12 @@ import jsQR from 'jsqr';
 import { useDialog } from '../hooks/useDialog';
 
 /** Lector de QR con la cámara trasera. Devuelve el texto del primer QR legible; no envía nada a ningún servidor. */
-export const QrScannerModal: React.FC<{ onResult: (text: string) => void; onClose: () => void }> = ({ onResult, onClose }) => {
+export const QrScannerModal: React.FC<{
+  onResult: (text: string) => void;
+  onClose: () => void;
+  title?: string;
+  hint?: string;
+}> = ({ onResult, onClose, title, hint }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const sheetRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
@@ -58,7 +63,7 @@ export const QrScannerModal: React.FC<{ onResult: (text: string) => void; onClos
     <div className="fixed inset-0 z-[68] bg-black flex flex-col" role="dialog" aria-modal="true" aria-label="Escanear código QR">
       <div ref={sheetRef} className="flex-1 flex flex-col">
         <div className="flex items-center justify-between p-4 text-white">
-          <p className="font-black text-base flex items-center gap-2"><ScanLine size={18} aria-hidden="true" /> Escanea el QR de cobro</p>
+          <p className="font-black text-base flex items-center gap-2"><ScanLine size={18} aria-hidden="true" /> {title ?? 'Escanea el QR de cobro'}</p>
           <button type="button" onClick={onClose} aria-label="Cerrar" className="w-10 h-10 rounded-full bg-white/15 flex items-center justify-center cursor-pointer">
             <X size={18} aria-hidden="true" />
           </button>
@@ -68,7 +73,7 @@ export const QrScannerModal: React.FC<{ onResult: (text: string) => void; onClos
           <div className="relative w-64 h-64 rounded-3xl border-4 border-white/90 shadow-[0_0_0_999px_rgba(0,0,0,0.55)]" />
         </div>
         <p className="p-5 text-center text-sm text-white/90 min-h-[72px]">
-          {error ?? 'Apunta la cámara al código QR del cobro. Verás los datos antes de pagar.'}
+          {error ?? (hint ?? 'Apunta la cámara al código QR del cobro. Verás los datos antes de pagar.')}
         </p>
       </div>
     </div>
