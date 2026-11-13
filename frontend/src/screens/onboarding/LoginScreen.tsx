@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { apiRequest, setMerchantId, setMerchantToken, setProviderId, setProviderToken } from '../../api/client';
 import { deviceId } from '../../api/payments';
 import { Capacitor } from '@capacitor/core';
+import { capturePostHog, identifyPostHog } from '../../plugins/kuotaSecure';
 import {
   ArrowLeft,
   ArrowRight,
@@ -111,10 +112,16 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, onBack }) =
         setMerchantId(null);
         setProviderId(res.provider_id);
         if (res.provider_token) setProviderToken(res.provider_token);
+        identifyPostHog(res.provider_id, 'provider');
+        capturePostHog('login_completed', { account_type: 'provider', auth_flow: 'pin' });
         onSuccess('PROVIDER');
         return;
       }
-      if (res.merchant_id) setMerchantId(res.merchant_id);
+      if (res.merchant_id) {
+        setMerchantId(res.merchant_id);
+        identifyPostHog(res.merchant_id, 'merchant');
+        capturePostHog('login_completed', { account_type: 'merchant', auth_flow: 'pin' });
+      }
       if (res.identity_token) setMerchantToken(res.identity_token);
       onSuccess(undefined, applyLoginProfiles(res));
     } catch (err: any) {
@@ -156,10 +163,16 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, onBack }) =
         setMerchantId(null);
         setProviderId(res.provider_id);
         if (res.provider_token) setProviderToken(res.provider_token);
+        identifyPostHog(res.provider_id, 'provider');
+        capturePostHog('login_completed', { account_type: 'provider', auth_flow: 'pin_recovery' });
         onSuccess('PROVIDER');
         return;
       }
-      if (res.merchant_id) setMerchantId(res.merchant_id);
+      if (res.merchant_id) {
+        setMerchantId(res.merchant_id);
+        identifyPostHog(res.merchant_id, 'merchant');
+        capturePostHog('login_completed', { account_type: 'merchant', auth_flow: 'pin_recovery' });
+      }
       if (res.identity_token) setMerchantToken(res.identity_token);
       onSuccess();
     } catch (err: any) {

@@ -5,6 +5,7 @@ import { availableProfiles, PROFILE_META, profilesApi, setActiveProfile, type Pr
 import { setProviderId, setProviderToken } from '../api/client';
 import { useDialog } from '../hooks/useDialog';
 import { useToast } from './toast-context';
+import { identifyPostHog } from '../plugins/kuotaSecure';
 
 export const SWITCH_EVENT = 'kuota:switch-profile';
 export const ADD_RUC_EVENT = 'kuota:add-ruc';
@@ -38,6 +39,7 @@ export const ProfileSwitcher: React.FC<{ active: ProfileKind }> = ({ active }) =
       const r = await profilesApi.createProvider();
       setProviderId(r.provider_id);
       setProviderToken(r.provider_token);
+      identifyPostHog(r.provider_id, 'provider');
       toast.success('Tu perfil Proveedor está listo.');
       doSwitch('PROVIDER');
     } catch (e) {

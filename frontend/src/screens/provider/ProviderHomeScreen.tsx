@@ -11,6 +11,7 @@ import { PhotoSourceSheet } from '../../components/PhotoSourceSheet';
 import { photoToAvatar } from '../../utils/image';
 import { biometricPinAvailable, pinFromBiometric } from '../../services/biometricPin';
 import { useToast } from '../../components/toast-context';
+import { capturePostHog } from '../../plugins/kuotaSecure';
 
 interface ProviderProfile {
   id: string;
@@ -147,6 +148,7 @@ export const ProviderHomeScreen: React.FC<{ onLogout: () => void; onSell: () => 
     setSettSaving(true);
     try {
       const res = await api.saveSettlementAccount({ bank: settBank, cci: settCci, pin: settPin });
+      capturePostHog('settlement_account_saved', { account_action: profile?.settlement ? 'updated' : 'created' });
       setProfile((p) => (p ? { ...p, settlement: { bank: res.bank, account_masked: res.account_masked } } : p));
       setShowSettForm(false);
       setSettCci('');

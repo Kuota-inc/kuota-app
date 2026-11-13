@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../../api/client';
+import { capturePostHog, identifyPostHog } from '../../plugins/kuotaSecure';
 import {
   Building2,
   CheckCircle2,
@@ -123,6 +124,10 @@ export const ProviderFiscalScreen: React.FC<ProviderFiscalScreenProps> = ({ sess
         whatsapp
       });
 
+      if (res.provider_id) {
+        identifyPostHog(res.provider_id, 'provider');
+        capturePostHog('provider_onboarding_completed', { account_type: 'provider' });
+      }
       onNext(res.request_id || 'PRV-89420-PE');
     } catch (err: any) {
       toast.error(err.message || 'Error al confirmar registro.');

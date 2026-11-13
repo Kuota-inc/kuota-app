@@ -11,6 +11,7 @@ import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
 import com.getcapacitor.PluginMethod
 import com.getcapacitor.annotation.CapacitorPlugin
+import com.posthog.android.PostHogAndroid
 
 @CapacitorPlugin(name = "KuotaNotifications")
 class KuotaNotificationsPlugin : Plugin() {
@@ -41,6 +42,12 @@ class KuotaNotificationsPlugin : Plugin() {
     @PluginMethod
     fun checkPermission(call: PluginCall) {
         val granted = isListenerEnabled()
+        runCatching {
+            PostHogAndroid.getInstance().logger.info(
+                "notification listener permission checked",
+                mapOf("granted" to granted)
+            )
+        }
         val result = JSObject().put("granted", granted)
         call.resolve(result)
     }
@@ -50,6 +57,12 @@ class KuotaNotificationsPlugin : Plugin() {
         val intent = Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
         intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
         activity.startActivity(intent)
+        runCatching {
+            PostHogAndroid.getInstance().logger.info(
+                "notification listener settings opened",
+                mapOf("settings" to "notification_listener")
+            )
+        }
         call.resolve()
     }
 

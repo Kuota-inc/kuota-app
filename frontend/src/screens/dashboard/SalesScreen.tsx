@@ -5,6 +5,7 @@ import { useToast } from '../../components/toast-context';
 import { DialogPanel } from '../../components/DialogPanel';
 import { LoadState } from '../../components/LoadState';
 import { monthLabel } from '../../utils/dates';
+import { capturePostHog } from '../../plugins/kuotaSecure';
 
 export const SalesScreen: React.FC = () => {
   const toast = useToast();
@@ -58,6 +59,7 @@ export const SalesScreen: React.FC = () => {
     if (!manualAmount || parseFloat(manualAmount) <= 0) return;
     try {
       await api.createManualSale(Math.round(parseFloat(manualAmount) * 100), manualConcept || 'Venta rápida');
+      capturePostHog('manual_sale_registered', { sale_source: 'manual' });
       setShowManualModal(false);
       setManualAmount('');
       setManualConcept('');

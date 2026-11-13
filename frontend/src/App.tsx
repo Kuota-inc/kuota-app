@@ -2,7 +2,7 @@ import React, { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { App as NativeApp } from '@capacitor/app';
 import { KuotaBiometric } from './plugins/kuotaBiometric';
-import { useSecureScreen } from './plugins/kuotaSecure';
+import { resetPostHog, useSecureScreen } from './plugins/kuotaSecure';
 import { useToast } from './components/toast-context';
 import { HelpFab } from './components/HelpFab';
 import { ProfileChooser } from './components/ProfileChooser';
@@ -142,6 +142,7 @@ function AppShell() {
 
   // Cerrar sesión: revoca la sesión de cobros (PIN) en el servidor y vuelve al registro.
   const handleLogout = () => {
+    resetPostHog();
     void logoutPayments().catch(() => {});
     if (getProviderId()) void apiRequest('/providers/logout', { method: 'POST' }).catch(() => {});
     setMerchantId(null);

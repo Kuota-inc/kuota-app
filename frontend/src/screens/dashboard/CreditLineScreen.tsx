@@ -8,6 +8,7 @@ import { useToast } from '../../components/toast-context';
 import { DialogPanel } from '../../components/DialogPanel';
 import { LoadState } from '../../components/LoadState';
 import { dueText } from '../../utils/dates';
+import { capturePostHog } from '../../plugins/kuotaSecure';
 
 const DEFAULT_LEVELS = [
   { level: 1, name: 'Brote', down_payment_pct: 50, max_line_cents: 140000 },
@@ -54,6 +55,7 @@ export const CreditLineScreen: React.FC<CreditLineScreenProps> = ({ onViewInstal
     setPaying(true);
     try {
       await api.payInstallment(instId);
+      capturePostHog('installment_payment_completed', { payment_surface: 'credit_line' });
       toast.success('¡Pago procesado y línea recargada!');
       loadData();
     } catch (err: any) {
