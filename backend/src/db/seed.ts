@@ -230,6 +230,7 @@ export async function seedData() {
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `);
   await insertProv.run('prov_donlucho', 'usr_donlucho', '20519482711', 'Confecciones Don Lucho & Hnos. S.A.C.', 'TEXTILES', 'GT_3Y', 'APPROVED', 100);
+  await db.prepare(`UPDATE provider_profiles SET qr_code = ? WHERE id = ?`).run('KUOTA-PROV-DONLUCHO-01', 'prov_donlucho');
 
   const insertProvLoc = db.prepare(`
     INSERT INTO provider_locations (id, provider_id, is_primary, lat, lng, source, address_line, district, city)

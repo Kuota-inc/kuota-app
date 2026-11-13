@@ -850,3 +850,40 @@ providerRouter.get('/affiliated', async (_req, res) => {
     avatar_url: avatarUrl(p.avatar_token)
   })));
 });
+
+// Resuelve un código QR escaneado al proveedor correspondiente
+providerRouter.get('/by-qr', async (req, res) => {
+  const code = typeof req.query.code === 'string' ? req.query.code.trim() : '';
+  if (!code) return res.status(400).json({ error: { code: 'QR_CODE_REQUIRED', message: 'Falta el código QR.' } });
+
+  const p = await db.prepare(`
+    SELECT pp.id, pp.legal_name AS name, pp.category, pp.fee_bps,
+           (${AVATAR_TOKEN_SQL.replace(/\?/g, 'pp.id')}) AS avatar_token,
+           pp.approved_limit_cents AS max_order_cents,
+           pl.address_line AS address, pl.district, pl.city,
+           u.phone
+    FROM provider_profiles pp
+    LEFT JOIN provider_locations pl ON pl.provider_id = pp.id AND pl.is_primary = 1
+    LEFT JOIN users u ON u.id = pp.user_id
+    WHERE pp.qr_code = ? AND pp.kyc_status IN ('APPROVED', 'IN_REVIEW')
+  `).get(code) as any;
+
+  if (!p) return res.status(404).json({ error: { code: 'QR_NOT_FOUND', message: 'QR no reconocido o proveedor inactivo.' } });
+
+  res.json({
+    id: p.id,
+    name: p.name || 'Proveedor Kuota',
+    category: p.category || 'General',
+    description: 'Proveedor registrado en Kuota.',
+    badge: 'Verificado',
+    address: p.address || p.district || 'Lima',
+    district: p.district || 'Lima',
+    zone: p.city || 'Lima',
+    phone: p.phone || '',
+    min_order_cents: 10000,
+    max_order_cents: p.max_order_cents || 140000,
+    rating: null,
+    reviews: 0,
+    avatar_url: avatarUrl(p.avatar_token)
+  });
+});
