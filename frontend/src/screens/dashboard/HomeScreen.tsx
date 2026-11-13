@@ -7,6 +7,7 @@ import { useToast } from '../../components/toast-context';
 import { ProfileSwitcher } from '../../components/ProfileSwitcher';
 import { LoadState } from '../../components/LoadState';
 import { dueText } from '../../utils/dates';
+import { capturePostHog } from '../../plugins/kuotaSecure';
 
 interface HomeScreenProps {
   onNavigateTab: (tab: string) => void;
@@ -63,6 +64,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateTab, onOpenPro
     setPaying(true);
     try {
       await api.payInstallment(installmentId);
+      capturePostHog('installment_payment_completed', { payment_surface: 'home_dashboard' });
       loadData();
     } catch (err: any) {
       toast.error(err.message || 'Error al procesar el pago.');
