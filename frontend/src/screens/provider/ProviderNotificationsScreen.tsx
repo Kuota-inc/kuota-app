@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { api } from '../../api/client';
+import { track } from '../../lib/analytics';
 import { Bell, ShieldCheck, Zap, ArrowRight, Building2 } from 'lucide-react';
 
 interface ProviderNotificationsScreenProps {
@@ -13,6 +14,7 @@ export const ProviderNotificationsScreen: React.FC<ProviderNotificationsScreenPr
     setSubmitting(true);
     try {
       await api.saveProviderNotifications('GRANTED');
+      track('provider_notifications_preference_saved', { preference: 'granted' });
       onNext();
     } catch {
       onNext();
@@ -24,6 +26,7 @@ export const ProviderNotificationsScreen: React.FC<ProviderNotificationsScreenPr
   const handleSkip = async () => {
     try {
       await api.saveProviderNotifications('SKIPPED');
+      track('provider_notifications_preference_saved', { preference: 'skipped' });
       onNext();
     } catch {
       onNext();

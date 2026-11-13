@@ -102,6 +102,7 @@ export const BuyOnCreditScreen: React.FC<BuyOnCreditScreenProps> = ({ onBack }) 
     try {
       const res = await api.simulatePlan(Math.round(amount * 100), 3);
       setSimulation(res);
+      track('credit_purchase_simulated', { total_cents: res.purchase_cents, installments: 3 });
     } catch (err: any) {
       toast.error(err.message || 'Error en simulación');
     } finally {
@@ -138,6 +139,10 @@ export const BuyOnCreditScreen: React.FC<BuyOnCreditScreenProps> = ({ onBack }) 
     setPaying(true);
     try {
       await api.payInstallment(installmentId);
+      track('credit_installment_paid', {
+        installment_number: data?.next_installment?.number,
+        amount_cents: data?.next_installment?.amount_cents
+      });
       toast.success('¡Cuota pagada con éxito! Tu línea disponible se ha recargado.');
       loadData();
     } catch (err: any) {
@@ -151,6 +156,7 @@ export const BuyOnCreditScreen: React.FC<BuyOnCreditScreenProps> = ({ onBack }) 
     if (!confirm('¿Deseas liquidar anticipadamente toda la compra? Se liberará la Regla 3.2 para comprar nuevamente.')) return;
     try {
       await api.settlePurchase(purchaseId);
+      track('credit_purchase_settled');
       toast.success('¡Compra liquidada con éxito! Has desbloqueado una nueva compra.');
       loadData();
     } catch (err: any) {

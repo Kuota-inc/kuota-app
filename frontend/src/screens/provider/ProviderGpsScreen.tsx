@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../../api/client';
+import { track } from '../../lib/analytics';
 import { Geolocation } from '@capacitor/geolocation';
 import { Capacitor } from '@capacitor/core';
 import {
@@ -140,6 +141,7 @@ export const ProviderGpsScreen: React.FC<ProviderGpsScreenProps> = ({ onNext }) 
         lng: coords.lng,
         address_line: address
       });
+      track('provider_location_saved');
       onNext();
     } catch (err: any) {
       toast.error(err.message || 'Error al guardar la ubicación');

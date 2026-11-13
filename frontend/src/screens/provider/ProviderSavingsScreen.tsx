@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { api } from '../../api/client';
+import { track } from '../../lib/analytics';
 import { AnimatedNumber } from '../../components/AnimatedNumber';
 import { CheckCircle2, ArrowRight, CreditCard } from 'lucide-react';
 import { useToast } from '../../components/toast-context';
@@ -35,6 +36,7 @@ export const ProviderSavingsScreen: React.FC<ProviderSavingsScreenProps> = ({ on
     setActivating(true);
     try {
       await api.activateProvider();
+      track('provider_account_activated');
       toast.success('¡Cuenta de Proveedor Verificado activada con éxito! Ya puedes emitir links con tarifa 1.00%.');
       onFinish();
     } catch (err: any) {

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { api, ApiError } from '../../api/client';
+import { track } from '../../lib/analytics';
 import { profilesApi } from '../../api/profiles';
 import { isCancelled, newIdempotencyKey, paymentsApi, type PaymentLink } from '../../api/payments';
 import { ArrowRight, CheckCircle2, Copy, ArrowLeft, ShieldCheck, Clock, XCircle, Hourglass, Share2, Store, MessageCircle, Link2, Lock, Phone, User, Package, QrCode as QrIcon, Plus, BadgeCheck } from 'lucide-react';
@@ -46,6 +47,16 @@ export const PaymentLinkScreen: React.FC<PaymentLinkScreenProps> = ({ onBack, on
   const [businessName, setBusinessName] = useState<string | null>(null);
   // Misma clave mientras no cambie el cobro: un reintento tras un corte de red no lo duplica.
   const pendingKey = useRef<{ fingerprint: string; key: string } | null>(null);
+  const capturedPaymentLinkIds = useRef(new Set<string>());
+
+  const capturePaymentSuccess = (paidLink: PaymentLink) => {
+    if (capturedPaymentLinkIds.current.has(paidLink.id)) return;
+    capturedPaymentLinkIds.current.add(paidLink.id);
+    track('payment_link_paid', {
+      amount_cents: paidLink.amount_cents,
+      net_cents: paidLink.net_cents
+    });
+  };
 
   useEffect(() => {
     profilesApi.access().then((a) => setBusinessName(a.business_name)).catch(() => {});
@@ -87,7 +98,10 @@ export const PaymentLinkScreen: React.FC<PaymentLinkScreenProps> = ({ onBack, on
       paymentsApi
         .pollLink(linkId)
         .then((l) => {
-          if (l.status === 'PAID') setPaymentSuccess(true);
+          if (l.status === 'PAID') {
+            capturePaymentSuccess(l);
+            setPaymentSuccess(true);
+          }
           else if (l.status === 'EXPIRED' || l.status === 'CANCELLED') {
             toast.info(l.status === 'EXPIRED' ? 'El link venció sin pago.' : 'El link fue cancelado.');
             setLink(null);
@@ -117,11 +131,21 @@ export const PaymentLinkScreen: React.FC<PaymentLinkScreenProps> = ({ onBack, on
     try {
       const draft = await paymentsApi.createLink({ amount_cents: amountCents, concept: finalConcept }, pendingKey.current.key);
       if (draft.status === 'ON_HOLD') {
+        track('payment_link_created', {
+          amount_cents: draft.amount_cents,
+          net_cents: draft.net_cents,
+          status: draft.status
+        });
         setLink(draft);
         pendingKey.current = null;
         return;
       }
       const issued = await paymentsApi.issueLink(draft.id);
+      track('payment_link_created', {
+        amount_cents: issued.amount_cents,
+        net_cents: issued.net_cents,
+        status: issued.status
+      });
       setLink(issued);
       pendingKey.current = null;
     } catch (err) {
@@ -154,6 +178,7 @@ export const PaymentLinkScreen: React.FC<PaymentLinkScreenProps> = ({ onBack, on
     if (!link) return;
     try {
       await paymentsApi.cancelLink(link.id);
+      track('payment_link_cancelled', { amount_cents: link.amount_cents });
       toast.info('Cancelaste el link. Ya no se puede pagar.');
       setLink(null);
     } catch (err) {
@@ -166,10 +191,14 @@ export const PaymentLinkScreen: React.FC<PaymentLinkScreenProps> = ({ onBack, on
     setPaying(true);
     try {
       const r = await paymentsApi.sandboxPay(link.code, 'YAPE');
-      if (r.webhook.status === 'PROCESSED') setPaymentSuccess(true);
+      if (r.webhook.status === 'PROCESSED') {
+        capturePaymentSuccess(link);
+        setPaymentSuccess(true);
+      }
       else toast.error(`El pago fue rechazado (${r.webhook.reason ?? 'sin detalle'}).`);
     } catch (err) {
       if (err instanceof ApiError && err.code === 'LINK_ALREADY_PAID') {
+        capturePaymentSuccess(link);
         setPaymentSuccess(true);
         return;
       }

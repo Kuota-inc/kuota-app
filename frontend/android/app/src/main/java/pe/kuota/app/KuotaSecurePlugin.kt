@@ -5,6 +5,7 @@ import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
 import com.getcapacitor.PluginMethod
 import com.getcapacitor.annotation.CapacitorPlugin
+import com.posthog.android.PostHogAndroid
 
 /**
  * Bloquea capturas de pantalla y grabación en las pantallas sensibles (PIN, identidad, KYC, perfil).
@@ -31,5 +32,35 @@ class KuotaSecurePlugin : Plugin() {
             }
             call.resolve()
         }
+    }
+
+    @PluginMethod
+    fun identifyAnalytics(call: PluginCall) {
+        val distinctId = call.getString("distinctId")
+        val role = call.getString("role")
+        if (distinctId.isNullOrBlank() || (role != "MERCHANT" && role != "PROVIDER")) {
+            call.reject("distinctId y role válidos son obligatorios")
+            return
+        }
+        try {
+            if (!BuildConfig.POSTHOG_PROJECT_TOKEN.isBlank() && !BuildConfig.POSTHOG_HOST.isBlank()) {
+                PostHogAndroid.identify(distinctId, mapOf("role" to role))
+            }
+        } catch (_: Exception) {
+            // Analytics must not interrupt a successful authentication flow.
+        }
+        call.resolve()
+    }
+
+    @PluginMethod
+    fun resetAnalytics(call: PluginCall) {
+        try {
+            if (!BuildConfig.POSTHOG_PROJECT_TOKEN.isBlank() && !BuildConfig.POSTHOG_HOST.isBlank()) {
+                PostHogAndroid.reset()
+            }
+        } catch (_: Exception) {
+            // Analytics must not interrupt logout.
+        }
+        call.resolve()
     }
 }
