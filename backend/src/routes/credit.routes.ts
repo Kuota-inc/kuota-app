@@ -9,6 +9,7 @@ import { verifyIntegrityToken } from '../security/playIntegrity.js';
 import { checkPin } from '../security/auth.js';
 import { audit } from '../security/audit.js';
 import { clientIp, headerString } from '../security/http.js';
+import { reconciliationCircuitBreaker } from '../security/reconciliation.js';
 
 // Pagar una cuota o liquidar una compra solo marca la deuda como pagada: no mueve dinero. Con dinero real eso regalaría
 // crédito (pedir, "pagar" sin pagar y volver a pedir), así que solo se permite en modo simulado, hasta que el pago lo confirme el banco.
@@ -214,6 +215,9 @@ creditRouter.post('/purchases', async (req, res) => {
       return res.status(422).json({ error: { code: 'PROVIDER_INVALID', message: 'Proveedor no disponible.' } });
     }
   }
+
+  // P1-1: circuit breaker — bloquea desembolsos si la conciliación diaria no corrió.
+  await reconciliationCircuitBreaker();
 
   const created = await db.tx(async () => {
     await db.lock('purchase:' + merchant.id);

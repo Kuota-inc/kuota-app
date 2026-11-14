@@ -32,6 +32,11 @@ internalRouter.post('/reconciliation/run', async (req, res) => {
   res.json(await runReconciliation({ businessDate: date, providerReport: report }));
 });
 
+// Disparador para cron diario (Railway Cron, curl, etc.): corre la conciliación interna sin reporte de 360pay.
+internalRouter.post('/reconciliation/scheduled', async (_req, res) => {
+  res.json(await runReconciliation());
+});
+
 internalRouter.get('/reconciliation/runs', async (_req, res) => {
   const rows = await db.prepare('SELECT * FROM reconciliation_runs ORDER BY run_at DESC LIMIT 20').all() as {
     summary_json: string;

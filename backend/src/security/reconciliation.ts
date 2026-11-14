@@ -1,6 +1,7 @@
 // Conciliación: cada sol cobrado, notificado y abonado debe coincidir entre el
 // link, el pago, el libro de doble partida, los webhooks y el reporte de 360pay.
 import { paymentsDb as db } from '../db/client.js';
+import { isProd } from './config.js';
 import { randomId } from './crypto.js';
 import { audit } from './audit.js';
 import { getLinkById, linkSignatureValid } from './links.js';
@@ -157,4 +158,22 @@ export async function runReconciliation(opts: { businessDate?: string; providerR
   );
   await audit({ actorType: 'SYSTEM', action: 'RECONCILIATION_RUN', target: date, result: status === 'OK' ? 'OK' : 'FAILED', details: { run_id: id, ...summary } });
   return { id, status, summary, exceptions };
+}
+
+/**
+ * P1-1: circuit breaker. Lanza 503 si la conciliación no se ejecutó en las
+ * últimas 25 horas. Solo activo en producción con KUOTA_RECON_CIRCUIT_BREAKER=1.
+ */
+export async function reconciliationCircuitBreaker(): Promise<void> {
+  if (!isProd || process.env.KUOTA_RECON_CIRCUIT_BREAKER !== '1') return;
+  const cutoff = new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString();
+  const last = await db.prepare(
+    "SELECT run_at FROM reconciliation_runs WHERE run_at >= ? LIMIT 1"
+  ).get(cutoff) as { run_at: string } | undefined;
+  if (!last) {
+    const err: any = new Error('La conciliación diaria no se ha ejecutado. Los desembolsos están bloqueados hasta que operaciones la complete.');
+    err.status = 503;
+    err.code = 'RECONCILIATION_REQUIRED';
+    throw err;
+  }
 }
