@@ -79,6 +79,17 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data):
       document.write('<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"><\\/script>');
     }}
   </script>
+  <script>
+    // Restauración inmediata del tema Kuota (sin parpadeo visual)
+    (function() {{
+      try {{
+        var savedTheme = localStorage.getItem('kuota_theme');
+        if (savedTheme === 'kuota-dark') {{
+          document.documentElement.setAttribute('data-theme', 'kuota-dark');
+        }}
+      }} catch (e) {{}}
+    }})();
+  </script>
 
   <style>
     /* ==========================================================================
@@ -2178,9 +2189,12 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data):
   <script>
     const TECHNICAL_DOCS = {docs_json};
     let activeDoc = 'readme';
+    let currentMainTab = 'diagramas';
+    let activeDiagram = 'v1-arquitectura-actual.html';
 
-    // Cambio de Pestaña Principal (5 Módulos)
-    function switchMainTab(tabId) {{
+    // Cambio de Pestaña Principal (5 Módulos) con persistencia y URL hash
+    function switchMainTab(tabId, updateUrl = true) {{
+      currentMainTab = tabId;
       document.querySelectorAll('.tab-section').forEach(el => el.classList.remove('active'));
       document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'));
 
@@ -2189,27 +2203,52 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data):
 
       const tabs = document.querySelectorAll('.nav-tab');
       tabs.forEach(tab => {{
-        if (tab.getAttribute('onclick') && tab.getAttribute('onclick').includes(tabId)) {{
+        if (tab.getAttribute('onclick') && tab.getAttribute('onclick').includes("'" + tabId + "'")) {{
           tab.classList.add('active');
           tab.scrollIntoView({{ behavior: 'smooth', block: 'nearest', inline: 'center' }});
         }}
       }});
 
+      try {{
+        localStorage.setItem('kuota_active_tab', tabId);
+      }} catch (e) {{}}
+
+      if (updateUrl) {{
+        let hash = '#' + tabId;
+        if (tabId === 'documentos' && activeDoc) {{
+          hash = '#documentos/' + activeDoc;
+        }} else if (tabId === 'diagramas' && activeDiagram) {{
+          hash = '#diagramas/' + activeDiagram.replace('.html', '');
+        }}
+        if (window.location.hash !== hash) {{
+          history.replaceState(null, '', hash);
+        }}
+      }}
+
       if (tabId === 'documentos') {{
-        showDoc(activeDoc);
+        showDoc(activeDoc, null, false);
       }}
     }}
 
-    // Alternador de Tema con Íconos SVG Limpios
+    // Alternador de Tema con persistencia en localStorage
     function toggleTheme() {{
       const html = document.documentElement;
       const current = html.getAttribute('data-theme') || 'kuota-light';
       const next = current === 'kuota-light' ? 'kuota-dark' : 'kuota-light';
       html.setAttribute('data-theme', next);
 
+      try {{
+        localStorage.setItem('kuota_theme', next);
+      }} catch (e) {{}}
+
+      updateThemeUI(next);
+    }}
+
+    function updateThemeUI(theme) {{
       const icon = document.getElementById('theme-icon');
       const text = document.getElementById('theme-text');
-      if (next === 'kuota-dark') {{
+      if (!icon || !text) return;
+      if (theme === 'kuota-dark') {{
         icon.innerHTML = '<svg class="icon-svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>';
         text.textContent = 'Modo Claro';
       }} else {{
@@ -2218,10 +2257,20 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data):
       }}
     }}
 
-    // Selector de Diagramas Archify
-    function changeDiagram(file, btn, desc, title) {{
+    // Selector de Diagramas Archify con memoria de vista
+    function changeDiagram(file, btn, desc, title, updateUrl = true) {{
+      activeDiagram = file;
+      try {{
+        localStorage.setItem('kuota_active_diagram', file);
+      }} catch (e) {{}}
+
       document.querySelectorAll('.d-pill').forEach(el => el.classList.remove('active'));
-      btn.classList.add('active');
+      if (btn) {{
+        btn.classList.add('active');
+      }} else {{
+        const pill = document.querySelector(`.d-pill[onclick*="${{file}}"]`);
+        if (pill) pill.classList.add('active');
+      }}
 
       const iframe = document.getElementById('archify-iframe');
       const descEl = document.getElementById('archify-desc');
@@ -2229,9 +2278,16 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data):
       const fsBtn = document.getElementById('btn-fullscreen-diagram');
 
       if (iframe) iframe.src = file;
-      if (descEl) descEl.textContent = desc;
-      if (titleEl) titleEl.textContent = title + ' · Diagrama de Arquitectura';
+      if (descEl && desc) descEl.textContent = desc;
+      if (titleEl && title) titleEl.textContent = title + ' · Diagrama de Arquitectura';
       if (fsBtn) fsBtn.href = file;
+
+      if (updateUrl && currentMainTab === 'diagramas') {{
+        const hash = '#diagramas/' + file.replace('.html', '');
+        if (window.location.hash !== hash) {{
+          history.replaceState(null, '', hash);
+        }}
+      }}
     }}
 
     // Simulador de Tarifas
@@ -2301,14 +2357,19 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data):
     }}
 
     // Lector de Documentos Markdown
-    function showDoc(docId, btn) {{
+    // Lector de Documentos Markdown con memoria de lectura
+    function showDoc(docId, btn, updateUrl = true) {{
       activeDoc = docId;
+      try {{
+        localStorage.setItem('kuota_active_doc', docId);
+      }} catch (e) {{}}
+
       if (btn) {{
         document.querySelectorAll('.doc-btn').forEach(el => el.classList.remove('active'));
         btn.classList.add('active');
       }} else {{
         document.querySelectorAll('.doc-btn').forEach(el => {{
-          if (el.getAttribute('onclick') && el.getAttribute('onclick').includes(docId)) {{
+          if (el.getAttribute('onclick') && el.getAttribute('onclick').includes("'" + docId + "'")) {{
             el.classList.add('active');
           }} else {{
             el.classList.remove('active');
@@ -2326,11 +2387,20 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data):
       }} else {{
         container.innerHTML = '<h1>' + doc.title + '</h1><pre style="white-space: pre-wrap;">' + doc.content + '</pre>';
       }}
+
+      if (updateUrl && currentMainTab === 'documentos') {{
+        const hash = '#documentos/' + docId;
+        if (window.location.hash !== hash) {{
+          history.replaceState(null, '', hash);
+        }}
+      }}
     }}
 
     function openDocTile(docId) {{
-      switchMainTab('documentos');
-      showDoc(docId);
+      activeDoc = docId;
+      switchMainTab('documentos', false);
+      showDoc(docId, null, false);
+      history.replaceState(null, '', '#documentos/' + docId);
       const reader = document.getElementById('doc-reader-container');
       if (reader) reader.scrollIntoView({{ behavior: 'smooth', block: 'start' }});
     }}
@@ -2368,9 +2438,76 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data):
       }}
     }}
 
+    // Restauración Completa de Memoria de Navegación y URL Hash
+    function restoreNavigationState() {{
+      // 1. Restaurar Tema
+      try {{
+        const savedTheme = localStorage.getItem('kuota_theme');
+        if (savedTheme) {{
+          document.documentElement.setAttribute('data-theme', savedTheme);
+          updateThemeUI(savedTheme);
+        }}
+      }} catch (e) {{}}
+
+      // 2. Determinar Pestaña y Sub-recursos
+      let targetTab = 'diagramas';
+      let targetDoc = 'readme';
+      let targetDiagram = 'v1-arquitectura-actual.html';
+
+      try {{
+        const localDoc = localStorage.getItem('kuota_active_doc');
+        if (localDoc && TECHNICAL_DOCS[localDoc]) targetDoc = localDoc;
+
+        const localDiagram = localStorage.getItem('kuota_active_diagram');
+        if (localDiagram) targetDiagram = localDiagram;
+
+        const localTab = localStorage.getItem('kuota_active_tab');
+        if (localTab && ['diagramas', 'pagos', 'seguridad', 'hallazgos', 'documentos'].includes(localTab)) {{
+          targetTab = localTab;
+        }}
+      }} catch (e) {{}}
+
+      // El hash en la URL tiene máxima prioridad (permite links directos y recarga F5 exacta)
+      const rawHash = (window.location.hash || '').replace(/^#\\/?/, '').trim();
+      if (rawHash) {{
+        const parts = rawHash.split('/');
+        const main = parts[0].toLowerCase();
+        const sub = parts[1] ? parts[1].toLowerCase() : null;
+
+        if (['diagramas', 'pagos', 'seguridad', 'hallazgos', 'documentos'].includes(main)) {{
+          targetTab = main;
+        }}
+
+        if (main === 'documentos' && sub && TECHNICAL_DOCS[sub]) {{
+          targetDoc = sub;
+        }} else if (main === 'diagramas' && sub) {{
+          const matched = sub.endsWith('.html') ? sub : sub + '.html';
+          targetDiagram = matched;
+        }}
+      }}
+
+      // 3. Activar Diagrama recordado
+      if (targetDiagram) {{
+        const pill = document.querySelector(`.d-pill[onclick*="${{targetDiagram}}"]`);
+        if (pill) {{
+          pill.click();
+        }}
+      }}
+
+      // 4. Activar Documento en lector
+      showDoc(targetDoc, null, false);
+
+      // 5. Activar Pestaña Principal (sin sobrescribir hash)
+      switchMainTab(targetTab, false);
+    }}
+
+    window.addEventListener('hashchange', function() {{
+      restoreNavigationState();
+    }});
+
     // Inicialización
     runSim(100);
-    showDoc('readme');
+    restoreNavigationState();
   </script>
 </body>
 </html>
