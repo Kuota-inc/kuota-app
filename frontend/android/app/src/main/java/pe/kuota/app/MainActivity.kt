@@ -10,6 +10,8 @@ class MainActivity : BridgeActivity() {
         registerPlugin(KuotaSecurePlugin::class.java)
         registerPlugin(KuotaBiometricPlugin::class.java)
         registerPlugin(KuotaVaultPlugin::class.java)
+        registerPlugin(KuotaIntegrityPlugin::class.java)
+        registerPlugin(KuotaPlayIntegrityPlugin::class.java)
         super.onCreate(savedInstanceState)
     }
 

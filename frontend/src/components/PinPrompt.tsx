@@ -5,6 +5,7 @@ import { ApiError } from '../api/client';
 import { CancelledError, setPinHandler, type PinPromptOptions } from '../api/payments';
 import { useSecureScreen } from '../plugins/kuotaSecure';
 import { biometricPinAvailable, forgetBiometric, pinFromBiometric } from '../services/biometricPin';
+import { deviceHasRisk } from '../services/deviceRisk';
 import { DialogPanel } from './DialogPanel';
 import { PinPromptContext, type PinRequestState } from './pin-prompt-context';
 
@@ -20,9 +21,15 @@ export const PinPromptProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   useEffect(() => {
     setPinHandler(
       (opts: PinPromptOptions) =>
-        new Promise<void>((resolve, reject) => {
+        new Promise<void>(async (resolve, reject) => {
           if (busy.current) {
             reject(new ApiError(0, 'PIN_BUSY', 'Ya hay una confirmación con PIN en curso.'));
+            return;
+          }
+          // Verificar riesgo de overlay/accessibility antes de mostrar el PIN.
+          const { safe, risks } = await deviceHasRisk();
+          if (!safe) {
+            reject(new ApiError(0, 'DEVICE_RISK', `Riesgo detectado en el dispositivo: ${risks.join(', ')}`));
             return;
           }
           busy.current = true;

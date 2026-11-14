@@ -5,6 +5,7 @@ import { getMerchantProfile } from '../security/merchantContext.js';
 import { createOpenpayCharge } from '../integrations/openpay.js';
 import { computeScore, persistScore } from '../services/scoring.service.js';
 import { config } from '../security/config.js';
+import { verifyIntegrityToken } from '../security/playIntegrity.js';
 
 // Pagar una cuota o liquidar una compra solo marca la deuda como pagada: no mueve dinero. Con dinero real eso regalaría
 // crédito (pedir, "pagar" sin pagar y volver a pedir), así que solo se permite en modo simulado, hasta que el pago lo confirme el banco.
@@ -168,7 +169,13 @@ creditRouter.post('/simulations', async (req, res) => {
 // P2P aKuotas: crear nueva compra al crédito
 creditRouter.post('/purchases', async (req, res) => {
   const merchant = await getMerchantProfile(req);
-  const { provider_id, total_cents, installments = 3 } = req.body ?? {};
+  const { provider_id, total_cents, installments = 3, integrity_token, integrity_nonce } = req.body ?? {};
+
+  // Verificar integridad del APK antes de crear una compra.
+  const integrity = await verifyIntegrityToken(integrity_token, integrity_nonce ?? '');
+  if (!integrity.ok) {
+    return res.status(403).json({ error: { code: 'INTEGRITY_FAILED', message: 'No se pudo verificar la integridad del dispositivo.', reason: integrity.reason } });
+  }
 
   if (typeof provider_id !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/.test(provider_id)) {
     return res.status(422).json({ error: { code: 'PROVIDER_INVALID', message: 'Proveedor no válido.' } });
