@@ -3,8 +3,9 @@
 import { Router, type Request, type Response } from 'express';
 import { normalizeDoc } from '../security/identityDoc.js';
 import { paymentsDb as db, db as coreDb } from '../db/client.js';
-import { config } from '../security/config.js';
-import { hashPin, pinProblem, randomToken, sha256Hex, verifyPin } from '../security/crypto.js';
+import { config, secrets } from '../security/config.js';
+import { createPublicKey, createVerify } from 'node:crypto';
+import { hashPin, hmac, pinProblem, randomId, randomToken, sha256Hex, verifyPin } from '../security/crypto.js';
 import { audit } from '../security/audit.js';
 import {
   checkPin,
@@ -561,6 +562,79 @@ authRouter.post('/pin/change', authLimiter, requireMerchant, async (req, res) =>
     `Cerramos tus otras sesiones y tus límites estarán reducidos por ${config.cooldownHours} horas. Si no fuiste tú, escríbenos de inmediato.`
   );
   res.json({ success: true, sessions_closed: closed, cooldown_until: cooldownUntil });
+});
+
+// ------------------------------------------------ P1-5: biometría verificada en el servidor
+// Registro de llave pública EC P-256 del Keystore de Android y reto firmado por acción.
+// La app pide un reto, lo firma con su clave biométrica y el servidor verifica la firma.
+
+authRouter.post('/biometric-key', requireMerchant, async (req, res) => {
+  const { merchantId, deviceId } = req.auth!;
+  const publicKey = typeof req.body?.publicKey === 'string' ? req.body.publicKey.trim() : '';
+  if (!publicKey) return fail(res, 422, 'BIOMETRIC_KEY_REQUIRED', 'Falta la llave pública biométrica.');
+  try {
+    createPublicKey({ key: Buffer.from(publicKey, 'base64'), format: 'der', type: 'spki' });
+  } catch {
+    return fail(res, 422, 'BIOMETRIC_KEY_INVALID', 'La llave pública no es válida (debe ser SPKI DER base64).');
+  }
+  const ip = clientIp(req);
+  await db.prepare("UPDATE biometric_keys SET revoked_at = ? WHERE merchant_id = ? AND device_id = ? AND revoked_at IS NULL").run(nowIso(), merchantId, deviceId);
+  await db.prepare('INSERT INTO biometric_keys (id, merchant_id, device_id, public_key_spki, registered_at) VALUES (?, ?, ?, ?, ?)').run(
+    randomId('bk', 8), merchantId, deviceId, publicKey, nowIso()
+  );
+  await audit({ actorType: 'MERCHANT', actorId: merchantId, action: 'BIOMETRIC_KEY_REGISTERED', result: 'OK', ip, deviceId });
+  res.json({ ok: true });
+});
+
+authRouter.get('/biometric-challenge', requireMerchant, async (req, res) => {
+  const { merchantId, deviceId } = req.auth!;
+  const keyRow = await db.prepare("SELECT id FROM biometric_keys WHERE merchant_id = ? AND device_id = ? AND revoked_at IS NULL LIMIT 1").get(merchantId, deviceId) as { id: string } | undefined;
+  if (!keyRow) return fail(res, 404, 'BIOMETRIC_KEY_NOT_FOUND', 'No hay llave biométrica registrada en este dispositivo.');
+  const challengeId = randomId('bc', 8);
+  const challengeHex = randomToken(32);
+  const expiresAt = addMinutes(new Date(), 5).toISOString();
+  await db.prepare('INSERT INTO biometric_challenges (id, merchant_id, device_id, challenge_hex, expires_at) VALUES (?, ?, ?, ?, ?)').run(
+    challengeId, merchantId, deviceId, challengeHex, expiresAt
+  );
+  res.json({ challengeId, challenge: challengeHex, expiresAt });
+});
+
+authRouter.post('/biometric-verify', requireMerchant, async (req, res) => {
+  const { merchantId, deviceId } = req.auth!;
+  const { challengeId, signature } = req.body ?? {};
+  if (typeof challengeId !== 'string' || typeof signature !== 'string') {
+    return fail(res, 422, 'BIOMETRIC_PARAMS_REQUIRED', 'Faltan challengeId o signature.');
+  }
+  const ch = await db.prepare(
+    "SELECT challenge_hex, expires_at, used_at FROM biometric_challenges WHERE id = ? AND merchant_id = ? AND device_id = ?"
+  ).get(challengeId, merchantId, deviceId) as { challenge_hex: string; expires_at: string; used_at: string | null } | undefined;
+  if (!ch) return fail(res, 404, 'CHALLENGE_NOT_FOUND', 'El reto biométrico no existe.');
+  if (ch.used_at) return fail(res, 409, 'CHALLENGE_ALREADY_USED', 'Este reto ya fue usado.');
+  if (new Date(ch.expires_at) < new Date()) return fail(res, 410, 'CHALLENGE_EXPIRED', 'El reto venció. Inténtalo de nuevo.');
+  const keyRow = await db.prepare(
+    "SELECT public_key_spki FROM biometric_keys WHERE merchant_id = ? AND device_id = ? AND revoked_at IS NULL LIMIT 1"
+  ).get(merchantId, deviceId) as { public_key_spki: string } | undefined;
+  if (!keyRow) return fail(res, 404, 'BIOMETRIC_KEY_NOT_FOUND', 'No hay llave biométrica registrada.');
+  let valid = false;
+  try {
+    const pubKey = createPublicKey({ key: Buffer.from(keyRow.public_key_spki, 'base64'), format: 'der', type: 'spki' });
+    const v = createVerify('SHA256');
+    v.update(Buffer.from(ch.challenge_hex, 'hex'));
+    valid = v.verify(pubKey, Buffer.from(signature, 'base64'));
+  } catch {
+    valid = false;
+  }
+  const ip = clientIp(req);
+  await db.prepare("UPDATE biometric_challenges SET used_at = ? WHERE id = ?").run(nowIso(), challengeId);
+  if (!valid) {
+    await audit({ actorType: 'MERCHANT', actorId: merchantId, action: 'BIOMETRIC_VERIFY_FAILED', result: 'FAILED', ip, deviceId });
+    return fail(res, 401, 'BIOMETRIC_SIGNATURE_INVALID', 'La firma biométrica no es válida.');
+  }
+  const exp = addMinutes(new Date(), 5).toISOString();
+  const payload = `${merchantId}:${deviceId}:${exp}`;
+  const biometricToken = `${payload}.${hmac(secrets.sessionSecret, payload)}`;
+  await audit({ actorType: 'MERCHANT', actorId: merchantId, action: 'BIOMETRIC_VERIFIED', result: 'OK', ip, deviceId });
+  res.json({ biometricToken, expiresAt: exp });
 });
 
 // ------------------------------------------------ /merchants/me/payments/...

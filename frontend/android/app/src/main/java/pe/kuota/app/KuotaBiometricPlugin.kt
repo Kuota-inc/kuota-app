@@ -17,7 +17,10 @@ import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
 import com.getcapacitor.PluginMethod
 import com.getcapacitor.annotation.CapacitorPlugin
+import java.security.KeyPairGenerator
 import java.security.KeyStore
+import java.security.Signature
+import java.security.spec.ECGenParameterSpec
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
@@ -43,6 +46,7 @@ class KuotaBiometricPlugin : Plugin() {
 
     private val authenticators = BiometricManager.Authenticators.BIOMETRIC_STRONG
     private val alias = "kuota_biometric_key_v1"
+    private val signingAlias = "kuota_biometric_signing_v1"
     private val prefsName = "kuota_biometric"
     private val transformation = "AES/GCM/NoPadding"
 
@@ -297,10 +301,114 @@ class KuotaBiometricPlugin : Plugin() {
         }
     }
 
-    /** Quita el registro: borra la clave y el secreto. */
+    // ----- P1-5: llave de firma EC P-256 vinculada a biometría fuerte -----
+
+    private fun createSigningKey() {
+        val ks = keyStore()
+        if (ks.containsAlias(signingAlias)) ks.deleteEntry(signingAlias)
+        val spec = KeyGenParameterSpec.Builder(signingAlias, KeyProperties.PURPOSE_SIGN or KeyProperties.PURPOSE_VERIFY)
+            .setAlgorithmParameterSpec(ECGenParameterSpec("secp256r1"))
+            .setDigests(KeyProperties.DIGEST_SHA256)
+            .setUserAuthenticationRequired(true)
+            .setInvalidatedByBiometricEnrollment(true)
+            .apply {
+                if (Build.VERSION.SDK_INT >= 30) {
+                    setUserAuthenticationParameters(0, KeyProperties.AUTH_BIOMETRIC_STRONG)
+                } else {
+                    @Suppress("DEPRECATION")
+                    setUserAuthenticationValidityDurationSeconds(-1)
+                }
+            }
+            .build()
+        KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_EC, "AndroidKeyStore").apply { initialize(spec) }.generateKeyPair()
+    }
+
+    /**
+     * P1-5: crea la llave de firma EC P-256 y devuelve la llave pública en SPKI DER base64.
+     * No requiere biometría para la creación; la biometría se exige en cada uso (signChallenge).
+     */
+    @PluginMethod
+    fun registerSigningKey(call: PluginCall) {
+        try {
+            createSigningKey()
+            val cert = keyStore().getCertificate(signingAlias)
+                ?: return call.reject("No se pudo crear la llave de firma.", "FAILED")
+            val spki = Base64.encodeToString(cert.publicKey.encoded, Base64.NO_WRAP)
+            call.resolve(JSObject().put("publicKey", spki))
+        } catch (e: Exception) {
+            call.reject("No se pudo crear la llave de firma biométrica.", "FAILED", e)
+        }
+    }
+
+    /**
+     * P1-5: firma un reto del servidor con la llave EC privada del Keystore, desbloqueando
+     * con biometría fuerte. El reto viene como hex; la firma se devuelve en DER base64.
+     */
+    @PluginMethod
+    fun signChallenge(call: PluginCall) {
+        val title = call.getString("title") ?: "Confirmar con tu huella"
+        val subtitle = call.getString("subtitle")
+        val negative = call.getString("negativeText") ?: "Cancelar"
+        val challengeHex = call.getString("challenge") ?: ""
+        if (challengeHex.isEmpty()) {
+            call.reject("Falta el reto a firmar.", "FAILED")
+            return
+        }
+        val challengeBytes = try {
+            challengeHex.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+        } catch (_: Exception) {
+            call.reject("El reto no es hex válido.", "FAILED")
+            return
+        }
+        val host = activity as? FragmentActivity ?: return call.reject("Actividad no disponible.", "FAILED")
+        host.runOnUiThread {
+            val privateKey = try {
+                (keyStore().getEntry(signingAlias, null) as? KeyStore.PrivateKeyEntry)?.privateKey
+                    ?: return@runOnUiThread call.reject("Llave de firma no registrada.", "NOT_REGISTERED")
+            } catch (_: KeyPermanentlyInvalidatedException) {
+                try { keyStore().deleteEntry(signingAlias) } catch (_: Exception) {}
+                return@runOnUiThread call.reject("La llave fue invalidada. Regístrala de nuevo.", "INVALIDATED")
+            } catch (e: Exception) {
+                return@runOnUiThread call.reject("No pudimos preparar la firma.", "FAILED", e)
+            }
+            val sig = try {
+                Signature.getInstance("SHA256withECDSA").apply { initSign(privateKey) }
+            } catch (e: Exception) {
+                return@runOnUiThread call.reject("No pudimos iniciar la firma.", "FAILED", e)
+            }
+            val executor = ContextCompat.getMainExecutor(host)
+            val prompt = BiometricPrompt(host, executor, object : BiometricPrompt.AuthenticationCallback() {
+                override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                    try {
+                        val signer = result.cryptoObject?.signature
+                            ?: return call.reject("Sin objeto de firma.", "FAILED")
+                        signer.update(challengeBytes)
+                        val derSig = Base64.encodeToString(signer.sign(), Base64.NO_WRAP)
+                        call.resolve(JSObject().put("signature", derSig))
+                    } catch (e: Exception) {
+                        call.reject("No pudimos firmar el reto.", "FAILED", e)
+                    }
+                }
+                override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                    call.reject(errString.toString(), mapError(errorCode))
+                }
+            })
+            val info = BiometricPrompt.PromptInfo.Builder()
+                .setTitle(title)
+                .apply { if (subtitle != null) setSubtitle(subtitle) }
+                .setNegativeButtonText(negative)
+                .setAllowedAuthenticators(authenticators)
+                .setConfirmationRequired(true)
+                .build()
+            prompt.authenticate(info, BiometricPrompt.CryptoObject(sig))
+        }
+    }
+
+    /** Quita el registro: borra la clave AES, la clave de firma y el secreto. */
     @PluginMethod
     fun disable(call: PluginCall) {
         wipe()
+        try { keyStore().deleteEntry(signingAlias) } catch (_: Exception) {}
         call.resolve()
     }
 }

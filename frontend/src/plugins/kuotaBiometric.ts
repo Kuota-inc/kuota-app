@@ -26,6 +26,17 @@ interface KuotaBiometricPlugin {
   authenticate(options: { title?: string; subtitle?: string; negativeText?: string }): Promise<void>;
   /** Quita el registro (borra la clave del teléfono). */
   disable(): Promise<void>;
+  /**
+   * P1-5: crea la llave EC P-256 en el Keystore y devuelve la llave pública SPKI base64.
+   * Llama una vez por dispositivo al registrar la biometría.
+   */
+  registerSigningKey(): Promise<{ publicKey: string }>;
+  /**
+   * P1-5: pide la huella y firma el reto con la llave EC del Keystore.
+   * challenge = hex del reto emitido por el servidor.
+   * Rechaza con code NOT_REGISTERED | INVALIDATED | CANCELED | LOCKOUT | FAILED.
+   */
+  signChallenge(options: { challenge: string; title?: string; subtitle?: string; negativeText?: string }): Promise<{ signature: string }>;
 }
 
 export const KuotaBiometric = registerPlugin<KuotaBiometricPlugin>('KuotaBiometric', {
@@ -42,7 +53,13 @@ export const KuotaBiometric = registerPlugin<KuotaBiometricPlugin>('KuotaBiometr
     authenticate: async () => {
       throw Object.assign(new Error('Biometría no disponible en el navegador.'), { code: 'FAILED' });
     },
-    disable: async () => {}
+    disable: async () => {},
+    registerSigningKey: async () => {
+      throw Object.assign(new Error('Biometría no disponible en el navegador.'), { code: 'FAILED' });
+    },
+    signChallenge: async () => {
+      throw Object.assign(new Error('Biometría no disponible en el navegador.'), { code: 'FAILED' });
+    }
   }
 });
 
