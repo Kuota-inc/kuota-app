@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { db } from '../db/database.js';
 import { sunatService } from '../services/sunat.service.js';
 import { hashPin, pinProblem } from '../security/crypto.js';
-import { credentialFor, isValidDeviceId, issueIdentityToken, linkDevice, setMerchantPinHash } from '../security/auth.js';
+import { credentialFor, isValidDeviceId, issueIdentityToken, issueRefreshToken, linkDevice, setMerchantPinHash } from '../security/auth.js';
 import { clientIp, headerString } from '../security/http.js';
 import { getKycByPublicId, refreshFromProvider, startVerification } from '../services/kyc.service.js';
 import { DiditError, diditEnabled } from '../integrations/didit.js';
@@ -643,10 +643,14 @@ onboardingRouter.post('/sessions/:id/complete', async (req, res) => {
 
   // Cuenta recién creada: el dispositivo que la registra queda vinculado y recibe su token de identidad.
   let identityToken: string | null = null;
+  let refreshToken: string | null = null;
   const regDevice = headerString(req, 'x-device-id');
   if (isValidDeviceId(regDevice)) {
     const dev = await linkDevice(merchant.id, regDevice, 'Dispositivo de registro', clientIp(req));
-    if (!dev.revoked) identityToken = await issueIdentityToken(merchant.id, regDevice);
+    if (!dev.revoked) {
+      identityToken = await issueIdentityToken(merchant.id, regDevice);
+      refreshToken = await issueRefreshToken(merchant.id, regDevice);
+    }
   }
 
   res.status(201).json({
@@ -655,7 +659,7 @@ onboardingRouter.post('/sessions/:id/complete', async (req, res) => {
     identity_token: identityToken,
     credit_line_id: lineId,
     access_token: 'jwt_mock_' + userId,
-    refresh_token: 'rt_mock_' + userId,
+    refresh_token: refreshToken,
     welcome_summary: {
       business: {
         name: merchant.business_name || 'Mi Negocio Kuota',
@@ -724,16 +728,21 @@ onboardingRouter.post('/sessions/:id/security-pin', async (req, res) => {
 
   // Primera vez que se fija el PIN de este comercio: el dispositivo queda vinculado y recibe su token de identidad.
   let identityToken: string | null = null;
+  let refreshToken: string | null = null;
   const deviceId = headerString(req, 'x-device-id');
   if (merchant && isValidDeviceId(deviceId)) {
     const dev = await linkDevice(merchant.id, deviceId, 'Dispositivo de registro', clientIp(req));
-    if (!dev.revoked) identityToken = await issueIdentityToken(merchant.id, deviceId);
+    if (!dev.revoked) {
+      identityToken = await issueIdentityToken(merchant.id, deviceId);
+      refreshToken = await issueRefreshToken(merchant.id, deviceId);
+    }
   }
 
   res.status(200).json({
     success: true,
     message: '¡PIN de seguridad de 6 dígitos activado con éxito!',
     pin_configured: true,
-    identity_token: identityToken
+    identity_token: identityToken,
+    refresh_token: refreshToken
   });
 });

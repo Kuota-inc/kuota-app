@@ -19,6 +19,8 @@ import { audit } from '../security/audit.js';
 import {
   isValidDeviceId,
   issueIdentityToken,
+  issueRefreshToken,
+  revokeAllRefreshTokens,
   issueSession,
   linkDevice,
   revokeIdentityTokens,
@@ -172,12 +174,15 @@ providerPaymentsRouter.post('/session', limiter, async (req, res) => {
   const identityToken = await issueIdentityToken(merchant.id, deviceId);
   await revokeSessions(merchant.id, { exceptDeviceId: deviceId });
   await revokeIdentityTokens(merchant.id, deviceId);
+  await revokeAllRefreshTokens(merchant.id);
+  const refreshToken = await issueRefreshToken(merchant.id, deviceId);
   await audit({ actorType: 'SYSTEM', actorId: 'provider:' + prov.id, action: 'SESSION_OPEN', target: session.sessionId, result: 'OK', ip, deviceId, details: { merchant_id: merchant.id } });
   res.status(201).json({
     merchant_id: merchant.id,
     access_token: session.accessToken,
     token_type: 'Bearer',
     expires_at: session.expiresAt,
-    identity_token: identityToken
+    identity_token: identityToken,
+    refresh_token: refreshToken
   });
 });

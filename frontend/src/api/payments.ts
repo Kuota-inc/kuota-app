@@ -3,7 +3,7 @@
 // idempotencia en la creación de cobros.
 import { Capacitor } from '@capacitor/core';
 import { forgetBiometric } from '../services/biometricPin';
-import { ApiError, apiRequest, getMerchantId, setMerchantId, setMerchantToken, setProviderId, setProviderToken } from './client';
+import { ApiError, apiRequest, getMerchantId, setMerchantId, setMerchantToken, setRefreshToken, setProviderId, setProviderToken } from './client';
 
 // ------------------------------------------------------------- dispositivo
 const DEVICE_KEY = 'kuota.device_id';
@@ -81,12 +81,13 @@ const authHeaders = (): Record<string, string> => ({
 
 /** Verifica el PIN en el servidor y deja abierta la sesión de cobros (también lo usa el registro de huella). */
 export async function openSessionWithPin(pin: string): Promise<void> {
-      const r = await apiRequest<{ access_token: string; expires_at: string; identity_token?: string; provider?: { provider_id: string; provider_token: string } | null }>('/auth/sessions', {
+      const r = await apiRequest<{ access_token: string; expires_at: string; identity_token?: string; refresh_token?: string; provider?: { provider_id: string; provider_token: string } | null }>('/auth/sessions', {
         method: 'POST',
         body: JSON.stringify({ pin, device_id: deviceId(), device_label: deviceLabel() })
       });
       // Cada inicio de sesión rota el token de identidad del dispositivo: hay que guardar el nuevo.
       if (r.identity_token) setMerchantToken(r.identity_token);
+      if (r.refresh_token) setRefreshToken(r.refresh_token);
       // El servidor rota también el token del Provider en cada sesión: si no se guarda el nuevo, el perfil Provider
       // recibe 401 al cambiar de perfil y se cierra toda la sesión.
       if (r.provider?.provider_id && r.provider.provider_token) {
@@ -126,6 +127,7 @@ export function ensurePaymentsAccountForProvider(): Promise<void> {
       );
       setMerchantId(r.merchant_id);
       setMerchantToken(r.identity_token);
+      if ((r as any).refresh_token) setRefreshToken((r as any).refresh_token);
       session = { token: r.access_token, expiresAt: Date.parse(r.expires_at) };
     }
   });

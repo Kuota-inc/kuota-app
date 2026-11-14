@@ -1,7 +1,7 @@
 import { applyLoginProfiles, type ProfileKind } from '../../api/profiles';
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { apiRequest, setMerchantId, setMerchantToken, setProviderId, setProviderToken } from '../../api/client';
+import { apiRequest, setMerchantId, setMerchantToken, setRefreshToken, setProviderId, setProviderToken } from '../../api/client';
 import { deviceId } from '../../api/payments';
 import { Capacitor } from '@capacitor/core';
 import {
@@ -116,6 +116,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, onBack }) =
       }
       if (res.merchant_id) setMerchantId(res.merchant_id);
       if (res.identity_token) setMerchantToken(res.identity_token);
+      if ((res as any).refresh_token) setRefreshToken((res as any).refresh_token);
       onSuccess(undefined, applyLoginProfiles(res));
     } catch (err: any) {
       const msg: string = err?.message ?? '';
@@ -161,6 +162,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, onBack }) =
       }
       if (res.merchant_id) setMerchantId(res.merchant_id);
       if (res.identity_token) setMerchantToken(res.identity_token);
+      if ((res as any).refresh_token) setRefreshToken((res as any).refresh_token);
       onSuccess();
     } catch (err: any) {
       const msg: string = err?.message ?? '';

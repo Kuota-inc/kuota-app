@@ -19,6 +19,9 @@ import {
   requireMerchant,
   resolveClaimedMerchant,
   issueIdentityToken,
+  issueRefreshToken,
+  rotateRefreshToken,
+  revokeAllRefreshTokens,
   merchantTokenRequired,
   revokeIdentityTokens,
   revokeSessions,
@@ -174,6 +177,8 @@ authRouter.post('/pin/recover', authLimiter, async (req, res) => {
   const device = await linkDevice(merchant.id, deviceId, label, ip);
   const session = await issueSession(merchant.id, deviceId);
   const identityToken = await issueIdentityToken(merchant.id, deviceId);
+  await revokeAllRefreshTokens(merchant.id);
+  const refreshToken = await issueRefreshToken(merchant.id, deviceId);
   await audit({ actorType: 'MERCHANT', actorId: merchant.id, action: 'PIN_RESET', result: 'OK', ip, deviceId, details: { method: 'DNI_RECOVERY', sessions_closed: closed, cooldown_until: cooldownUntil } });
   await alertMerchant(
     merchant.id,
@@ -187,6 +192,7 @@ authRouter.post('/pin/recover', authLimiter, async (req, res) => {
     expires_at: session.expiresAt,
     merchant_id: merchant.id,
     identity_token: identityToken,
+    refresh_token: refreshToken,
     device: { new_device: device.isNew, cooldown_until: device.cooldownUntil ?? null }
   });
 });
@@ -292,6 +298,8 @@ authRouter.post('/sessions', authLimiter, async (req, res) => {
   // Una sola sesión por cuenta: entrar aquí cierra las sesiones y los tokens de cualquier otro dispositivo.
   const closedElsewhere = await revokeSessions(merchant.id, { exceptDeviceId: deviceId });
   await revokeIdentityTokens(merchant.id, deviceId);
+  await revokeAllRefreshTokens(merchant.id);
+  const refreshToken = await issueRefreshToken(merchant.id, deviceId);
   await audit({ actorType: 'MERCHANT', actorId: merchant.id, action: 'SESSION_OPEN', target: session.sessionId, result: 'OK', ip, deviceId, details: { new_device: device.isNew, sessions_closed_elsewhere: closedElsewhere } });
   const dual = await dualProviderLogin((merchant as { phone?: string | null }).phone ?? req.body?.phone, req.body?.pin);
   res.status(201).json({
@@ -300,6 +308,7 @@ authRouter.post('/sessions', authLimiter, async (req, res) => {
     expires_at: session.expiresAt,
     merchant_id: merchant.id,
     identity_token: identityToken,
+    refresh_token: refreshToken,
     profiles: dual ? ['EMPRENDEDOR', 'PROVIDER'] : ['EMPRENDEDOR'],
     provider: dual,
     device: { new_device: device.isNew, cooldown_until: device.cooldownUntil ?? null }
@@ -320,6 +329,18 @@ authRouter.delete('/sessions/current', requireMerchant, async (req, res) => {
   await db.prepare('UPDATE merchant_sessions SET revoked_at = ? WHERE id = ? AND revoked_at IS NULL').run(nowIso(), auth.sessionId);
   await audit({ actorType: 'MERCHANT', actorId: auth.merchantId, action: 'SESSION_CLOSE', target: auth.sessionId, result: 'OK', ip: clientIp(req), deviceId: auth.deviceId });
   res.status(204).end();
+});
+
+// Refresh del identity token sin PIN: valida el refresh token, rota y emite uno nuevo.
+// Si el refresh token fue reutilizado (ya estaba usado), se revoca toda la familia → forzar PIN.
+authRouter.post('/token/refresh', authLimiter, async (req, res) => {
+  const rawToken = typeof req.body?.refresh_token === 'string' ? req.body.refresh_token : null;
+  if (!rawToken) return fail(res, 400, 'REFRESH_TOKEN_REQUIRED', 'Falta el refresh token.');
+  const result = await rotateRefreshToken(rawToken);
+  if (!result) return fail(res, 401, 'REFRESH_TOKEN_INVALID', 'El refresh token es inválido, expiró o fue revocado. Ingresa tu PIN para continuar.');
+  const identityToken = await issueIdentityToken(result.merchantId, result.deviceId);
+  await audit({ actorType: 'MERCHANT', actorId: result.merchantId, action: 'TOKEN_REFRESHED', result: 'OK', ip: clientIp(req), deviceId: result.deviceId });
+  res.json({ identity_token: identityToken, refresh_token: result.newRefreshToken });
 });
 
 // Confirmación reforzada: PIN + resumen de la acción → permiso de un solo uso.

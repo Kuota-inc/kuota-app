@@ -311,6 +311,66 @@ export async function revokeSessions(merchantId: string, opts: { exceptSessionId
     .run(now, merchantId, opts.exceptSessionId ?? null)).changes;
 }
 
+// ------------------------------------------- refresh tokens (rotación + reuse detection)
+// TTL 90 días. Cada uso rota el token (el anterior se marca used_at). Si alguien presenta un token
+// ya rotado, toda la familia se revoca (indica robo): el comercio debe reingresar su PIN.
+const REFRESH_TTL_HOURS = 24 * 90;
+
+export async function issueRefreshToken(
+  merchantId: string,
+  deviceId: string,
+  familyId?: string,
+): Promise<string> {
+  const token = randomToken(32);
+  const id = randomToken(16);
+  const fid = familyId ?? randomToken(16);
+  await db.prepare(
+    'INSERT INTO refresh_tokens (id, family_id, merchant_id, device_id, token_hash, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+  ).run(id, fid, merchantId, deviceId, sha256Hex(token), nowIso(), addHours(new Date(), REFRESH_TTL_HOURS).toISOString());
+  return token;
+}
+
+export interface RotateResult {
+  merchantId: string;
+  deviceId: string;
+  newRefreshToken: string;
+}
+
+/**
+ * Verifica y rota un refresh token.
+ * - Válido y no usado → lo marca usado, emite sucesor en la misma familia, devuelve RotateResult.
+ * - Ya usado (reuse) → revoca toda la familia y devuelve null (posible robo de token).
+ * - Expirado / revocado / no existe → devuelve null.
+ */
+export async function rotateRefreshToken(rawToken: string): Promise<RotateResult | null> {
+  const hash = sha256Hex(rawToken);
+  const row = await db.prepare(
+    'SELECT id, family_id, merchant_id, device_id, expires_at, used_at, revoked_at FROM refresh_tokens WHERE token_hash = ?',
+  ).get(hash) as { id: string; family_id: string; merchant_id: string; device_id: string; expires_at: string; used_at: string | null; revoked_at: string | null } | undefined;
+
+  if (!row) return null;
+
+  // Reuse detection: token ya fue rotado → revocar familia entera.
+  if (row.used_at) {
+    await db.prepare('UPDATE refresh_tokens SET revoked_at = ? WHERE family_id = ? AND revoked_at IS NULL')
+      .run(nowIso(), row.family_id);
+    return null;
+  }
+
+  if (row.revoked_at || new Date(row.expires_at) < new Date()) return null;
+
+  // Rotar: marcar usado y emitir sucesor en la misma familia.
+  await db.prepare('UPDATE refresh_tokens SET used_at = ? WHERE id = ?').run(nowIso(), row.id);
+  const newToken = await issueRefreshToken(row.merchant_id, row.device_id, row.family_id);
+  return { merchantId: row.merchant_id, deviceId: row.device_id, newRefreshToken: newToken };
+}
+
+/** Revoca todos los refresh tokens activos de un comercio (en logout o cambio de PIN). */
+export async function revokeAllRefreshTokens(merchantId: string) {
+  await db.prepare('UPDATE refresh_tokens SET revoked_at = ? WHERE merchant_id = ? AND revoked_at IS NULL')
+    .run(nowIso(), merchantId);
+}
+
 // ------------------------------------------- token de identidad del dispositivo
 // El id del comercio (X-Merchant-Id) NO es un secreto. Quien inicia sesión recibe además un
 // token aleatorio de 256 bits ligado a su dispositivo (se guarda solo su hash, vence a los 30 días)

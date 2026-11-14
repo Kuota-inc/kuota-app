@@ -56,6 +56,15 @@ export function getMerchantId(): string | null {
 // Token secreto de identidad de este dispositivo (el id del comercio no es un secreto).
 // Vive en la bóveda cifrada (Android Keystore), nunca en localStorage.
 const MERCHANT_TOKEN_KEY = 'kuota.merchant_token';
+const MERCHANT_REFRESH_KEY = 'kuota.refresh_token';
+
+export function getRefreshToken(): string | null {
+  return vaultGet(MERCHANT_REFRESH_KEY);
+}
+
+export function setRefreshToken(token: string | null) {
+  vaultSet(MERCHANT_REFRESH_KEY, token);
+}
 
 export function getMerchantToken(): string | null {
   return vaultGet(MERCHANT_TOKEN_KEY);
@@ -111,6 +120,33 @@ export function setProviderId(id: string | null) {
   }
 }
 
+let refreshing: Promise<boolean> | null = null;
+
+/** Rota el refresh token y actualiza el identity token en vault. Thread-safe (una sola petición en vuelo). */
+async function tryRefreshMerchantToken(): Promise<boolean> {
+  if (refreshing) return refreshing;
+  refreshing = (async () => {
+    const rt = getRefreshToken();
+    if (!rt) return false;
+    try {
+      const data = await fetch(`${API_BASE}/auth/token/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: rt }),
+      }).then(r => r.ok ? r.json() : null);
+      if (!data?.identity_token) return false;
+      setMerchantToken(data.identity_token);
+      if (data.refresh_token) setRefreshToken(data.refresh_token);
+      return true;
+    } catch {
+      return false;
+    } finally {
+      refreshing = null;
+    }
+  })();
+  return refreshing;
+}
+
 export async function apiRequest<T = any>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const url = `${API_BASE}${endpoint}`;
   const merchantId = getMerchantId();
@@ -140,9 +176,17 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestInit
     // Solo fallas inesperadas (red o servidor); los 4xx son flujos que maneja la interfaz
     // (PIN, límites, confirmaciones). Sin el cuerpo: puede traer datos del comercio.
     // El token de identidad venció o fue revocado: volver al inicio de sesión.
-    if (err instanceof ApiError && endpoint !== '/providers/logout' && (err.code === 'MERCHANT_AUTH_REQUIRED' || err.code === 'PROVIDER_AUTH_REQUIRED')) {
-      // Un Provider vencido no debe cerrar el Emprendedor (y al revés): el evento dice qué perfil falló.
-      window.dispatchEvent(new CustomEvent('kuota:logout', { detail: { scope: err.code === 'PROVIDER_AUTH_REQUIRED' ? 'PROVIDER' : 'ALL' } }));
+    if (err instanceof ApiError && endpoint !== '/providers/logout' && err.code === 'MERCHANT_AUTH_REQUIRED') {
+      // Intentar renovar el identity token con el refresh token antes de forzar logout.
+      const refreshed = await tryRefreshMerchantToken();
+      if (refreshed) {
+        // Reintentar la petición original con el token nuevo (un solo intento extra).
+        return apiRequest<T>(endpoint, options);
+      }
+      window.dispatchEvent(new CustomEvent('kuota:logout', { detail: { scope: 'ALL' } }));
+    }
+    if (err instanceof ApiError && endpoint !== '/providers/logout' && err.code === 'PROVIDER_AUTH_REQUIRED') {
+      window.dispatchEvent(new CustomEvent('kuota:logout', { detail: { scope: 'PROVIDER' } }));
     }
     if (!(err instanceof ApiError) || err.status >= 500) {
       console.error(`API Call failed: ${endpoint}`, err?.code ?? err?.name ?? 'error');
