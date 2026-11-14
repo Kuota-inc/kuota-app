@@ -14,12 +14,13 @@ import {
 
 interface MerchantValidatingScreenProps {
   requestId: string;
+  sessionId: string;
   onNext: () => void;
 }
 
 type MerchantKycPhase = 'starting' | 'redirect' | 'validating' | 'approved';
 
-export const MerchantValidatingScreen: React.FC<MerchantValidatingScreenProps> = ({ requestId, onNext }) => {
+export const MerchantValidatingScreen: React.FC<MerchantValidatingScreenProps> = ({ requestId, sessionId, onNext }) => {
   const [phase, setPhase] = useState<MerchantKycPhase>('starting');
   const [verificationUrl, setVerificationUrl] = useState<string | null>(null);
   const [progress, setProgress] = useState<number>(0);
@@ -63,7 +64,7 @@ export const MerchantValidatingScreen: React.FC<MerchantValidatingScreenProps> =
 
   useEffect(() => {
     api
-      .startMerchantVerification(requestId)
+      .startMerchantVerification(requestId, sessionId)
       .then((res: any) => {
         if (res.provider === 'DEMO' || !res.url) {
           runDemoValidation();
@@ -75,7 +76,7 @@ export const MerchantValidatingScreen: React.FC<MerchantValidatingScreenProps> =
       .catch(() => runDemoValidation());
 
     api
-      .getMerchantKycStatus(requestId)
+      .getMerchantKycStatus(requestId, sessionId)
       .then((res: any) => {
         if (res?.merchant) {
           setMerchantData({
@@ -90,7 +91,7 @@ export const MerchantValidatingScreen: React.FC<MerchantValidatingScreenProps> =
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
     };
-  }, [requestId]);
+  }, [requestId, sessionId]);
 
   // Poll for DIDIT completion when in redirect phase
   useEffect(() => {
@@ -98,7 +99,7 @@ export const MerchantValidatingScreen: React.FC<MerchantValidatingScreenProps> =
 
     pollRef.current = setInterval(() => {
       api
-        .getMerchantKycStatus(requestId)
+        .getMerchantKycStatus(requestId, sessionId)
         .then((res: any) => {
           const status = res?.status ?? res?.result?.status;
           if (status === 'APPROVED' || status === 'approved') {

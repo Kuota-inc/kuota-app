@@ -2,15 +2,15 @@ import { Router } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { db } from '../db/database.js';
 import { sunatService } from '../services/sunat.service.js';
-import { hashPin, pinProblem } from '../security/crypto.js';
+import { hashPin, pinProblem, randomToken } from '../security/crypto.js';
 import { credentialFor, isValidDeviceId, issueIdentityToken, issueRefreshToken, linkDevice, setMerchantPinHash } from '../security/auth.js';
-import { clientIp, headerString } from '../security/http.js';
+import { clientIp, fail, headerString } from '../security/http.js';
 import { getKycByPublicId, refreshFromProvider, startVerification } from '../services/kyc.service.js';
 import { DiditError, diditEnabled } from '../integrations/didit.js';
 import { config } from '../security/config.js';
 import { RUC_NOT_YOURS, rucOwnership } from '../security/rucOwnership.js';
 
-// El id de solicitud (MER-12345-PE) es adivinable: estas rutas solo devuelven datos enmascarados.
+// IDs de solicitud KYC: randomToken(16) → 128 bits de entropía, no adivinables.
 const maskTail = (v: unknown, keep: number) => (typeof v === 'string' && v.length > keep ? '•'.repeat(v.length - keep) + v.slice(-keep) : v ?? null);
 
 export const onboardingRouter = Router();
@@ -171,7 +171,10 @@ onboardingRouter.post('/sessions/:id/merchant-identity', async (req, res) => {
     }
   }
 
-  const existing = await db.prepare('SELECT id FROM merchant_profiles WHERE session_id = ?').get(sessionId) as any;
+  const existing = await db.prepare('SELECT id, kyc_status FROM merchant_profiles WHERE session_id = ?').get(sessionId) as any;
+  if (existing?.kyc_status === 'APPROVED') {
+    return res.status(409).json({ error: { code: 'KYC_ALREADY_APPROVED', message: 'Tu identidad ya fue verificada. No es necesario iniciar una nueva verificación.' } });
+  }
   let merchantId = existing?.id;
   const bName = businessData ? businessData.razon_social : (existing?.business_name || 'Mi Negocio Kuota');
   const bRuc = businessData ? businessData.ruc : null;
@@ -195,9 +198,8 @@ onboardingRouter.post('/sessions/:id/merchant-identity', async (req, res) => {
     `).run(merchantId, sessionId, dni, docType, full_name.trim().toUpperCase(), cleanPhone, bRuc, bName, bAddress, bDistrict, rucAutoVerified, rucReview);
   }
 
-  // Generar ID público de solicitud: BIZ-XXXXX-PE si es Business, MER-XXXXX-PE si es Personal
   const requestId = 'req_' + uuidv4().substring(0, 10);
-  const publicId = (account_type === 'BUSINESS' ? 'BIZ-' : 'MER-') + Math.floor(10000 + Math.random() * 90000) + '-PE';
+  const publicId = randomToken(16); // 128-bit random, non-guessable
 
   await db.prepare(`
     INSERT INTO kyc_requests (id, session_id, public_id, status, progress_pct)
@@ -233,7 +235,13 @@ onboardingRouter.post('/sessions/:id/merchant-identity', async (req, res) => {
 // Estado de validación KYC & KYB del Emprendedor / Comercio
 onboardingRouter.get('/merchant-kyc/:requestId', async (req, res) => {
   const publicId = req.params.requestId;
+  const callerSessionId = headerString(req, 'x-session-id');
   const kyc = await db.prepare('SELECT * FROM kyc_requests WHERE public_id = ?').get(publicId) as any;
+
+  // Owner check: session must match the KYC request owner.
+  if (kyc && (!callerSessionId || kyc.session_id !== callerSessionId)) {
+    return fail(res, 403, 'KYC_FORBIDDEN', 'No tienes acceso a esta solicitud de verificación.');
+  }
 
   if (!kyc) {
     // En producción no existe el comercio demo: un id desconocido es un 404, nunca una aprobación.
@@ -299,13 +307,13 @@ onboardingRouter.get('/merchant-kyc/:requestId', async (req, res) => {
       type: 'KYB_SUNAT',
       status: 'DONE',
       title: 'Verificación Empresarial KYB (SUNAT)',
-      label: `Empresa formal activa — ${business?.razon_social || merchant?.business_name || 'Comercio Registrado'} (RUC: ${merchant?.ruc || '20601234567'})`
+      label: `Empresa formal activa — ${business?.razon_social || merchant?.business_name || 'Comercio Registrado'} (RUC: ${maskTail(merchant?.ruc, 3)})`
     },
     {
       type: 'KYC_RENIEC',
       status: 'DONE',
       title: 'Identidad del Representante Legal KYC (RENIEC)',
-      label: `Representante acreditado — ${merchant?.full_name || 'CARLOS ALBERTO MENDOZA'} (DNI: ${merchant?.dni || '47891234'})`
+      label: `Representante acreditado — ${merchant?.full_name || 'N/A'} (DNI: ${maskTail(merchant?.dni, 3)})`
     },
     {
       type: 'SCORING_B2B',
@@ -346,10 +354,10 @@ onboardingRouter.get('/merchant-kyc/:requestId', async (req, res) => {
       dni: maskTail(merchant?.dni, 3),
       full_name: merchant?.full_name ?? null,
       phone: maskTail(merchant?.phone, 3),
-      ruc: merchant?.ruc || (isBusiness ? '20601234567' : null),
+      ruc: maskTail(merchant?.ruc, 3),
       business_name: business?.razon_social || merchant?.business_name || 'Mi Negocio Kuota'
     },
-    business: business || null,
+    business: business ? { razon_social: business.razon_social, estado: business.estado, distrito: business.distrito } : null,
     stages,
     result: {
       status: kyc.status,
@@ -364,6 +372,11 @@ onboardingRouter.get('/merchant-kyc/:requestId', async (req, res) => {
 // Inicia la verificación de identidad real (Didit). En modo demo responde provider DEMO.
 onboardingRouter.post('/merchant-kyc/:requestId/verification', async (req, res) => {
   try {
+    const callerSessionId = headerString(req, 'x-session-id');
+    const kycOwner = await db.prepare('SELECT session_id FROM kyc_requests WHERE public_id = ?').get(req.params.requestId) as any;
+    if (kycOwner && (!callerSessionId || kycOwner.session_id !== callerSessionId)) {
+      return fail(res, 403, 'KYC_FORBIDDEN', 'No tienes acceso a esta solicitud de verificación.');
+    }
     const started = await startVerification(req.params.requestId);
     if (!started) return res.status(404).json({ error: { code: 'KYC_NOT_FOUND', message: 'Solicitud de verificación no encontrada.' } });
     if (started.provider === 'DEMO' && process.env.NODE_ENV === 'production') {
@@ -382,6 +395,11 @@ onboardingRouter.post('/merchant-kyc/:requestId/verification', async (req, res) 
 // se reciben solo para la demo y NO se guardan (Ley 29733).
 onboardingRouter.post('/merchant-kyc/:requestId/documents', async (req, res) => {
   const publicId = req.params.requestId;
+  const callerSessionId = headerString(req, 'x-session-id');
+  const kycOwner = await db.prepare('SELECT session_id FROM kyc_requests WHERE public_id = ?').get(publicId) as any;
+  if (kycOwner && (!callerSessionId || kycOwner.session_id !== callerSessionId)) {
+    return fail(res, 403, 'KYC_FORBIDDEN', 'No tienes acceso a esta solicitud de verificación.');
+  }
   const { dni_front, dni_back, selfie } = req.body || {};
   if (diditEnabled() || process.env.NODE_ENV === 'production') {
     return res.status(409).json({ error: { code: 'USE_IDENTITY_PROVIDER', message: 'Verifica tu identidad desde el enlace seguro de verificación.' } });

@@ -16,7 +16,7 @@ const REASONS: Record<string, string> = {
   DIDIT_ABANDONED: 'La verificación quedó incompleta.'
 };
 
-export const IdentityVerification: React.FC<{ requestId: string; url: string; onNext: () => void }> = ({ requestId, url, onNext }) => {
+export const IdentityVerification: React.FC<{ requestId: string; sessionId: string; url: string; onNext: () => void }> = ({ requestId, sessionId, url, onNext }) => {
   const [status, setStatus] = useState<Status>('IN_PROGRESS');
   const [reason, setReason] = useState<string | null>(null);
   const [opened, setOpened] = useState(false);
@@ -28,7 +28,7 @@ export const IdentityVerification: React.FC<{ requestId: string; url: string; on
     alive.current = true;
     const tick = () =>
       api
-        .getMerchantKycStatus(requestId)
+        .getMerchantKycStatus(requestId, sessionId)
         .then((r: any) => {
           if (!alive.current) return;
           setStatus(r.status as Status);
@@ -41,7 +41,7 @@ export const IdentityVerification: React.FC<{ requestId: string; url: string; on
       alive.current = false;
       clearInterval(t);
     };
-  }, [requestId]);
+  }, [requestId, sessionId]);
 
   const open = () => {
     window.open(currentUrl, '_blank', 'noopener');
@@ -51,7 +51,7 @@ export const IdentityVerification: React.FC<{ requestId: string; url: string; on
   const retry = async () => {
     setRestarting(true);
     try {
-      const r = await api.startMerchantVerification(requestId);
+      const r = await api.startMerchantVerification(requestId, sessionId);
       if (r?.url) {
         setCurrentUrl(r.url);
         setStatus('IN_PROGRESS');

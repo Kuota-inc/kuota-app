@@ -515,6 +515,7 @@ function AppShell() {
         return (
           <MerchantValidatingScreen
             requestId={merchantRequestId}
+            sessionId={sessionId}
             onNext={() => goTo('onboarding_merchant_activity')}
           />
         );

@@ -252,13 +252,15 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(data)
     }),
-  getMerchantKycStatus: (requestId: string) => apiRequest(`/onboarding/merchant-kyc/${requestId}`),
+  getMerchantKycStatus: (requestId: string, sessionId: string) =>
+    apiRequest(`/onboarding/merchant-kyc/${requestId}`, { headers: { 'x-session-id': sessionId } }),
   /** Inicia la verificación real (Didit). provider DEMO = flujo simulado de desarrollo. */
-  startMerchantVerification: (requestId: string) =>
-    apiRequest<{ provider: 'DIDIT' | 'DEMO'; url: string | null; status: string }>(`/onboarding/merchant-kyc/${requestId}/verification`, { method: 'POST' }),
-  submitMerchantKycDocuments: (requestId: string, data: { dni_front?: string; dni_back?: string; selfie?: string }) =>
+  startMerchantVerification: (requestId: string, sessionId: string) =>
+    apiRequest<{ provider: 'DIDIT' | 'DEMO'; url: string | null; status: string }>(`/onboarding/merchant-kyc/${requestId}/verification`, { method: 'POST', headers: { 'x-session-id': sessionId } }),
+  submitMerchantKycDocuments: (requestId: string, sessionId: string, data: { dni_front?: string; dni_back?: string; selfie?: string }) =>
     apiRequest(`/onboarding/merchant-kyc/${requestId}/documents`, {
       method: 'POST',
+      headers: { 'x-session-id': sessionId },
       body: JSON.stringify(data)
     }),
   saveMerchantActivity: (sessionId: string, data: { category: string; seniority_range: string; business_name?: string }) =>
