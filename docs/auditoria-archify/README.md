@@ -4,13 +4,13 @@
 > **Rama Auditada:** `fix/proveedor-inicio-conciliacion`  
 > **Commit de Referencia:** `d7bac8b329d817bd6cc39f4fae0e751bda319c5d`  
 > **Fecha de Emisión:** 14 de Noviembre de 2026  
-> **Motor de Visualización:** Archify v2.17.0 (Perfil de Calidad *Showcase* Verificado)
+> **Motor de Visualización:** Archify v2.17.0 (Diagramas SVG Interactivos Verificados)
 
 ---
 
 ## 1. Resumen Ejecutivo
 
-Esta auditoría técnica e integral documenta la arquitectura de software, la postura de seguridad y el funcionamiento del riel de pagos de **Kuota**, tomando como fuente de verdad irrefutable el código fuente presente en el repositorio en el commit `d7bac8b329d817bd6cc39f4fae0e751bda319c5d`.
+Esta auditoría técnica e integral documenta la arquitectura de software, la postura de seguridad y el funcionamiento del riel de pagos de **Kuota**, tomando como fuente de verdad el código fuente presente en el repositorio en el commit `d7bac8b329d817bd6cc39f4fae0e751bda319c5d`.
 
 La intervención se centró en resolver y formalizar la conciliación de ventas y pagos del perfil **Proveedor** entre las pantallas de **Inicio** y **Conciliación**, distinguiendo con rigor contable los pagos recibidos del cliente en espera de abono ("Por confirmar") frente a la liquidación efectiva a la cuenta bancaria del vendedor ("Cancelado"), asegurando que la simulación acelerada de 5 minutos opere exclusivamente en sandbox y esté estrictamente bloqueada en producción.
 
