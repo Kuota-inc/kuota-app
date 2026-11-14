@@ -21,7 +21,7 @@ interface LoginScreenProps {
   onBack: () => void;
 }
 
-type LoginStep = 'phone' | 'pin' | 'recovery_dni' | 'recovery_pin';
+type LoginStep = 'phone' | 'pin' | 'recovery_dni' | 'recovery_didit' | 'recovery_pin';
 
 const DIGITS = [
   ['1', '2', '3'],
@@ -36,6 +36,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, onBack }) =
   const [pin, setPin] = useState<string[]>([]);
   const [recoveryDni, setRecoveryDni] = useState('');
   const [recoveryPin, setRecoveryPin] = useState<string[]>([]);
+  const [recoveryToken, setRecoveryToken] = useState<string | null>(null);
+  const [recoveryDiditUrl, setRecoveryDiditUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [shake, setShake] = useState(false);
@@ -59,7 +61,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, onBack }) =
     setError(null);
     if (step === 'pin') { setStep('phone'); setPin([]); }
     else if (step === 'recovery_dni') { setStep('pin'); setRecoveryDni(''); }
-    else if (step === 'recovery_pin') { setStep('recovery_dni'); setRecoveryPin([]); }
+    else if (step === 'recovery_didit') { setStep('recovery_dni'); setRecoveryToken(null); setRecoveryDiditUrl(null); }
+    else if (step === 'recovery_pin') { setStep('recovery_didit'); setRecoveryPin([]); }
     else onBack();
   };
 
@@ -134,18 +137,52 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, onBack }) =
     }
   };
 
-  const submitRecovery = async (newPinStr: string) => {
+  const startRecovery = async () => {
     setLoading(true);
     setError(null);
-    setMerchantId(null);
     try {
-      const res = await apiRequest<{ access_token: string; merchant_id: string; identity_token?: string; expires_at: string; role?: 'PROVIDER'; provider_id?: string; provider_token?: string; profiles?: ProfileKind[]; provider?: { provider_id: string; provider_token: string } | null }>(
-        '/auth/pin/recover',
+      const res = await apiRequest<{ recovery_token: string; didit_url: string }>(
+        '/auth/pin/recover/start',
         {
           method: 'POST',
           body: JSON.stringify({
             phone: '+51' + phone.replace(/\D/g, ''),
             dni: recoveryDni,
+            device_id: deviceId(),
+          }),
+        }
+      );
+      setRecoveryToken(res.recovery_token);
+      setRecoveryDiditUrl(res.didit_url);
+      window.open(res.didit_url, '_blank', 'noopener');
+      setStep('recovery_didit');
+    } catch (err: any) {
+      if (err?.code === 'DNI_MISMATCH') {
+        setError('Los datos no coinciden. Verifica tu número de celular y tu documento.');
+      } else if (err?.code === 'RECOVERY_LOCKED') {
+        setError('Demasiados intentos. Inténtalo de nuevo en 15 minutos.');
+      } else if (err?.code === 'DIDIT_UNAVAILABLE') {
+        setError('El servicio de verificación no está disponible. Intenta más tarde.');
+      } else {
+        setError(err?.message || 'Error al iniciar la verificación. Verifica tu conexión.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const submitRecovery = async (newPinStr: string) => {
+    if (!recoveryToken) { setError('Sesión de verificación perdida. Vuelve a empezar.'); return; }
+    setLoading(true);
+    setError(null);
+    setMerchantId(null);
+    try {
+      const res = await apiRequest<{ access_token: string; merchant_id: string; identity_token?: string; expires_at: string; role?: 'PROVIDER'; provider_id?: string; provider_token?: string; profiles?: ProfileKind[]; provider?: { provider_id: string; provider_token: string } | null }>(
+        '/auth/pin/recover/complete',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            recovery_token: recoveryToken,
             new_pin: newPinStr,
             device_id: deviceId(),
             device_label: Capacitor.isNativePlatform() ? 'App Kuota (Android)' : 'Navegador (Web)',
@@ -153,7 +190,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, onBack }) =
         }
       );
       if (res.role === 'PROVIDER' && res.provider_id) {
-        // Cuenta de proveedor: guarda su id y su token (reemplaza al anterior: una sola sesión).
         setMerchantId(null);
         setProviderId(res.provider_id);
         if (res.provider_token) setProviderToken(res.provider_token);
@@ -166,10 +202,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, onBack }) =
       onSuccess();
     } catch (err: any) {
       const msg: string = err?.message ?? '';
-      if (err?.code === 'DNI_MISMATCH') {
-        setError('Los datos no coinciden. Verifica tu número de celular y tu documento.');
-      } else if (err?.code === 'RECOVERY_LOCKED') {
-        setError('Demasiados intentos. Inténtalo de nuevo en 15 minutos.');
+      if (err?.code === 'IDENTITY_NOT_VERIFIED' || err?.code === 'LIVENESS_FAILED') {
+        setError('La verificación de identidad no fue aprobada. Vuelve a intentarlo.');
+        setStep('recovery_didit');
+      } else if (err?.code === 'RECOVERY_TOKEN_INVALID') {
+        setError('El enlace expiró. Vuelve a empezar.');
+        setStep('recovery_dni');
+        setRecoveryToken(null);
       } else {
         setError(msg || 'Error al recuperar el PIN. Verifica tu conexión.');
       }
@@ -405,7 +444,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, onBack }) =
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && recoveryDni.length >= 8) {
                         setError(null);
-                        setStep('recovery_pin');
+                        startRecovery();
                       }
                     }}
                     placeholder="Ej. 47891234"
@@ -437,14 +476,70 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, onBack }) =
                     setError('Ingresa tu DNI (8 dígitos) o tu carnet de extranjería.');
                     return;
                   }
-                  setError(null);
-                  setStep('recovery_pin');
+                  startRecovery();
                 }}
+                disabled={loading}
                 className="w-full py-3.5 bg-gradient-to-r from-[#00248b] to-[#1a3bb0] text-white rounded-2xl font-black text-sm shadow-lg shadow-blue-900/20 flex items-center justify-center gap-2 cursor-pointer"
               >
                 <span>Continuar</span>
                 <ArrowRight size={16} />
               </motion.button>
+            </motion.div>
+          )}
+
+          {/* Step: Recovery — esperando verificación Didit */}
+          {step === 'recovery_didit' && (
+            <motion.div
+              key="recovery-didit-step"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              className="flex flex-col flex-1 justify-between"
+            >
+              <div className="space-y-5 pt-3">
+                <div>
+                  <div className="w-12 h-12 rounded-2xl bg-[#eff3ff] flex items-center justify-center mb-3">
+                    <CheckCircle2 size={22} className="text-[#1a3bb0]" />
+                  </div>
+                  <h1 className="text-2xl font-black text-[#0b2545] tracking-tight">
+                    Verifica tu identidad
+                  </h1>
+                  <p className="text-xs text-[#4a5f7e] mt-1 leading-relaxed">
+                    Abrimos la verificación en tu navegador. Completa la prueba de vida y vuelve aquí para elegir tu nuevo PIN.
+                  </p>
+                </div>
+                <AnimatePresence>
+                  {error && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0 }}
+                      className="flex items-center gap-2 text-xs text-red-700 bg-red-50 border border-red-200 rounded-2xl px-3 py-2.5"
+                    >
+                      <AlertCircle size={15} className="shrink-0" />
+                      <span>{error}</span>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+              <div className="space-y-3">
+                <motion.button
+                  whileTap={{ scale: 0.97 }}
+                  type="button"
+                  onClick={() => setStep('recovery_pin')}
+                  className="w-full py-3.5 bg-gradient-to-r from-[#00248b] to-[#1a3bb0] text-white rounded-2xl font-black text-sm shadow-lg shadow-blue-900/20 flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <span>Ya verifiqué — elegir nuevo PIN</span>
+                  <ArrowRight size={16} />
+                </motion.button>
+                <button
+                  type="button"
+                  onClick={() => recoveryDiditUrl && window.open(recoveryDiditUrl, '_blank', 'noopener')}
+                  className="w-full text-center text-xs text-[#1a3bb0] font-bold py-2 cursor-pointer"
+                >
+                  Abrir verificación de nuevo
+                </button>
+              </div>
             </motion.div>
           )}
 

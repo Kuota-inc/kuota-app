@@ -10,6 +10,7 @@ const TIMEOUT_MS = 10_000;
 const base = () => (process.env.DIDIT_BASE_URL || 'https://verification.didit.me').replace(/\/+$/, '');
 
 export const diditEnabled = () => !!(process.env.DIDIT_API_KEY && process.env.DIDIT_WORKFLOW_ID);
+export const diditRecoveryEnabled = () => !!(process.env.DIDIT_API_KEY && process.env.DIDIT_RECOVERY_WORKFLOW_ID);
 
 export class DiditError extends Error {
   constructor(
@@ -79,6 +80,9 @@ export const didit = {
   /** Crea la sesión de verificación; el usuario completa el flujo en `url`. */
   createSession: (input: { vendor_data: string; callback?: string; expected_details?: Record<string, unknown>; language?: string }) =>
     request<DiditSession>('POST', '/v3/session/', { workflow_id: process.env.DIDIT_WORKFLOW_ID, ...input }),
+  /** Crea sesión solo con prueba de vida (workflow de recuperación de PIN). */
+  createRecoverySession: (input: { vendor_data: string; expected_details?: Record<string, unknown>; language?: string }) =>
+    request<DiditSession>('POST', '/v3/session/', { workflow_id: process.env.DIDIT_RECOVERY_WORKFLOW_ID, ...input }),
   getDecision: (sessionId: string) => request<DiditDecision>('GET', `/v3/session/${encodeURIComponent(sessionId)}/decision/`)
 };
 

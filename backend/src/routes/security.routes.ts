@@ -29,6 +29,7 @@ import {
   verifyIdentityToken,
   stepUpRequired
 } from '../security/auth.js';
+import { didit, diditRecoveryEnabled } from '../integrations/didit.js';
 import { alertMerchant, recentAlerts } from '../security/events.js';
 import { rateLimit } from '../security/guards.js';
 import { clientIp, fail, headerString } from '../security/http.js';
@@ -80,9 +81,177 @@ const recoverFailed = (id: string) => {
   else f.count += 1;
 };
 
+// Recuperaciones Didit pendientes: token → { merchantId, providerId, diditSessionId, dni, expiresAt, used }
+interface PendingRecovery {
+  merchantId: string | null;
+  providerId: string | null;
+  dni: string;
+  diditSessionId: string;
+  expiresAt: number;
+  used: boolean;
+}
+const pendingRecoveries = new Map<string, PendingRecovery>();
+const RECOVERY_TTL_MS = 15 * 60_000;
+
+// Recuperar acceso paso 1: verifica teléfono + DNI → crea sesión Didit → devuelve URL.
+authRouter.post('/pin/recover/start', authLimiter, async (req, res) => {
+  const rawPhone = typeof req.body?.phone === 'string' ? req.body.phone.trim() : '';
+  const dni      = typeof req.body?.dni   === 'string' ? req.body.dni.trim()   : '';
+  const ip       = clientIp(req);
+
+  if (!rawPhone || !dni) return fail(res, 422, 'MISSING_FIELDS', 'Se requiere teléfono y DNI.');
+  if (!diditRecoveryEnabled()) return fail(res, 503, 'DIDIT_UNAVAILABLE', 'El servicio de verificación no está disponible. Intenta más tarde.');
+
+  const phone = rawPhone.startsWith('+51') ? rawPhone : `+51${rawPhone.replace(/\D/g, '').slice(-9)}`;
+
+  let merchantId: string | null = null;
+  let providerId: string | null = null;
+
+  let profile = await db.prepare(`
+    SELECT m.id, m.dni FROM merchant_profiles m
+    JOIN users u ON u.id = m.user_id WHERE u.phone = ? LIMIT 1
+  `).get<{ id: string; dni: string | null }>(phone);
+  if (!profile) {
+    const short = phone.slice(3);
+    if (short.length === 9)
+      profile = await db.prepare(`SELECT id, dni FROM merchant_profiles WHERE phone = ? ORDER BY (user_id IS NOT NULL) DESC LIMIT 1`).get<{ id: string; dni: string | null }>(short);
+  }
+
+  const mismatch = () => fail(res, 403, 'DNI_MISMATCH', 'Los datos no coinciden. Verifica tu número y tu documento.');
+
+  if (!profile) {
+    const prov = await coreDb.get<{ id: string; legal_rep_dni: string | null }>(
+      `SELECT id, legal_rep_dni FROM provider_profiles WHERE right(regexp_replace(coalesce(whatsapp,''),'[^0-9]','','g'),9)=? ORDER BY created_at DESC LIMIT 1`,
+      phone.slice(-9)
+    );
+    if (!prov) return mismatch();
+    if (recoverLocked(prov.id)) return fail(res, 429, 'RECOVERY_LOCKED', 'Demasiados intentos. Inténtalo de nuevo en 15 minutos.');
+    if (!prov.legal_rep_dni || normalizeDoc(prov.legal_rep_dni) !== normalizeDoc(dni)) {
+      recoverFailed(prov.id);
+      await audit({ actorType: 'MERCHANT', actorId: prov.id, action: 'PIN_RESET', result: 'DENIED', ip, deviceId: req.body?.device_id, details: { reason: 'DNI_MISMATCH', role: 'PROVIDER', step: 'start' } });
+      return mismatch();
+    }
+    providerId = prov.id;
+  } else {
+    if (recoverLocked(profile.id)) return fail(res, 429, 'RECOVERY_LOCKED', 'Demasiados intentos. Inténtalo de nuevo en 15 minutos.');
+    if (!profile.dni || normalizeDoc(profile.dni) !== normalizeDoc(dni)) {
+      recoverFailed(profile.id);
+      await audit({ actorType: 'MERCHANT', actorId: profile.id, action: 'PIN_RESET', result: 'DENIED', ip, deviceId: req.body?.device_id, details: { reason: 'DNI_MISMATCH', step: 'start' } });
+      return mismatch();
+    }
+    merchantId = profile.id;
+  }
+
+  const recoveryToken = randomToken(32);
+  const session = await didit.createRecoverySession({
+    vendor_data: recoveryToken,
+    expected_details: { document_number: normalizeDoc(dni) },
+    language: 'es'
+  });
+
+  pendingRecoveries.set(recoveryToken, {
+    merchantId,
+    providerId,
+    dni: normalizeDoc(dni),
+    diditSessionId: session.session_id,
+    expiresAt: Date.now() + RECOVERY_TTL_MS,
+    used: false
+  });
+
+  const actorId = merchantId ?? providerId ?? 'unknown';
+  await audit({ actorType: 'MERCHANT', actorId, action: 'PIN_RESET', result: 'OK', ip, deviceId: req.body?.device_id, details: { step: 'start', didit_session: session.session_id } });
+  res.status(201).json({ recovery_token: recoveryToken, didit_url: session.url, expires_in: 900 });
+});
+
+// Recuperar acceso paso 2: comprueba decisión Didit → resetea PIN → emite sesión.
+authRouter.post('/pin/recover/complete', authLimiter, async (req, res) => {
+  const recoveryToken = typeof req.body?.recovery_token === 'string' ? req.body.recovery_token : '';
+  const newPin        = req.body?.new_pin;
+  const deviceId      = req.body?.device_id;
+  const ip            = clientIp(req);
+
+  const pinErr = pinProblem(newPin);
+  if (pinErr) return fail(res, 422, 'PIN_WEAK', pinErr);
+  if (!isValidDeviceId(deviceId)) return fail(res, 422, 'DEVICE_ID_INVALID', 'Identificador de dispositivo inválido.');
+
+  const pending = recoveryToken ? pendingRecoveries.get(recoveryToken) : undefined;
+  if (!pending || pending.used || pending.expiresAt < Date.now())
+    return fail(res, 403, 'RECOVERY_TOKEN_INVALID', 'El enlace de recuperación expiró o ya fue usado. Vuelve a iniciar.');
+
+  // Verificar decisión Didit
+  let decision;
+  try {
+    decision = await didit.getDecision(pending.diditSessionId);
+  } catch {
+    return fail(res, 503, 'DIDIT_UNAVAILABLE', 'No se pudo verificar tu identidad. Intenta de nuevo.');
+  }
+
+  if (decision.status !== 'APPROVED') {
+    const actorId = pending.merchantId ?? pending.providerId ?? 'unknown';
+    await audit({ actorType: 'MERCHANT', actorId, action: 'PIN_RESET', result: 'DENIED', ip, deviceId, details: { reason: 'DIDIT_NOT_APPROVED', didit_status: decision.status } });
+    return fail(res, 403, 'IDENTITY_NOT_VERIFIED', 'La verificación de identidad no fue aprobada. Inténtalo de nuevo.');
+  }
+  // Exigir al menos una prueba de vida pasada
+  const livenessOk = decision.liveness_checks?.some(c => c.status === 'passed' || c.status === 'APPROVED');
+  if (!livenessOk) {
+    return fail(res, 403, 'LIVENESS_FAILED', 'No se pudo confirmar la prueba de vida. Inténtalo de nuevo con mejor iluminación.');
+  }
+
+  pending.used = true;
+
+  // --- Ruta proveedor ---
+  if (pending.providerId) {
+    const token = randomToken(32);
+    await coreDb.run(
+      'UPDATE provider_profiles SET pin_hash=?, access_token_hash=?, pin_failed_attempts=0, pin_locked_until=NULL WHERE id=?',
+      hashPin(newPin), sha256Hex(token), pending.providerId
+    );
+    recoverFailures.delete(pending.providerId);
+    await audit({ actorType: 'MERCHANT', actorId: pending.providerId, action: 'PIN_RESET', result: 'OK', ip, deviceId, details: { method: 'DIDIT_LIVENESS', role: 'PROVIDER' } });
+    return res.status(201).json({ role: 'PROVIDER', provider_id: pending.providerId, provider_token: token });
+  }
+
+  // --- Ruta comercio ---
+  const merchant = await getMerchant(pending.merchantId!);
+  if (!merchant) return fail(res, 404, 'MERCHANT_NOT_FOUND', 'Cuenta no encontrada.');
+
+  const existing = await getDevice(merchant.id, deviceId);
+  if (existing?.revoked_at) {
+    await audit({ actorType: 'MERCHANT', actorId: merchant.id, action: 'PIN_RESET', result: 'DENIED', ip, deviceId, details: { reason: 'DEVICE_REVOKED' } });
+    return fail(res, 403, 'DEVICE_REVOKED', 'Este dispositivo fue desvinculado de tu cuenta. Comunícate con Kuota por el WhatsApp oficial.');
+  }
+
+  const cooldownUntil = addHours(new Date(), config.cooldownHours).toISOString();
+  await setMerchantPinHash(merchant.id, hashPin(newPin));
+  await db.prepare('UPDATE merchant_credentials SET cooldown_until=? WHERE merchant_id=?').run(cooldownUntil, merchant.id);
+  const closed = await revokeSessions(merchant.id);
+  await revokeIdentityTokens(merchant.id);
+  recoverFailures.delete(merchant.id);
+
+  const label = typeof req.body?.device_label === 'string' ? req.body.device_label.replace(/[\u0000-\u001f<>]/g, '').slice(0, 60) : null;
+  const device = await linkDevice(merchant.id, deviceId, label, ip);
+  const sess   = await issueSession(merchant.id, deviceId);
+  const identityToken = await issueIdentityToken(merchant.id, deviceId);
+  await revokeAllRefreshTokens(merchant.id);
+  const refreshToken = await issueRefreshToken(merchant.id, deviceId);
+  await audit({ actorType: 'MERCHANT', actorId: merchant.id, action: 'PIN_RESET', result: 'OK', ip, deviceId, details: { method: 'DIDIT_LIVENESS', sessions_closed: closed, cooldown_until: cooldownUntil } });
+  await alertMerchant(merchant.id, 'PIN_CHANGED', 'Restableciste tu PIN con verificación de identidad',
+    `Cerramos tus otras sesiones y tus límites estarán reducidos por ${config.cooldownHours} horas. Si no fuiste tú, escríbenos de inmediato.`);
+  res.status(201).json({
+    access_token: sess.accessToken, token_type: 'Bearer', expires_at: sess.expiresAt,
+    merchant_id: merchant.id, identity_token: identityToken, refresh_token: refreshToken,
+    device: { new_device: device.isNew, cooldown_until: device.cooldownUntil ?? null }
+  });
+});
+
 // Recuperar acceso: verifica teléfono + DNI → resetea PIN → emite sesión.
 // No requiere PIN actual; la identidad se prueba con el DNI del registro.
-authRouter.post('/pin/recover', authLimiter, async (req, res) => {
+authRouter.post('/pin/recover', authLimiter, async (_req, res) => {
+  // Reemplazado por /pin/recover/start + /pin/recover/complete (P0-1: factor de posesión con Didit).
+  return fail(res, 410, 'ENDPOINT_DEPRECATED', 'Usa /auth/pin/recover/start y /auth/pin/recover/complete.');
+});
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+async function _legacyPinRecover(req: Request, res: Response) {
   const rawPhone = typeof req.body?.phone === 'string' ? req.body.phone.trim() : '';
   const dni      = typeof req.body?.dni   === 'string' ? req.body.dni.trim()   : '';
   const newPin   = req.body?.new_pin;
@@ -195,7 +364,7 @@ authRouter.post('/pin/recover', authLimiter, async (req, res) => {
     refresh_token: refreshToken,
     device: { new_device: device.isNew, cooldown_until: device.cooldownUntil ?? null }
   });
-});
+}
 
 // Abrir sesión: PIN + dispositivo. Sesión corta (15 min) ligada al dispositivo.
 // Login de proveedores: mismo teléfono + PIN. Devuelve el id y un token NUEVO (el anterior deja de valer:
