@@ -97,10 +97,9 @@ function writeFlag(key: string, on: boolean) {
 function AppShell() {
   // En el celular (APK) la primera vez se empieza por el registro; luego, por el Inicio.
   const [currentScreen, setCurrentScreen] = useState<string>(() => {
+    if (getProviderId() && (!getMerchantId() || getActiveProfile() === 'PROVIDER')) return 'provider_home';
     if (!Capacitor.isNativePlatform()) return 'dashboard';
     if (!readFlag(ONBOARDED_KEY)) return 'welcome';
-    // Sesión ya abierta: se abre en el último perfil usado.
-    if (getProviderId() && (!getMerchantId() || getActiveProfile() === 'PROVIDER')) return 'provider_home';
     return 'dashboard';
   });
   // Bloqueo por seguridad: al abrir la app (y al volver tras un rato en segundo plano) se pide el PIN.

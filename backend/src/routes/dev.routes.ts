@@ -1,6 +1,7 @@
 // Rutas solo disponibles fuera de producción: herramientas de desarrollo y QA.
 import { Router } from 'express';
 import { paymentsDb } from '../db/client.js';
+import { config } from '../security/config.js';
 import { nowIso } from '../security/time.js';
 import { hashPin } from '../security/crypto.js';
 
@@ -78,18 +79,31 @@ devRouter.post('/set-test-pin', async (req, res) => {
   res.json({ ok: true, pin_set: pin, merchant_id: merchant_id ?? 'ALL' });
 });
 
-// Simula liquidación al proveedor: marca como settled_at los links PAID cuyo
-// paid_at supera la ventana de liquidación configurable (default: 5 minutos).
-// Solo disponible fuera de producción. No usar en producción: requiere evidencia de 360pay.
+// Simula liquidación al proveedor: marca como settled_at los links PAID de prueba cuyo
+// paid_at supera la ventana de liquidación configurable (default: 5 minutos = 300_000 ms).
+// Solo disponible fuera de producción y con sandbox activo. En producción requiere evidencia de 360pay.
 // POST /dev/settle-pending  { window_ms?: 300000 }
 devRouter.post('/settle-pending', async (req, res) => {
-  const windowMs = Number(req.body?.window_ms ?? process.env.KUOTA_SETTLEMENT_WINDOW_MS ?? 300_000);
+  if (config.isProd || process.env.NODE_ENV === 'production' || process.env.KUOTA_SANDBOX === '0' || !config.sandboxEnabled) {
+    return res.status(403).json({
+      error: {
+        code: 'SANDBOX_ONLY',
+        message: 'La simulación de liquidación solo está disponible en sandbox con datos de prueba.'
+      }
+    });
+  }
+  const windowMs = Number(req.body?.window_ms ?? process.env.KUOTA_SETTLEMENT_WINDOW_MS ?? config.sandboxSettlementWindowMs);
   const cutoff = new Date(Date.now() - windowMs).toISOString();
+  const settledAt = nowIso();
   const result = await paymentsDb.run(
     `UPDATE payments.payment_links
      SET settled_at = ?
-     WHERE status = 'PAID' AND settled_at IS NULL AND paid_at < ?`,
-    nowIso(), cutoff
+     WHERE status = 'PAID'
+       AND settled_at IS NULL
+       AND paid_at <= ?
+       AND (gateway_ref IS NULL OR gateway_ref NOT LIKE 'live_%')`,
+    settledAt,
+    cutoff
   );
-  res.json({ ok: true, settled: result.changes ?? 0, window_ms: windowMs, cutoff });
+  res.json({ ok: true, settled: result.changes ?? 0, window_ms: windowMs, cutoff, settled_at: settledAt });
 });

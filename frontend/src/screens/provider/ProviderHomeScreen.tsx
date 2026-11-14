@@ -35,6 +35,25 @@ interface Order {
   settled: boolean;
 }
 
+interface SaleItem {
+  id: string;
+  who: string;
+  channel: string;
+  at: string;
+  cents: number;
+  feeCents: number;
+  netCents: number;
+  status: 'Por confirmar' | 'Cancelado' | 'Por cobrar' | 'Anulado' | 'Fallido' | 'Vencido';
+  tone: string;
+  detail: string;
+  ok: boolean;
+  overdue?: boolean;
+  paidAt?: string | null;
+  settledAt?: string | null;
+  etaAt?: string | null;
+  kind: 'PAYMENT_LINK' | 'AKUOTAS_ORDER';
+}
+
 type Tab = 'inicio' | 'ventas' | 'clientes' | 'perfil' | 'cuenta';
 type Period = 'week' | 'month' | 'all';
 
@@ -83,7 +102,7 @@ export const ProviderHomeScreen: React.FC<{ onLogout: () => void; onSell: () => 
   const [venderOpen, setVenderOpen] = useState(false);
   const [actModal, setActModal] = useState(false);
   const [concView, setConcView] = useState(false);
-  const [concSel, setConcSel] = useState<{ id: string; who: string; channel: string; at: string; cents: number; status: string; ok: boolean } | null>(null);
+  const [concSel, setConcSel] = useState<SaleItem | null>(null);
   const [photoSheet, setPhotoSheet] = useState(false);
   const [bioPin, setBioPin] = useState(false);
   const [settling, setSettling] = useState(false);
@@ -104,17 +123,71 @@ export const ProviderHomeScreen: React.FC<{ onLogout: () => void; onSell: () => 
   const [settSaving, setSettSaving] = useState(false);
   const [settError, setSettError] = useState<string | null>(null);
 
+  const mergeUniqueLinks = (incoming: PaymentLink[]) => {
+    const map = new Map<string, PaymentLink>();
+    for (const item of incoming) {
+      if (item?.id) map.set(item.id, item);
+    }
+    return [...map.values()];
+  };
+
+  const loadProviderData = async (silent = true) => {
+    let loadedLinksFromProvider = false;
+    try {
+      const r: any = await api.getProviderOrders();
+      if (Array.isArray(r?.orders)) setOrders(r.orders);
+      else setOrders((prev) => prev ?? []);
+      if (Array.isArray(r?.payment_links)) {
+        setLinks(mergeUniqueLinks(r.payment_links));
+        setNeedsPin(false);
+        loadedLinksFromProvider = true;
+      }
+    } catch {
+      setOrders((prev) => prev ?? []);
+    }
+
+    if (getMerchantId()) {
+      try {
+        const res = await paymentsApi.listLinks(silent);
+        setLinks(mergeUniqueLinks(res.data));
+        setNeedsPin(false);
+      } catch (e: any) {
+        if (!loadedLinksFromProvider) {
+          if (e?.code === 'SESSION_REQUIRED') setNeedsPin(true);
+          setLinks((prev) => prev ?? []);
+        }
+      }
+    } else if (!loadedLinksFromProvider) {
+      setLinks((prev) => prev ?? []);
+    }
+  };
+
   useEffect(() => {
-    api.getProviderOrders().then((r: any) => setOrders(r.orders)).catch(() => setOrders([]));
     apiRequest<ProviderProfile>('/providers/me').then(setProfile).catch((e: any) => setError(e?.message || 'No pudimos cargar tu perfil.'));
+    void loadProviderData(true);
+    const onSession = () => void loadProviderData(true);
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void loadProviderData(true);
+    };
+    window.addEventListener('kuota:payments-session', onSession);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      window.removeEventListener('kuota:payments-session', onSession);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleSandboxSettle = async () => {
     setSettling(true);
     try {
-      const r = await paymentsApi.sandboxSettle(0);
-      toast.success(r.settled > 0 ? `${r.settled} cobro${r.settled === 1 ? '' : 's'} liquidado${r.settled === 1 ? '' : 's'}.` : 'Ningún cobro superó la ventana de liquidación aún.');
-      await loadLinks(false);
+      const r = await paymentsApi.sandboxSettle();
+      toast.success(
+        r.settled > 0
+          ? `${r.settled} cobro${r.settled === 1 ? '' : 's'} liquidado${r.settled === 1 ? '' : 's'} (Cancelado).`
+          : 'Ningún cobro superó aún la ventana de 5 min en sandbox.'
+      );
+      await loadProviderData(true);
     } catch {
       toast.error('Error al simular liquidación.');
     } finally {
@@ -122,17 +195,11 @@ export const ProviderHomeScreen: React.FC<{ onLogout: () => void; onSell: () => 
     }
   };
 
-  const loadLinks = (silent = true) => {
-    if (!getMerchantId()) return Promise.resolve();
-    return paymentsApi.listLinks(silent)
-      .then((r) => { setLinks(r.data); setNeedsPin(false); })
-      .catch((e: any) => { if (e?.code === 'SESSION_REQUIRED') setNeedsPin(true); setLinks((l) => l ?? []); });
-  };
-
-  // Los cobros exigen sesión de cobros abierta (se abre al Vender): se vuelven a pedir al cambiar de pestaña.
+  // Se recarga la fuente única de verdad al cambiar entre Inicio, Ventas y Conciliación.
   useEffect(() => {
-    void loadLinks();
-  }, [tab]);
+    void loadProviderData(true);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, concView]);
 
   // Foto: se recorta y se reduce en el teléfono (sin ubicación); la ven quienes te pagan o te buscan por celular.
   const handlePhoto = async (file: File) => {
@@ -175,38 +242,124 @@ export const ProviderHomeScreen: React.FC<{ onLogout: () => void; onSell: () => 
   const st = STATUS[profile?.kyc_status ?? 'IN_REVIEW'] ?? STATUS.IN_REVIEW;
   const name = profile?.business_name || 'Tu empresa';
 
-  // Todo sale de datos reales: cobros Kuota Payments y pedidos aKuotas! de comercios afiliados.
+  // Fuente única de verdad para Inicio, Ventas y Conciliación: cobros Kuota Payments + pedidos aKuotas!.
   const d = useMemo(() => {
     const since = sinceOf(period);
     const inPeriod = (iso: string) => Date.parse(iso) >= since;
-    const allLinks = links ?? [];
-    const allOrders = orders ?? [];
-    // Links donde el cliente pagó (incluye los aún no liquidados al proveedor).
+    // Deduplicación estricta por id para impedir registros duplicados.
+    const allLinks = [...new Map((links ?? []).map((l) => [l.id, l])).values()];
+    const allOrders = [...new Map((orders ?? []).map((o) => [o.id, o])).values()];
+
+    // Links donde el cliente YA pagó (distingue pago recibido del cliente vs. link aún no pagado).
     const paid = allLinks.filter((l) => l.status === 'PAID' && inPeriod(l.paid_at ?? l.created_at));
-    // Links liquidados al proveedor (360pay confirmó la transferencia).
-    const settled = paid.filter((l) => !!l.settled_at);
-    // Links pagados por el cliente pero pendientes de liquidación al proveedor.
+    // Links liquidados al proveedor (360pay confirmó la transferencia o sandbox tras ventana de 5 min).
+    const settled = paid.filter((l) => Boolean(l.settled_at));
+    // Links con pago recibido del cliente pero esperando liquidación al vendedor ("Por confirmar").
     const awaitingSettlement = paid.filter((l) => !l.settled_at);
-    // "Por confirmar": links activos sin pago + links pagados sin liquidar.
-    const pending = allLinks.filter((l) => l.status === 'ACTIVE' || l.status === 'ON_HOLD' || (l.status === 'PAID' && !l.settled_at));
+    // Links generados que el cliente todavía NO ha pagado (no se marcan como recibidos ni entran a Por confirmar).
+    const unpaidLinks = allLinks.filter(
+      (l) => (l.status === 'ACTIVE' || l.status === 'ON_HOLD' || l.status === 'DRAFT') && !l.last_attempt_failed && l.settlement_status !== 'FAILED'
+    );
+    // Links anulados o con intento fallido en el periodo (distinguidos de "Cancelado" = liquidado).
+    const cancelledOrFailed = allLinks.filter(
+      (l) => inPeriod(l.created_at) && (l.status === 'CANCELLED' || l.last_attempt_failed || l.settlement_status === 'FAILED')
+    );
+
+    // Pedidos aKuotas! mantenidos separados de Kuota Payments.
     const ord = allOrders.filter((o) => inPeriod(o.issued_at));
+    const toCollect = ord.filter((o) => !o.settled);
+    const settledOrders = ord.filter((o) => o.settled);
+
+    // Bruto cobrado a clientes en Kuota Payments (antes de comisiones).
     const gross = paid.reduce((a, l) => a + l.amount_cents, 0);
     const fees = paid.reduce((a, l) => a + l.fee_cents, 0);
-    // Neto solo de links ya liquidados al proveedor.
+    // Bruto, comisión y neto EXCLUSIVAMENTE de cobros ya liquidados al proveedor (sin mezclar con bruto vendido).
+    const settledGross = settled.reduce((a, l) => a + l.amount_cents, 0);
+    const settledFees = settled.reduce((a, l) => a + l.fee_cents, 0);
     const net = settled.reduce((a, l) => a + l.net_cents, 0);
+    // Monto de pagos recibidos en espera de liquidación ("Por confirmar").
+    const awaitingGross = awaitingSettlement.reduce((a, l) => a + l.amount_cents, 0);
+    const awaitingNet = awaitingSettlement.reduce((a, l) => a + l.net_cents, 0);
+    // Monto de pedidos aKuotas! pendientes de cobro ("Por cobrar", separado de Kuota Payments).
+    const toCollectTotal = toCollect.reduce((a, o) => a + o.total_cents, 0);
+    const ordersTotal = ord.reduce((a, o) => a + o.total_cents, 0);
+    // Total vendido (bruto): cobros pagados Kuota Payments + pedidos aKuotas!
+    const sold = gross + ordersTotal;
     const pos = Math.round(gross * 0.035); // 3.5 % promedio de un POS tradicional
-    const toCollect = allOrders.filter((o) => !o.settled);
-    const sales = [
-      ...allLinks.filter((l) => inPeriod(l.created_at)).map((l) => ({
-        id: l.id, who: l.concept || 'Cobro', channel: 'Kuota Payments', at: l.created_at, cents: l.amount_cents,
-        status: l.status === 'PAID' && l.settled_at ? 'Cancelado' : l.status === 'PAID' ? 'Cobrado' : l.status === 'CANCELLED' ? 'Anulado' : l.status === 'EXPIRED' ? 'Vencido' : 'Por confirmar',
-        ok: l.status === 'PAID' && !!l.settled_at
-      })),
-      ...ord.map((o) => ({
-        id: o.id, who: o.customer, channel: `aKuotas! (${o.installments_count} cuotas)`, at: o.issued_at, cents: o.total_cents,
-        status: o.settled ? 'Liquidado' : 'Por cobrar', ok: o.settled
+    const overdueCount = awaitingSettlement.filter((l) => Boolean(l.settlement_overdue)).length;
+
+    const sales: SaleItem[] = [
+      ...paid.map((l): SaleItem => {
+        const isSettled = Boolean(l.settled_at);
+        const isOverdue = !isSettled && Boolean(l.settlement_overdue);
+        return {
+          id: l.id,
+          who: l.concept || 'Cobro',
+          channel: 'Kuota Payments',
+          at: l.paid_at ?? l.created_at,
+          cents: l.amount_cents,
+          feeCents: l.fee_cents,
+          netCents: l.net_cents,
+          // "Cancelado" = liquidación pagada/completada al vendedor (compatible con "Cobrado" al cliente).
+          // "Por confirmar" = pago recibido del cliente en espera de liquidación.
+          status: isSettled ? 'Cancelado' : 'Por confirmar',
+          tone: isSettled
+            ? 'bg-emerald-100 text-emerald-800'
+            : isOverdue
+            ? 'bg-amber-100 text-amber-900'
+            : 'bg-[#e1e8f8] text-[#1a3bb0]',
+          detail: isSettled
+            ? `Liquidado al vendedor · Neto ${soles(l.net_cents)}`
+            : isOverdue
+            ? 'Pago recibido · Plazo estimado cumplido (pendiente 360)'
+            : `Pago recibido (Cobrado) · En liquidación (neto ${soles(l.net_cents)})`,
+          ok: isSettled,
+          overdue: isOverdue,
+          paidAt: l.paid_at,
+          settledAt: l.settled_at,
+          etaAt: l.settlement_eta_at ?? null,
+          kind: 'PAYMENT_LINK'
+        };
+      }),
+      ...cancelledOrFailed.map((l): SaleItem => {
+        const isFailed = Boolean(l.last_attempt_failed || l.settlement_status === 'FAILED');
+        return {
+          id: l.id,
+          who: l.concept || 'Cobro',
+          channel: 'Kuota Payments',
+          at: l.created_at,
+          cents: l.amount_cents,
+          feeCents: 0,
+          netCents: 0,
+          status: isFailed ? 'Fallido' : 'Anulado',
+          tone: isFailed ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-600',
+          detail: isFailed ? 'Operación fallida · Sin cargo al cliente' : 'Link anulado · Sin cobro recibido',
+          ok: false,
+          paidAt: null,
+          settledAt: null,
+          etaAt: null,
+          kind: 'PAYMENT_LINK'
+        };
+      }),
+      ...ord.map((o): SaleItem => ({
+        id: o.id,
+        who: o.customer,
+        channel: `aKuotas! (${o.installments_count} cuotas)`,
+        at: o.issued_at,
+        cents: o.total_cents,
+        feeCents: 0,
+        netCents: o.total_cents,
+        status: o.settled ? 'Cancelado' : 'Por cobrar',
+        tone: o.settled ? 'bg-emerald-100 text-emerald-800' : 'bg-indigo-100 text-indigo-800',
+        detail: o.settled ? 'Pedido aKuotas! liquidado' : 'Pedido aKuotas! pendiente de cobro',
+        ok: o.settled,
+        paidAt: o.issued_at,
+        settledAt: o.settled ? o.issued_at : null,
+        etaAt: null,
+        kind: 'AKUOTAS_ORDER'
       }))
     ].sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
+
     const byCustomer = new Map<string, { total: number; count: number; last: string; orders: Order[] }>();
     for (const o of allOrders) {
       const c = byCustomer.get(o.customer) ?? { total: 0, count: 0, last: o.issued_at, orders: [] as Order[] };
@@ -236,7 +389,32 @@ export const ProviderHomeScreen: React.FC<{ onLogout: () => void; onSell: () => 
       x.n += 1; x.gross += l.amount_cents; x.fee += l.fee_cents; x.net += l.net_cents; byDay.set(k, x);
     }
     const settlements = [...byDay.values()].sort((a, b) => b.key.localeCompare(a.key));
-    return { bars, peak, products, settlements, paid, settled, awaitingSettlement, pending, gross, fees, net, pos, toCollect, sales, customers, sold: gross + ord.reduce((a, o) => a + o.total_cents, 0) };
+    return {
+      bars,
+      peak,
+      products,
+      settlements,
+      paid,
+      settled,
+      awaitingSettlement,
+      unpaidLinks,
+      settledOrders,
+      gross,
+      fees,
+      settledGross,
+      settledFees,
+      net,
+      awaitingGross,
+      awaitingNet,
+      toCollectTotal,
+      ordersTotal,
+      pos,
+      toCollect,
+      sales,
+      customers,
+      sold,
+      overdueCount
+    };
   }, [links, orders, period]);
 
   const shownCustomers = d.customers.filter((c) => c.who.toLowerCase().includes(q.trim().toLowerCase()));
@@ -282,7 +460,7 @@ export const ProviderHomeScreen: React.FC<{ onLogout: () => void; onSell: () => 
         </div>
         {error && <div className="p-3 rounded-2xl bg-red-50 border border-red-200 text-xs text-red-700">{error}</div>}
         {needsPin && (
-          <button type="button" onClick={() => void loadLinks(false)} className="w-full p-3 rounded-2xl bg-[#eff3ff] border border-[#d8e2ff] text-xs font-bold text-[#1a3bb0] text-left cursor-pointer">
+          <button type="button" onClick={() => void loadProviderData(false)} className="w-full p-3 rounded-2xl bg-[#eff3ff] border border-[#d8e2ff] text-xs font-bold text-[#1a3bb0] text-left cursor-pointer">
             Tus cobros de Kuota Payments están cerrados. Toca para verlos con tu PIN.
           </button>
         )}
@@ -307,25 +485,74 @@ export const ProviderHomeScreen: React.FC<{ onLogout: () => void; onSell: () => 
 
             <div className="flex items-center justify-between pt-1">
               <h2 className="text-base font-black text-[#0b2545]">Operaciones de fondos</h2>
-              <span className="text-[11px] text-[#4a5f7e]">Actualizado hoy</span>
+              <button
+                type="button"
+                onClick={() => { setTab('ventas'); setConcView(true); }}
+                className="text-[11px] font-bold text-[#1a3bb0] underline cursor-pointer"
+              >
+                Ir a Conciliación
+              </button>
             </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <Card>
+                <p className="text-xs font-bold text-[#4a5f7e] flex items-center gap-1"><TrendingUp size={13} aria-hidden="true" /> Total vendido</p>
+                <p className="text-xl font-black text-[#0b2545] tabular-nums">{soles(d.sold)}</p>
+                <p className="text-[11px] text-[#4a5f7e]">Monto bruto de ventas</p>
+              </Card>
+              <Card>
+                <p className="text-xs font-bold text-[#4a5f7e] flex items-center gap-1"><CheckCircle2 size={13} aria-hidden="true" /> Liquidado (neto)</p>
+                <p className="text-xl font-black text-emerald-700 tabular-nums">{soles(d.net)}</p>
+                <p className="text-[11px] text-[#4a5f7e]">{d.settled.length} cobro{d.settled.length === 1 ? '' : 's'} cancelado{d.settled.length === 1 ? '' : 's'}</p>
+              </Card>
+            </div>
+
             <div className="grid grid-cols-2 gap-3">
               <Card>
                 <p className="text-xs font-bold text-[#4a5f7e] flex items-center gap-1"><Clock size={13} aria-hidden="true" /> Por cobrar</p>
-                <p className="text-xl font-black text-[#0b2545] tabular-nums">{soles(d.toCollect.reduce((a, o) => a + o.total_cents, 0))}</p>
-                <p className="text-[11px] text-[#4a5f7e]">{d.toCollect.length} pedido{d.toCollect.length === 1 ? '' : 's'} aKuotas! sin liquidar</p>
+                <p className="text-xl font-black text-[#0b2545] tabular-nums">{soles(d.toCollectTotal)}</p>
+                <p className="text-[11px] text-[#4a5f7e]">{d.toCollect.length} pedido{d.toCollect.length === 1 ? '' : 's'} aKuotas! pendiente{d.toCollect.length === 1 ? '' : 's'}</p>
               </Card>
               <Card>
                 <p className="text-xs font-bold text-[#4a5f7e] flex items-center gap-1"><Wallet size={13} aria-hidden="true" /> Por confirmar</p>
-                <p className="text-xl font-black text-[#0b2545] tabular-nums">{soles(d.pending.reduce((a, l) => a + l.amount_cents, 0))}</p>
+                <p className="text-xl font-black text-[#0b2545] tabular-nums">{soles(d.awaitingGross)}</p>
                 <p className="text-[11px] text-[#4a5f7e]">
                   {d.awaitingSettlement.length > 0
-                    ? `${d.awaitingSettlement.length} cobrado${d.awaitingSettlement.length === 1 ? '' : 's'}, en tránsito`
-                    : `${d.pending.filter((l) => l.status !== 'PAID').length} link${d.pending.filter((l) => l.status !== 'PAID').length === 1 ? '' : 's'} sin cobrar`}
+                    ? `${d.awaitingSettlement.length} pago${d.awaitingSettlement.length === 1 ? '' : 's'} recibido${d.awaitingSettlement.length === 1 ? '' : 's'} · neto ${soles(d.awaitingNet)}`
+                    : '0 pagos recibidos por liquidar'}
                 </p>
               </Card>
             </div>
 
+            {d.overdueCount > 0 && (
+              <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200 text-[11px] text-amber-900 leading-snug">
+                <b>Plazo estimado cumplido:</b> {d.overdueCount} pago{d.overdueCount === 1 ? '' : 's'} recibido{d.overdueCount === 1 ? '' : 's'} superó el plazo estimado y sigue <b>Por confirmar</b> a la espera de evidencia de 360pay (plazo definitivo y horas hábiles/calendario pendientes de validar con 360).
+              </div>
+            )}
+
+            <Card title="Ventas">
+              {d.sales.length === 0 && <Empty loading={loading} text="Aún no hay ventas registradas en este periodo." />}
+              <div className="divide-y divide-[#f0f4ff]">
+                {d.sales.slice(0, 20).map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => { setTab('ventas'); setConcView(true); setConcSel(s); }}
+                    className="w-full flex items-center justify-between gap-3 py-2.5 text-xs text-left cursor-pointer"
+                  >
+                    <div className="min-w-0">
+                      <p className="font-bold text-[#151c27] truncate text-sm">{s.who}</p>
+                      <p className="text-[#4a5f7e]">{s.channel} · {day(s.at)}</p>
+                      <p className="text-[10px] text-[#4a5f7e] truncate">{s.detail}</p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="font-black text-[#151c27] text-sm">{soles(s.cents)}</p>
+                      <span className={`inline-block mt-0.5 px-2 py-0.5 rounded-full font-bold text-[10px] ${s.tone}`}>{s.status}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </Card>
           </>
         )}
 
@@ -334,8 +561,9 @@ export const ProviderHomeScreen: React.FC<{ onLogout: () => void; onSell: () => 
             <Hero>
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-[11px] tracking-wider text-white/80">TOTAL VENDIDO CON KUOTA</p>
+                  <p className="text-[11px] tracking-wider text-white/80">TOTAL VENDIDO CON KUOTA (BRUTO)</p>
                   <p className="text-4xl font-black tabular-nums">{soles(d.sold)}</p>
+                  <p className="text-[11px] text-white/80 mt-0.5">Neto liquidado: {soles(d.net)} · Por confirmar: {soles(d.awaitingGross)}</p>
                 </div>
                 <button type="button" onClick={() => setActModal(true)} aria-label="Ver actividad diaria"
                   className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center cursor-pointer">
@@ -356,10 +584,11 @@ export const ProviderHomeScreen: React.FC<{ onLogout: () => void; onSell: () => 
                     <div className="min-w-0">
                       <p className="font-bold text-[#151c27] truncate text-sm">{s.who}</p>
                       <p className="text-[#4a5f7e]">{s.channel} · {day(s.at)}</p>
+                      <p className="text-[10px] text-[#4a5f7e] truncate">{s.detail}</p>
                     </div>
                     <div className="text-right shrink-0">
                       <p className="font-black text-[#151c27] text-sm">{soles(s.cents)}</p>
-                      <span className={`inline-block mt-0.5 px-2 py-0.5 rounded-full font-bold ${s.ok ? 'bg-emerald-100 text-emerald-800' : 'bg-[#e1e8f8] text-[#1a3bb0]'}`}>{s.status}</span>
+                      <span className={`inline-block mt-0.5 px-2 py-0.5 rounded-full font-bold text-[10px] ${s.tone}`}>{s.status}</span>
                     </div>
                   </div>
                 ))}
@@ -378,25 +607,37 @@ export const ProviderHomeScreen: React.FC<{ onLogout: () => void; onSell: () => 
               <h2 className="text-base font-black text-[#0b2545]">Conciliación</h2>
               <button type="button" onClick={() => void handleSandboxSettle()} disabled={settling}
                 className="ml-auto text-[10px] font-bold px-2.5 py-1 rounded-lg bg-amber-100 text-amber-800 border border-amber-200 cursor-pointer disabled:opacity-50">
-                {settling ? '...' : '⚡ Simular liquidación'}
+                {settling ? '...' : '⚡ Simular liquidación (5m)'}
               </button>
             </div>
             <Hero>
               <div className="space-y-1">
-                <p className="text-[11px] tracking-wider text-white/80">VOLUMEN LIQUIDADO AL PROVEEDOR</p>
+                <p className="text-[11px] tracking-wider text-white/80">VOLUMEN LIQUIDADO AL PROVEEDOR (NETO)</p>
                 <p className="text-4xl font-black tabular-nums">{soles(d.net)}</p>
+                <p className="text-[11px] text-white/80">
+                  Bruto liquidado: {soles(d.settledGross)} · Comisión Kuota: -{soles(d.settledFees)}
+                </p>
               </div>
-              <div className="grid grid-cols-2 gap-2 rounded-2xl bg-white/10 p-3 text-xs">
+              <div className="grid grid-cols-3 gap-2 rounded-2xl bg-white/10 p-3 text-xs">
                 <div>
-                  <p className="text-white/70">Total vendido</p>
+                  <p className="text-white/70 text-[10px]">Total vendido</p>
                   <p className="font-black">{soles(d.sold)}</p>
                 </div>
                 <div>
-                  <p className="text-white/70">Pendiente</p>
-                  <p className="font-black">{soles(d.toCollect.reduce((a, o) => a + o.total_cents, 0) + d.pending.reduce((a, l) => a + l.amount_cents, 0))}</p>
+                  <p className="text-white/70 text-[10px]">Por confirmar</p>
+                  <p className="font-black">{soles(d.awaitingGross)}</p>
+                </div>
+                <div>
+                  <p className="text-white/70 text-[10px]">Por cobrar (aKuotas!)</p>
+                  <p className="font-black">{soles(d.toCollectTotal)}</p>
                 </div>
               </div>
             </Hero>
+            {d.overdueCount > 0 && (
+              <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200 text-[11px] text-amber-900 leading-snug">
+                <b>Plazo estimado cumplido:</b> Se conserva el estado <b>Por confirmar</b> hasta recibir confirmación del proveedor de pagos. Plazo real y cómputo (horas hábiles vs. calendario) pendientes de validar con 360.
+              </div>
+            )}
             {!concSel ? (
               <Card title="Ventas">
                 {d.sales.length === 0 && <Empty loading={loading} text="Aún no hay ventas en este periodo." />}
@@ -407,10 +648,11 @@ export const ProviderHomeScreen: React.FC<{ onLogout: () => void; onSell: () => 
                       <div className="min-w-0">
                         <p className="font-bold text-[#151c27] truncate">{s.who}</p>
                         <p className="text-[#4a5f7e]">{s.channel} · {day(s.at)}</p>
+                        <p className="text-[10px] text-[#4a5f7e] truncate">{s.detail}</p>
                       </div>
                       <div className="text-right shrink-0">
                         <p className="font-black text-sm text-[#151c27]">{soles(s.cents)}</p>
-                        <span className={`inline-block mt-0.5 px-2 py-0.5 rounded-full font-bold text-[10px] ${s.ok ? 'bg-emerald-100 text-emerald-800' : 'bg-[#e1e8f8] text-[#1a3bb0]'}`}>{s.status}</span>
+                        <span className={`inline-block mt-0.5 px-2 py-0.5 rounded-full font-bold text-[10px] ${s.tone}`}>{s.status}</span>
                       </div>
                     </button>
                   ))}
@@ -425,16 +667,48 @@ export const ProviderHomeScreen: React.FC<{ onLogout: () => void; onSell: () => 
                 <Card title="Detalle de la venta">
                   {(() => {
                     const bruto = concSel.cents;
-                    const comBase = Math.max(Math.round(bruto * 0.01), 450);
-                    const igv = Math.round(comBase * 0.18);
-                    const neto = bruto - comBase - igv;
+                    const feeTotal = concSel.kind === 'PAYMENT_LINK' && concSel.feeCents > 0
+                      ? concSel.feeCents
+                      : concSel.kind === 'AKUOTAS_ORDER'
+                      ? 0
+                      : Math.round(Math.max(Math.round(bruto * 0.01), 450) * 1.18);
+                    const comBase = feeTotal > 0 ? Math.round(feeTotal / 1.18) : 0;
+                    const igv = feeTotal - comBase;
+                    const neto = concSel.netCents > 0 ? concSel.netCents : bruto - feeTotal;
                     return (
                       <div className="space-y-2">
-                        <Row label="Monto vendido" value={soles(bruto)} />
-                        <Row label="Comisión Kuota (1 %, mín. S/ 4.50)" value={`-${soles(comBase)}`} />
-                        <Row label="IGV sobre la comisión (18 %)" value={`-${soles(igv)}`} />
+                        <Row label="Concepto / Cliente" value={concSel.who} />
+                        <Row label="Canal" value={concSel.channel} />
+                        <Row label="Estado en conciliación" value={concSel.status} />
+                        {concSel.kind === 'PAYMENT_LINK' && (
+                          <Row
+                            label="Pago del cliente"
+                            value={
+                              concSel.status === 'Anulado'
+                                ? 'Anulado (sin cobro)'
+                                : concSel.status === 'Fallido'
+                                ? 'Fallido (rechazado)'
+                                : 'Cobrado al cliente'
+                            }
+                          />
+                        )}
+                        {concSel.paidAt && <Row label="Fecha de cobro" value={day(concSel.paidAt)} />}
+                        {concSel.settledAt && <Row label="Fecha de liquidación" value={day(concSel.settledAt)} />}
+                        {!concSel.settledAt && concSel.etaAt && (
+                          <Row
+                            label="Liquidación estimada"
+                            value={concSel.overdue ? 'Plazo cumplido · pendiente 360' : day(concSel.etaAt)}
+                          />
+                        )}
+                        <Row label="Monto vendido (bruto)" value={soles(bruto)} />
+                        {concSel.kind === 'PAYMENT_LINK' && concSel.status !== 'Anulado' && concSel.status !== 'Fallido' && (
+                          <>
+                            <Row label="Comisión Kuota (1 %, mín. S/ 4.50)" value={`-${soles(comBase)}`} />
+                            <Row label="IGV sobre la comisión (18 %)" value={`-${soles(igv)}`} />
+                          </>
+                        )}
                         <div className="pt-2 border-t border-[#f0f4ff] flex justify-between text-sm font-black">
-                          <span>Monto abonado (neto)</span>
+                          <span>{concSel.ok ? 'Monto liquidado (neto)' : 'Monto neto a liquidar'}</span>
                           <span className="text-emerald-700">{soles(neto)}</span>
                         </div>
                       </div>

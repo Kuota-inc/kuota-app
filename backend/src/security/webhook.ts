@@ -47,6 +47,7 @@ export interface Pay360PaidItem {
   amount?: unknown;
   status?: unknown;
   paid_at?: unknown;
+  settled_at?: unknown;
   operation_number?: unknown;
   bank_tx_id?: unknown;
   payment_method?: unknown; // solo lo envía el simulador local
@@ -54,15 +55,17 @@ export interface Pay360PaidItem {
 
 /** Evento normalizado que procesa Kuota. */
 interface NormalizedEvent {
-  type: 'payment_captured' | 'payment_rejected' | 'unknown';
+  type: 'payment_captured' | 'payment_settled' | 'payment_rejected' | 'unknown';
   payment: Record<string, unknown>;
 }
 
 function normalize(item: Pay360PaidItem): NormalizedEvent {
+  const settled = item.status === 'settled' || item.event === 'ticket.settled';
   const paid = item.status === 'paid' || item.event === 'ticket.paid';
+  const rejected = item.status === 'rejected' || item.status === 'failed' || item.event === 'ticket.rejected';
   const amount = typeof item.amount === 'number' && Number.isFinite(item.amount) ? solesToCents(item.amount) : null;
   return {
-    type: paid ? 'payment_captured' : 'unknown',
+    type: settled ? 'payment_settled' : paid ? 'payment_captured' : rejected ? 'payment_rejected' : 'unknown',
     payment: {
       link_id: typeof item.external_ref === 'string' ? item.external_ref : null,
       amount_minor: amount,
@@ -71,7 +74,8 @@ function normalize(item: Pay360PaidItem): NormalizedEvent {
       gateway_ref: typeof item._id === 'string' ? item._id : null,
       payment_reference: typeof item.payment_reference === 'string' ? item.payment_reference.slice(0, 64) : null,
       operation_number: typeof item.operation_number === 'string' ? item.operation_number.slice(0, 64) : null,
-      bank: typeof item.bank_tx_id === 'string' ? item.bank_tx_id.slice(0, 32) : null
+      bank: typeof item.bank_tx_id === 'string' ? item.bank_tx_id.slice(0, 32) : null,
+      settled_at: typeof item.settled_at === 'string' ? item.settled_at : null
     }
   };
 }
@@ -162,7 +166,7 @@ async function processEvent(
     return { status: 200, body: response };
   };
 
-  if (type !== 'payment_captured' && type !== 'payment_rejected') return record('IGNORED', 'UNSUPPORTED_TYPE', null);
+  if (type !== 'payment_captured' && type !== 'payment_settled' && type !== 'payment_rejected') return record('IGNORED', 'UNSUPPORTED_TYPE', null);
 
   // 360pay identifica el link por external_ref (= id del link); el simulador puede usar el código público.
   const token = p.link_id ? null : tokenFromPublicCode(p.reference);
@@ -189,6 +193,20 @@ async function processEvent(
     await attempt('FAILED', typeof p.reason === 'string' ? p.reason.slice(0, 60) : 'REJECTED');
     await paymentEvent(found.id, 'PAYMENT_REJECTED', { event_id: eventId });
     return record('PROCESSED', 'PAYMENT_REJECTED', found);
+  }
+
+  if (type === 'payment_settled') {
+    if (found.status !== 'PAID') {
+      return record('REJECTED', `LINK_${found.status}`, found);
+    }
+    if (found.settled_at) {
+      return record('IGNORED', 'ALREADY_SETTLED', found, { settled_at: found.settled_at });
+    }
+    const settledAt = typeof p.settled_at === 'string' && !Number.isNaN(Date.parse(p.settled_at)) ? new Date(p.settled_at).toISOString() : nowIso();
+    await db.prepare("UPDATE payment_links SET settled_at = ? WHERE id = ? AND status = 'PAID' AND settled_at IS NULL").run(settledAt, found.id);
+    await paymentEvent(found.id, 'SETTLED', { event_id: eventId, gateway_ref: gatewayRef, settled_at: settledAt, simulated: false });
+    await audit({ actorType: 'GATEWAY', actorId: '360pay', action: 'PAYMENT_SETTLED', target: found.id, result: 'OK', ip, details: { event_id: eventId, settled_at: settledAt } });
+    return record('PROCESSED', 'PAYMENT_SETTLED', found, { link_id: found.id, settled_at: settledAt });
   }
 
   if (!gatewayRef || !METHODS.has(String(p.method))) return record('REJECTED', 'INVALID_PAYLOAD', found);
