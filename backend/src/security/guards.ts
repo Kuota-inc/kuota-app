@@ -1,33 +1,31 @@
 // Límites de tasa e idempotencia.
 //
-// El limitador es en memoria (un solo proceso). En producción esta función la
-// cumplen el WAF/API Gateway y un almacén compartido (Redis) entre réplicas.
+// P1-7: el limitador usa PostgreSQL (upsert atómico en rate_limit_buckets)
+// para compartir contadores entre todas las instancias Railway.
 import type { NextFunction, Request, Response } from 'express';
 import { paymentsDb as db } from '../db/client.js';
 import { canonicalJson, sha256Hex } from './crypto.js';
 import { clientIp, fail, headerString } from './http.js';
 import { nowIso } from './time.js';
 
-type Bucket = { count: number; resetAt: number };
-const buckets = new Map<string, Bucket>();
-let lastSweep = Date.now();
-
 export function rateLimit(opts: { name: string; windowMs: number; max: number; key?: (req: Request) => string }) {
-  return (req: Request, res: Response, next: NextFunction) => {
+  return async (req: Request, res: Response, next: NextFunction) => {
     const now = Date.now();
-    if (now - lastSweep > 60_000) {
-      for (const [k, b] of buckets) if (b.resetAt <= now) buckets.delete(k);
-      lastSweep = now;
-    }
+    const resetAt = now + opts.windowMs;
     const key = `${opts.name}:${opts.key ? opts.key(req) : clientIp(req)}`;
-    let b = buckets.get(key);
-    if (!b || b.resetAt <= now) {
-      b = { count: 0, resetAt: now + opts.windowMs };
-      buckets.set(key, b);
-    }
-    b.count += 1;
-    if (b.count > opts.max) {
-      res.setHeader('Retry-After', String(Math.ceil((b.resetAt - now) / 1000)));
+    const row = await db.prepare(`
+      INSERT INTO payments.rate_limit_buckets (key, count, reset_at)
+      VALUES ($1, 1, $2)
+      ON CONFLICT (key) DO UPDATE
+        SET count    = CASE WHEN rate_limit_buckets.reset_at <= $3 THEN 1
+                            ELSE rate_limit_buckets.count + 1 END,
+            reset_at = CASE WHEN rate_limit_buckets.reset_at <= $3 THEN $2
+                            ELSE rate_limit_buckets.reset_at END
+      RETURNING count, reset_at
+    `).get(key, resetAt, now) as { count: number; reset_at: number } | undefined;
+    if (!row || row.count > opts.max) {
+      const retryAfter = row ? Math.ceil((row.reset_at - now) / 1000) : Math.ceil(opts.windowMs / 1000);
+      res.setHeader('Retry-After', String(retryAfter));
       return fail(res, 429, 'RATE_LIMITED', 'Demasiadas solicitudes. Espera un momento e inténtalo otra vez.');
     }
     next();
@@ -35,8 +33,8 @@ export function rateLimit(opts: { name: string; windowMs: number; max: number; k
 }
 
 /** Solo para pruebas automatizadas. */
-export function resetRateLimits() {
-  buckets.clear();
+export async function resetRateLimits() {
+  await db.prepare('DELETE FROM payments.rate_limit_buckets').run();
 }
 
 const IDEM_KEY = /^[A-Za-z0-9_-]{16,80}$/;
