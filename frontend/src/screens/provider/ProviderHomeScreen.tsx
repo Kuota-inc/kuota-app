@@ -86,6 +86,7 @@ export const ProviderHomeScreen: React.FC<{ onLogout: () => void; onSell: () => 
   const [concSel, setConcSel] = useState<{ id: string; who: string; channel: string; at: string; cents: number; status: string; ok: boolean } | null>(null);
   const [photoSheet, setPhotoSheet] = useState(false);
   const [bioPin, setBioPin] = useState(false);
+  const [settling, setSettling] = useState(false);
   useEffect(() => {
     void biometricPinAvailable().then(setBioPin);
   }, []);
@@ -107,6 +108,19 @@ export const ProviderHomeScreen: React.FC<{ onLogout: () => void; onSell: () => 
     api.getProviderOrders().then((r: any) => setOrders(r.orders)).catch(() => setOrders([]));
     apiRequest<ProviderProfile>('/providers/me').then(setProfile).catch((e: any) => setError(e?.message || 'No pudimos cargar tu perfil.'));
   }, []);
+
+  const handleSandboxSettle = async () => {
+    setSettling(true);
+    try {
+      const r = await paymentsApi.sandboxSettle();
+      toast.success(r.settled > 0 ? `${r.settled} cobro${r.settled === 1 ? '' : 's'} liquidado${r.settled === 1 ? '' : 's'}.` : 'Ningún cobro superó la ventana de liquidación aún.');
+      await loadLinks(false);
+    } catch {
+      toast.error('Error al simular liquidación.');
+    } finally {
+      setSettling(false);
+    }
+  };
 
   const loadLinks = (silent = true) => {
     if (!getMerchantId()) return Promise.resolve();
@@ -167,18 +181,26 @@ export const ProviderHomeScreen: React.FC<{ onLogout: () => void; onSell: () => 
     const inPeriod = (iso: string) => Date.parse(iso) >= since;
     const allLinks = links ?? [];
     const allOrders = orders ?? [];
+    // Links donde el cliente pagó (incluye los aún no liquidados al proveedor).
     const paid = allLinks.filter((l) => l.status === 'PAID' && inPeriod(l.paid_at ?? l.created_at));
-    const pending = allLinks.filter((l) => l.status === 'ACTIVE' || l.status === 'ON_HOLD');
+    // Links liquidados al proveedor (360pay confirmó la transferencia).
+    const settled = paid.filter((l) => !!l.settled_at);
+    // Links pagados por el cliente pero pendientes de liquidación al proveedor.
+    const awaitingSettlement = paid.filter((l) => !l.settled_at);
+    // "Por confirmar": links activos sin pago + links pagados sin liquidar.
+    const pending = allLinks.filter((l) => l.status === 'ACTIVE' || l.status === 'ON_HOLD' || (l.status === 'PAID' && !l.settled_at));
     const ord = allOrders.filter((o) => inPeriod(o.issued_at));
     const gross = paid.reduce((a, l) => a + l.amount_cents, 0);
     const fees = paid.reduce((a, l) => a + l.fee_cents, 0);
-    const net = paid.reduce((a, l) => a + l.net_cents, 0);
+    // Neto solo de links ya liquidados al proveedor.
+    const net = settled.reduce((a, l) => a + l.net_cents, 0);
     const pos = Math.round(gross * 0.035); // 3.5 % promedio de un POS tradicional
     const toCollect = allOrders.filter((o) => !o.settled);
     const sales = [
       ...allLinks.filter((l) => inPeriod(l.created_at)).map((l) => ({
         id: l.id, who: l.concept || 'Cobro', channel: 'Kuota Payments', at: l.created_at, cents: l.amount_cents,
-        status: l.status === 'PAID' ? 'Cobrado' : l.status === 'EXPIRED' || l.status === 'CANCELLED' ? 'Vencido' : 'Por confirmar', ok: l.status === 'PAID'
+        status: l.status === 'PAID' && l.settled_at ? 'Cancelado' : l.status === 'PAID' ? 'Cobrado' : l.status === 'CANCELLED' ? 'Anulado' : l.status === 'EXPIRED' ? 'Vencido' : 'Por confirmar',
+        ok: l.status === 'PAID' && !!l.settled_at
       })),
       ...ord.map((o) => ({
         id: o.id, who: o.customer, channel: `aKuotas! (${o.installments_count} cuotas)`, at: o.issued_at, cents: o.total_cents,
@@ -208,13 +230,13 @@ export const ProviderHomeScreen: React.FC<{ onLogout: () => void; onSell: () => 
     for (const l of paid) { const k = l.concept?.trim() || 'Cobro sin concepto'; const p = byProduct.get(k) ?? { total: 0, count: 0 }; p.total += l.amount_cents; p.count += 1; byProduct.set(k, p); }
     const products = [...byProduct.entries()].map(([name, p]) => ({ name, ...p })).sort((a, b) => b.total - a.total);
     const byDay = new Map<string, { key: string; at: string; n: number; gross: number; fee: number; net: number }>();
-    for (const l of paid) {
-      const at = l.paid_at ?? l.created_at; const k = dayKey(at);
+    for (const l of settled) {
+      const at = l.settled_at!; const k = dayKey(at);
       const x = byDay.get(k) ?? { key: k, at, n: 0, gross: 0, fee: 0, net: 0 };
       x.n += 1; x.gross += l.amount_cents; x.fee += l.fee_cents; x.net += l.net_cents; byDay.set(k, x);
     }
     const settlements = [...byDay.values()].sort((a, b) => b.key.localeCompare(a.key));
-    return { bars, peak, products, settlements, paid, pending, gross, fees, net, pos, toCollect, sales, customers, sold: gross + ord.reduce((a, o) => a + o.total_cents, 0) };
+    return { bars, peak, products, settlements, paid, settled, awaitingSettlement, pending, gross, fees, net, pos, toCollect, sales, customers, sold: gross + ord.reduce((a, o) => a + o.total_cents, 0) };
   }, [links, orders, period]);
 
   const shownCustomers = d.customers.filter((c) => c.who.toLowerCase().includes(q.trim().toLowerCase()));
@@ -296,7 +318,11 @@ export const ProviderHomeScreen: React.FC<{ onLogout: () => void; onSell: () => 
               <Card>
                 <p className="text-xs font-bold text-[#4a5f7e] flex items-center gap-1"><Wallet size={13} aria-hidden="true" /> Por confirmar</p>
                 <p className="text-xl font-black text-[#0b2545] tabular-nums">{soles(d.pending.reduce((a, l) => a + l.amount_cents, 0))}</p>
-                <p className="text-[11px] text-[#4a5f7e]">{d.pending.length} link{d.pending.length === 1 ? '' : 's'} de cobro por validar</p>
+                <p className="text-[11px] text-[#4a5f7e]">
+                  {d.awaitingSettlement.length > 0
+                    ? `${d.awaitingSettlement.length} cobrado${d.awaitingSettlement.length === 1 ? '' : 's'}, en tránsito`
+                    : `${d.pending.filter((l) => l.status !== 'PAID').length} link${d.pending.filter((l) => l.status !== 'PAID').length === 1 ? '' : 's'} sin cobrar`}
+                </p>
               </Card>
             </div>
 
@@ -350,10 +376,16 @@ export const ProviderHomeScreen: React.FC<{ onLogout: () => void; onSell: () => 
                 <ArrowLeft size={18} aria-hidden="true" />
               </button>
               <h2 className="text-base font-black text-[#0b2545]">Conciliación</h2>
+              {import.meta.env.DEV && (
+                <button type="button" onClick={() => void handleSandboxSettle()} disabled={settling}
+                  className="ml-auto text-[10px] font-bold px-2.5 py-1 rounded-lg bg-amber-100 text-amber-800 border border-amber-200 cursor-pointer disabled:opacity-50">
+                  {settling ? '...' : '⚡ Simular liquidación'}
+                </button>
+              )}
             </div>
             <Hero>
               <div className="space-y-1">
-                <p className="text-[11px] tracking-wider text-white/80">VOLUMEN YA PAGADO</p>
+                <p className="text-[11px] tracking-wider text-white/80">VOLUMEN LIQUIDADO AL PROVEEDOR</p>
                 <p className="text-4xl font-black tabular-nums">{soles(d.net)}</p>
               </div>
               <div className="grid grid-cols-2 gap-2 rounded-2xl bg-white/10 p-3 text-xs">

@@ -1,6 +1,7 @@
 // Rutas solo disponibles fuera de producción: herramientas de desarrollo y QA.
 import { Router } from 'express';
 import { paymentsDb } from '../db/client.js';
+import { nowIso } from '../security/time.js';
 import { hashPin } from '../security/crypto.js';
 
 export const devRouter = Router();
@@ -75,4 +76,20 @@ devRouter.post('/set-test-pin', async (req, res) => {
     );
   }
   res.json({ ok: true, pin_set: pin, merchant_id: merchant_id ?? 'ALL' });
+});
+
+// Simula liquidación al proveedor: marca como settled_at los links PAID cuyo
+// paid_at supera la ventana de liquidación configurable (default: 5 minutos).
+// Solo disponible fuera de producción. No usar en producción: requiere evidencia de 360pay.
+// POST /dev/settle-pending  { window_ms?: 300000 }
+devRouter.post('/settle-pending', async (req, res) => {
+  const windowMs = Number(req.body?.window_ms ?? process.env.KUOTA_SETTLEMENT_WINDOW_MS ?? 300_000);
+  const cutoff = new Date(Date.now() - windowMs).toISOString();
+  const result = await paymentsDb.run(
+    `UPDATE payments.payment_links
+     SET settled_at = $1
+     WHERE status = 'PAID' AND settled_at IS NULL AND paid_at < $2`,
+    nowIso(), cutoff
+  );
+  res.json({ ok: true, settled: result.changes ?? 0, window_ms: windowMs, cutoff });
 });

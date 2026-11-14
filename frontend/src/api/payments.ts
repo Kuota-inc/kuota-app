@@ -206,6 +206,7 @@ export interface PaymentLink {
   expires_at: string;
   created_at: string;
   paid_at: string | null;
+  settled_at: string | null;
   url: string | null;
   code?: string;
   /** Código de 360pay para pagar en bancos y agentes. */
@@ -306,5 +307,11 @@ export const paymentsApi = {
     apiRequest<{ webhook: { status: string; reason: string | null } }>('/sandbox/360pay/pay', {
       method: 'POST',
       body: JSON.stringify({ code, method })
+    }),
+  /** Simula liquidación al proveedor (solo desarrollo, ventana 5 min por defecto). */
+  sandboxSettle: (window_ms?: number) =>
+    apiRequest<{ ok: boolean; settled: number; window_ms: number; cutoff: string }>('/dev/settle-pending', {
+      method: 'POST',
+      body: JSON.stringify({ window_ms })
     })
 };
