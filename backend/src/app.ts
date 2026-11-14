@@ -14,10 +14,11 @@ import { payPageRouter } from './routes/payPage.routes.js';
 import { devRouter } from './routes/dev.routes.js';
 import { legalRouter } from './routes/legal.routes.js';
 import { providerPaymentsRouter } from './routes/providerPayments.routes.js';
-import { config, isAllowedOrigin } from './security/config.js';
+import { assertProductionEnv, config, isAllowedOrigin } from './security/config.js';
 import { rateLimit } from './security/guards.js';
 
 export async function createApp() {
+  assertProductionEnv(); // P0-9: falla antes de aceptar tráfico si faltan vars críticas
   await initDatabase();
   const app = express();
   app.disable('x-powered-by');

@@ -134,3 +134,45 @@ export function isAllowedOrigin(origin: string): boolean {
   if (config.corsOrigins.includes(origin)) return true;
   return !isProd && PRIVATE_ORIGIN.test(origin);
 }
+
+/**
+ * P0-9: valida la configuración obligatoria de producción.
+ * Llama desde createApp() antes de aceptar tráfico.
+ * Los 5 secretos de Secrets ya se validan al importar config.ts (loadSecrets).
+ * Aquí se validan el resto de las variables críticas de operación.
+ */
+export function assertProductionEnv(): void {
+  if (!isProd) return;
+
+  // Variables sin las cuales el sistema tiene un agujero de seguridad conocido.
+  const critical: [string, string][] = [
+    ['DIDIT_WEBHOOK_SECRET',      'verificación de webhooks Didit (sin él cualquiera puede aprobar KYC)'],
+    ['KUOTA_PLAY_INTEGRITY_KEY',  'Play Integrity (sin él las compras no validan la integridad del APK)'],
+  ];
+
+  // Variables sin las cuales el sistema opera en modo degradado o con datos incorrectos.
+  const required: [string, string][] = [
+    ['DIDIT_API_KEY',             'verificación de identidad Didit (KYC)'],
+    ['DIDIT_WORKFLOW_ID',         'flujo de KYC de Didit'],
+    ['DIDIT_RECOVERY_WORKFLOW_ID','flujo de recuperación de PIN con liveness'],
+    ['OPENPAY_MERCHANT_ID',       'cobro de enganches con Openpay'],
+    ['OPENPAY_PRIVATE_KEY',       'autenticación con Openpay'],
+    ['KUOTA_PAY_BASE_URL',        'URL base de la página de cobro (sin ella los links apuntan a localhost)'],
+  ];
+
+  const missingCritical = critical.filter(([k]) => !process.env[k]);
+  const missingRequired = required.filter(([k]) => !process.env[k]);
+
+  if (missingRequired.length > 0) {
+    const lines = missingRequired.map(([k, desc]) => `  ${k}  — ${desc}`).join('\n');
+    console.error(`[CONFIG] Variables de producción no configuradas:\n${lines}`);
+    console.error('[CONFIG] El proceso continuará, pero algunas funciones operarán en modo degradado.');
+  }
+
+  if (missingCritical.length > 0) {
+    const lines = missingCritical.map(([k, desc]) => `  ${k}  — ${desc}`).join('\n');
+    throw new Error(
+      `[CONFIG] Variables críticas de seguridad no configuradas; el proceso no puede arrancar en producción:\n${lines}`
+    );
+  }
+}
