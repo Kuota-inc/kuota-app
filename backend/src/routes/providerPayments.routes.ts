@@ -85,14 +85,17 @@ providerPaymentsRouter.post('/session', limiter, async (req, res) => {
     return fail(res, 423, 'PIN_LOCKED', `Bloqueamos el PIN por varios intentos fallidos. Inténtalo en ${minutes} min.`, { locked_until: prov.pin_locked_until });
   }
   if (!prov.pin_hash || typeof req.body?.pin !== 'string' || !verifyPin(req.body.pin, prov.pin_hash)) {
-    const attempts = (prov.pin_failed_attempts ?? 0) + 1;
+    const bumped = await coreDb.get<{ pin_failed_attempts: number }>(
+      'UPDATE provider_profiles SET pin_failed_attempts = pin_failed_attempts + 1 WHERE id = ? RETURNING pin_failed_attempts',
+      prov.id
+    );
+    const attempts = bumped?.pin_failed_attempts ?? (prov.pin_failed_attempts ?? 0) + 1;
     if (attempts >= config.pinMaxAttempts) {
       const lockedUntil = addMinutes(now, config.pinLockMinutes).toISOString();
       await coreDb.run('UPDATE provider_profiles SET pin_failed_attempts = 0, pin_locked_until = ? WHERE id = ?', lockedUntil, prov.id);
       await audit({ actorType: 'SYSTEM', actorId: 'provider:' + prov.id, action: 'PROVIDER_PAYMENTS_SESSION', result: 'DENIED', ip, deviceId, details: { reason: 'PIN_LOCKED' } });
       return fail(res, 423, 'PIN_LOCKED', `Bloqueamos el PIN por ${config.pinLockMinutes} min por varios intentos fallidos.`, { locked_until: lockedUntil });
     }
-    await coreDb.run('UPDATE provider_profiles SET pin_failed_attempts = ? WHERE id = ?', attempts, prov.id);
     return fail(res, 401, 'PIN_INVALID', 'El PIN no es correcto.', { attempts_left: config.pinMaxAttempts - attempts });
   }
   await coreDb.run('UPDATE provider_profiles SET pin_failed_attempts = 0, pin_locked_until = NULL WHERE id = ?', prov.id);
