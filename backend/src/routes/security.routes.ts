@@ -31,7 +31,7 @@ import {
 } from '../security/auth.js';
 import { didit, diditRecoveryEnabled } from '../integrations/didit.js';
 import { checkAndLogDiditSession } from '../security/diditGuard.js';
-import { alertMerchant, recentAlerts } from '../security/events.js';
+import { alertMerchant, alertProvider, recentAlerts } from '../security/events.js';
 import { rateLimit } from '../security/guards.js';
 import { clientIp, fail, headerString } from '../security/http.js';
 import { effectiveLimits, usageToday, validLimitValues, type LimitValues } from '../security/limits.js';
@@ -213,6 +213,7 @@ authRouter.post('/pin/recover/complete', authLimiter, async (req, res) => {
     );
     recoverFailures.delete(pending.providerId);
     await audit({ actorType: 'MERCHANT', actorId: pending.providerId, action: 'PIN_RESET', result: 'OK', ip, deviceId, details: { method: 'DIDIT_LIVENESS', role: 'PROVIDER' } });
+    alertProvider(pending.providerId, 'PIN_CHANGED', 'Restableciste tu PIN con verificación de identidad', 'Si no fuiste tú, escríbenos de inmediato.');
     return res.status(201).json({ role: 'PROVIDER', provider_id: pending.providerId, provider_token: token });
   }
 
@@ -317,6 +318,7 @@ async function _legacyPinRecover(req: Request, res: Response) {
     );
     recoverFailures.delete(prov.id);
     await audit({ actorType: 'MERCHANT', actorId: prov.id, action: 'PIN_RESET', result: 'OK', ip, deviceId, details: { method: 'DNI_RECOVERY', role: 'PROVIDER' } });
+    alertProvider(prov.id, 'PIN_CHANGED', 'Restableciste tu PIN', 'Si no fuiste tú, escríbenos de inmediato.');
     return res.status(201).json({ role: 'PROVIDER', provider_id: prov.id, provider_token: token });
   }
 
@@ -409,6 +411,7 @@ async function providerLogin(req: Request, res: Response): Promise<boolean> {
       const lockedUntil = addMinutes(now, config.pinLockMinutes).toISOString();
       await coreDb.run('UPDATE provider_profiles SET pin_failed_attempts = 0, pin_locked_until = ? WHERE id = ?', lockedUntil, prov.id);
       await audit({ actorType: 'MERCHANT', actorId: prov.id, action: 'PIN_LOCKED', result: 'DENIED', ip, details: { role: 'PROVIDER' } });
+      alertProvider(prov.id, 'PIN_LOCKED', 'Tu PIN fue bloqueado', `Demasiados intentos fallidos. Bloqueado ${config.pinLockMinutes} min. Si no fuiste tú, contáctanos.`);
       fail(res, 423, 'PIN_LOCKED', `Bloqueamos el PIN por ${config.pinLockMinutes} min por varios intentos fallidos.`, { locked_until: lockedUntil });
       return true;
     }

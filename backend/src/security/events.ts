@@ -37,15 +37,39 @@ export type AlertKind =
   | 'LIMITS_CHANGED'
   | 'SECURITY';
 
+// Tipos de alerta que se reenvían también por canal externo (WhatsApp Business / push).
+const EXTERNAL_ALERT_KINDS = new Set<AlertKind>(['PIN_LOCKED', 'PIN_CHANGED', 'NEW_DEVICE', 'DEVICE_REVOKED', 'SECURITY']);
+
 /**
- * Alerta al comercio. Queda registrada aquí; en producción la entrega es push
- * (FCM) o la plantilla oficial de WhatsApp Business.
+ * P1-2: entrega por canal externo (fire-and-forget).
+ * El receptor (Make.com, Zapier, Twilio…) maneja WhatsApp Business o push.
+ * Nunca lanza: un fallo de entrega no debe bloquear el flujo principal.
+ */
+function sendExternalAlert(entityType: 'MERCHANT' | 'PROVIDER', entityId: string, kind: string, title: string, body: string | undefined) {
+  const url = process.env.KUOTA_ALERT_WEBHOOK_URL;
+  if (!url) return;
+  const payload = JSON.stringify({ entity_type: entityType, entity_id: entityId, kind, title, body: body ?? null, ts: new Date().toISOString() });
+  fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload }).catch(() => { /* silencioso */ });
+}
+
+/**
+ * Alerta al comercio. Queda registrada en BD; los eventos de seguridad
+ * críticos se reenvían también al canal externo (KUOTA_ALERT_WEBHOOK_URL).
  */
 export async function alertMerchant(merchantId: string, kind: AlertKind, title: string, body?: string, refId?: string) {
   await db.prepare(`
     INSERT INTO merchant_alerts (id, merchant_id, kind, title, body, ref_id, created_at)
     VALUES (?, ?, ?, ?, ?, ?, ?)
   `).run(randomId('alr', 8), merchantId, kind, title, body ?? null, refId ?? null, new Date().toISOString());
+  if (EXTERNAL_ALERT_KINDS.has(kind)) sendExternalAlert('MERCHANT', merchantId, kind, title, body);
+}
+
+/**
+ * P1-2: alerta al proveedor por canal externo (no hay bandeja propia aún).
+ * Los eventos de seguridad críticos del proveedor se envían al mismo webhook.
+ */
+export function alertProvider(providerId: string, kind: AlertKind, title: string, body?: string) {
+  if (EXTERNAL_ALERT_KINDS.has(kind)) sendExternalAlert('PROVIDER', providerId, kind, title, body);
 }
 
 export function recentAlerts(merchantId: string, limit = 30) {
