@@ -1,14 +1,14 @@
 // Rutas internas de operaciones (token de administrador): conciliación,
 // verificación de la bitácora, reglas y listas antifraude, cola de revisión,
 // revocación masiva de sesiones e interruptores de funciones.
-import { Router } from 'express';
+import { Router, type Request } from 'express';
 import { paymentsDb as db, db as coreDb } from '../db/client.js';
 import { secrets } from '../security/config.js';
 import { anchorAuditChain, audit, recentAudit, verifyAuditChain } from '../security/audit.js';
 import { revokeSessions } from '../security/auth.js';
 import { alertMerchant, paymentEvent } from '../security/events.js';
-import { requireAdmin } from '../security/guards.js';
-import { clientIp, fail } from '../security/http.js';
+import { requireAdmin, requireDualControl } from '../security/guards.js';
+import { clientIp, fail, headerString } from '../security/http.js';
 import { getLinkById } from '../security/links.js';
 import { runReconciliation, validProviderReport } from '../security/reconciliation.js';
 import { KNOWN_RULES, riskMetrics } from '../security/risk.js';
@@ -18,8 +18,17 @@ import { notifyComplaintResponded } from '../services/complaints.js';
 export const internalRouter = Router();
 internalRouter.use(requireAdmin(secrets.adminToken));
 
-const actor = (req: { body?: { analyst?: unknown } }) =>
-  typeof req.body?.analyst === 'string' ? req.body.analyst.slice(0, 60) : 'ops';
+// P1-9: Identidad del operador: si se envió X-Admin-Actor en la cabecera autenticada,
+// tiene prioridad y no puede ser suplantada por req.body.analyst.
+const actor = (req: Request) => {
+  if (headerString(req, 'x-admin-actor')?.trim() && req.admin?.actorId) {
+    return req.admin.actorId;
+  }
+  if (typeof req.body?.analyst === 'string' && req.body.analyst.trim()) {
+    return req.body.analyst.trim().slice(0, 60);
+  }
+  return req.admin?.actorId ?? 'ops';
+};
 
 // ------------------------------------------------------------ conciliación
 internalRouter.post('/reconciliation/run', async (req, res) => {
@@ -86,9 +95,10 @@ internalRouter.get('/risk/rules', async (_req, res) => {
   res.json({ data: rows.map(({ params_json, enabled, ...r }) => ({ ...r, enabled: enabled === 1, params: JSON.parse(params_json) })) });
 });
 
-internalRouter.put('/risk/rules/:id', async (req, res) => {
-  const row = await db.prepare('SELECT * FROM risk_rules WHERE id = ?').get(req.params.id) as { params_json: string } | undefined;
-  if (!row || !KNOWN_RULES.has(req.params.id)) return fail(res, 404, 'RULE_NOT_FOUND', 'Regla no encontrada.');
+internalRouter.put('/risk/rules/:id', requireDualControl, async (req, res) => {
+  const ruleId = String(req.params.id);
+  const row = await db.prepare('SELECT * FROM risk_rules WHERE id = ?').get(ruleId) as { params_json: string } | undefined;
+  if (!row || !KNOWN_RULES.has(ruleId)) return fail(res, 404, 'RULE_NOT_FOUND', 'Regla no encontrada.');
   const { enabled, action, params } = req.body ?? {};
   if (enabled !== undefined && typeof enabled !== 'boolean') return fail(res, 422, 'ENABLED_INVALID', 'enabled debe ser booleano.');
   if (action !== undefined && !['STEP_UP', 'REVIEW', 'BLOCK'].includes(action)) return fail(res, 422, 'ACTION_INVALID', 'Acción inválida.');
@@ -102,9 +112,9 @@ internalRouter.put('/risk/rules/:id', async (req, res) => {
   const next = { ...current, ...(params ?? {}) };
   await db.prepare(`
     UPDATE risk_rules SET enabled = COALESCE(?, enabled), action = COALESCE(?, action), params_json = ?, updated_at = ? WHERE id = ?
-  `).run(enabled === undefined ? null : enabled ? 1 : 0, action ?? null, JSON.stringify(next), nowIso(), req.params.id);
-  await audit({ actorType: 'ADMIN', actorId: actor(req), action: 'RISK_RULE_UPDATED', target: req.params.id, result: 'OK', ip: clientIp(req), details: { enabled, action, params: next } });
-  const updated = await db.prepare('SELECT * FROM risk_rules WHERE id = ?').get(req.params.id) as { params_json: string; enabled: number };
+  `).run(enabled === undefined ? null : enabled ? 1 : 0, action ?? null, JSON.stringify(next), nowIso(), ruleId);
+  await audit({ actorType: 'ADMIN', actorId: actor(req), action: 'RISK_RULE_UPDATED', target: ruleId, result: 'OK', ip: clientIp(req), details: { enabled, action, params: next } });
+  const updated = await db.prepare('SELECT * FROM risk_rules WHERE id = ?').get(ruleId) as { params_json: string; enabled: number };
   res.json({ ...updated, enabled: updated.enabled === 1, params: JSON.parse(updated.params_json) });
 });
 
@@ -125,7 +135,7 @@ internalRouter.post('/risk/lists', async (req, res) => {
 
 internalRouter.delete('/risk/lists/:kind/:value', async (req, res) => {
   const removed = (await db.prepare('DELETE FROM risk_lists WHERE kind = ? AND value = ?').run(req.params.kind, req.params.value)).changes;
-  await audit({ actorType: 'ADMIN', actorId: 'ops', action: 'RISK_LIST_REMOVED', target: `${req.params.kind}:${req.params.value}`, result: removed ? 'OK' : 'FAILED', ip: clientIp(req) });
+  await audit({ actorType: 'ADMIN', actorId: actor(req), action: 'RISK_LIST_REMOVED', target: `${req.params.kind}:${req.params.value}`, result: removed ? 'OK' : 'FAILED', ip: clientIp(req) });
   res.status(removed ? 204 : 404).end();
 });
 
@@ -229,7 +239,16 @@ internalRouter.post('/ruc-reviews/:merchantId/:decision', async (req, res) => {
 });
 
 // ------------------------------------------------------- respuesta a incidentes
-internalRouter.post('/sessions/revoke', async (req, res) => {
+internalRouter.post('/sessions/revoke', async (req, res, next) => {
+  if (req.body?.all === true) {
+    return requireDualControl(req, res, () => {
+      void handleRevokeSessions(req, res).catch(next);
+    });
+  }
+  return handleRevokeSessions(req, res);
+});
+
+async function handleRevokeSessions(req: Request, res: import('express').Response) {
   const merchantId = req.body?.merchant_id;
   let closed: number;
   if (typeof merchantId === 'string') {
@@ -239,19 +258,20 @@ internalRouter.post('/sessions/revoke', async (req, res) => {
   } else {
     return fail(res, 422, 'TARGET_REQUIRED', 'Indica merchant_id o all: true.');
   }
-  await audit({ actorType: 'ADMIN', actorId: actor(req), action: 'SESSIONS_REVOKED', target: merchantId ?? 'ALL', result: 'OK', ip: clientIp(req), details: { closed } });
+  await audit({ actorType: 'ADMIN', actorId: actor(req), action: 'SESSIONS_REVOKED', target: merchantId ?? 'ALL', result: 'OK', ip: clientIp(req), details: { closed, approver: headerString(req, 'x-admin-approver') ?? undefined } });
   res.json({ sessions_closed: closed });
-});
+}
 
 internalRouter.get('/features', async (_req, res) => res.json({ data: await db.prepare('SELECT * FROM feature_flags').all() }));
 
-internalRouter.put('/features/:name', async (req, res) => {
+internalRouter.put('/features/:name', requireDualControl, async (req, res) => {
+  const featureName = String(req.params.name);
   const { enabled, reason } = req.body ?? {};
   if (typeof enabled !== 'boolean') return fail(res, 422, 'ENABLED_INVALID', 'enabled debe ser booleano.');
   const changed = (await db
     .prepare('UPDATE feature_flags SET enabled = ?, reason = ?, updated_at = ? WHERE name = ?')
-    .run(enabled ? 1 : 0, typeof reason === 'string' ? reason.slice(0, 200) : null, nowIso(), req.params.name)).changes;
+    .run(enabled ? 1 : 0, typeof reason === 'string' ? reason.slice(0, 200) : null, nowIso(), featureName)).changes;
   if (!changed) return fail(res, 404, 'FEATURE_NOT_FOUND', 'Función no encontrada.');
-  await audit({ actorType: 'ADMIN', actorId: actor(req), action: 'FEATURE_TOGGLED', target: req.params.name, result: 'OK', ip: clientIp(req), details: { enabled } });
-  res.json({ name: req.params.name, enabled });
+  await audit({ actorType: 'ADMIN', actorId: actor(req), action: 'FEATURE_TOGGLED', target: featureName, result: 'OK', ip: clientIp(req), details: { enabled } });
+  res.json({ name: featureName, enabled });
 });

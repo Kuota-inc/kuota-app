@@ -112,7 +112,7 @@ export const ProviderHomeScreen: React.FC<{ onLogout: () => void; onSell: () => 
   const handleSandboxSettle = async () => {
     setSettling(true);
     try {
-      const r = await paymentsApi.sandboxSettle();
+      const r = await paymentsApi.sandboxSettle(0);
       toast.success(r.settled > 0 ? `${r.settled} cobro${r.settled === 1 ? '' : 's'} liquidado${r.settled === 1 ? '' : 's'}.` : 'Ningún cobro superó la ventana de liquidación aún.');
       await loadLinks(false);
     } catch {
@@ -376,12 +376,10 @@ export const ProviderHomeScreen: React.FC<{ onLogout: () => void; onSell: () => 
                 <ArrowLeft size={18} aria-hidden="true" />
               </button>
               <h2 className="text-base font-black text-[#0b2545]">Conciliación</h2>
-              {import.meta.env.DEV && (
-                <button type="button" onClick={() => void handleSandboxSettle()} disabled={settling}
-                  className="ml-auto text-[10px] font-bold px-2.5 py-1 rounded-lg bg-amber-100 text-amber-800 border border-amber-200 cursor-pointer disabled:opacity-50">
-                  {settling ? '...' : '⚡ Simular liquidación'}
-                </button>
-              )}
+              <button type="button" onClick={() => void handleSandboxSettle()} disabled={settling}
+                className="ml-auto text-[10px] font-bold px-2.5 py-1 rounded-lg bg-amber-100 text-amber-800 border border-amber-200 cursor-pointer disabled:opacity-50">
+                {settling ? '...' : '⚡ Simular liquidación'}
+              </button>
             </div>
             <Hero>
               <div className="space-y-1">

@@ -87,8 +87,8 @@ devRouter.post('/settle-pending', async (req, res) => {
   const cutoff = new Date(Date.now() - windowMs).toISOString();
   const result = await paymentsDb.run(
     `UPDATE payments.payment_links
-     SET settled_at = $1
-     WHERE status = 'PAID' AND settled_at IS NULL AND paid_at < $2`,
+     SET settled_at = ?
+     WHERE status = 'PAID' AND settled_at IS NULL AND paid_at < ?`,
     nowIso(), cutoff
   );
   res.json({ ok: true, settled: result.changes ?? 0, window_ms: windowMs, cutoff });

@@ -93,24 +93,7 @@ interface Credential {
 
 export async function credentialFor(merchantId: string): Promise<Credential | null> {
   const cred = await db.prepare('SELECT * FROM merchant_credentials WHERE merchant_id = ?').get(merchantId) as Credential | undefined;
-  if (cred) return cred;
-  // PIN creado en el onboarding después del arranque: se adopta como credencial.
-  const row = await db
-    .prepare(`
-      SELECT COALESCE(u.security_pin, s.security_pin) AS pin_hash
-      FROM merchant_profiles m
-      LEFT JOIN users u ON u.id = m.user_id
-      LEFT JOIN onboarding_sessions s ON s.id = m.session_id
-      WHERE m.id = ?
-    `)
-    .get(merchantId) as { pin_hash: string | null } | undefined;
-  if (!row?.pin_hash || !isPinHash(row.pin_hash)) return null;
-  await db.prepare('INSERT INTO merchant_credentials (merchant_id, pin_hash, pin_updated_at) VALUES (?, ?, ?) ON CONFLICT DO NOTHING').run(
-    merchantId,
-    row.pin_hash,
-    nowIso()
-  );
-  return credentialFor(merchantId);
+  return cred ?? null;
 }
 
 /** Registra (o reemplaza) el PIN de cobro de un comercio; lo usa el onboarding. */

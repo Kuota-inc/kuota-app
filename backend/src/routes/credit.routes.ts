@@ -25,10 +25,10 @@ export const creditRouter = Router();
  */
 export const INTEREST_RATE = 0.055;
 
-// Tope de tasa efectiva anual publicado por el BCRP (Resolución SBS 504-2021).
+// Tope de tasa efectiva anual publicado por el BCRP (Resolución SBS 504-2021, serie PD38032DD).
 // Si la TEA calculada supera este valor, la compra se rechaza en lugar de crearse.
-// Actualizar cuando el BCRP publique un nuevo tope.
-const BCRP_TEA_CAP_PCT = 114.13;
+// Actualizar cuando el BCRP publique un nuevo tope (nov 2026: 114,68 %).
+const BCRP_TEA_CAP_PCT = 114.68;
 
 /**
  * Tasa efectiva anual (TEA) implícita de un cronograma: resuelve la tasa por periodo que iguala el
@@ -291,9 +291,9 @@ creditRouter.post('/purchases', async (req, res) => {
 
     await db.prepare(`
       INSERT INTO credit_purchases (id, merchant_id, line_id, provider_id, plan_code, total_cents,
-        down_payment_pct, down_payment_cents, financed_cents, installments_count, receipt_number, status, idempotency_key, tea_pct, tcea_pct)
-      VALUES (?, ?, ?, ?, 'KUOTA_3X', ?, ?, ?, ?, ?, ?, 'ACTIVE_ON_TIME', ?, ?, ?)
-    `).run(purchaseId, merchant.id, line.id, provider_id, total_cents, downPaymentPct, downPaymentCents, financedCents, installments, receiptNumber, idempotency_key, teaPct, tceaPct);
+        down_payment_pct, down_payment_cents, financed_cents, interest_rate, installments_count, receipt_number, status, idempotency_key, tea_pct, tcea_pct)
+      VALUES (?, ?, ?, ?, 'KUOTA_3X', ?, ?, ?, ?, ?, ?, ?, 'ACTIVE_ON_TIME', ?, ?, ?)
+    `).run(purchaseId, merchant.id, line.id, provider_id, total_cents, downPaymentPct, downPaymentCents, financedCents, interestRate, installments, receiptNumber, idempotency_key, teaPct, tceaPct);
 
     const today = new Date();
     for (let i = 1; i <= installments; i++) {

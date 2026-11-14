@@ -75,13 +75,53 @@ const WEAK_PINS = new Set([
   '555555', '666666', '777777', '888888', '999999', '123123', '112233'
 ]);
 
+/** Secuencias ascendentes o descendentes de 6 dígitos (p. ej. 234567, 765432, 890123). */
+function isSequentialPin(pin: string): boolean {
+  let asc = true;
+  let desc = true;
+  for (let i = 1; i < pin.length; i++) {
+    const prev = pin.charCodeAt(i - 1) - 48;
+    const curr = pin.charCodeAt(i) - 48;
+    if ((prev + 1) % 10 !== curr) asc = false;
+    if ((prev + 9) % 10 !== curr) desc = false;
+  }
+  return asc || desc;
+}
+
+/** Patrones de fecha comunes: DDMMYY, DDMMAA, YYYYMM, MMYYYY (años 1940–2039). */
+function isDatePin(pin: string): boolean {
+  const a = Number(pin.slice(0, 2));
+  const b = Number(pin.slice(2, 4));
+  const c = Number(pin.slice(4, 6));
+  const yearFirst = Number(pin.slice(0, 4));
+  const yearLast = Number(pin.slice(2, 6));
+  // DDMMYY (día 01-31, mes 01-12)
+  if (a >= 1 && a <= 31 && b >= 1 && b <= 12) return true;
+  // YYYYMM (año 1940-2039, mes 01-12)
+  if (yearFirst >= 1940 && yearFirst <= 2039 && c >= 1 && c <= 12) return true;
+  // MMYYYY (mes 01-12, año 1940-2039)
+  if (a >= 1 && a <= 12 && yearLast >= 1940 && yearLast <= 2039) return true;
+  return false;
+}
+
 /** Devuelve un mensaje si el PIN no es aceptable; null si sirve. */
-export function pinProblem(pin: unknown): string | null {
+export function pinProblem(pin: unknown, opts?: { dni?: string | null; phone?: string | null }): string | null {
   if (typeof pin !== 'string' || !/^\d{6}$/.test(pin)) {
     return 'El PIN de seguridad debe contener exactamente 6 dígitos numéricos.';
   }
-  if (WEAK_PINS.has(pin)) {
-    return 'Por tu seguridad, no uses combinaciones obvias como 123456 o números repetidos.';
+  if (WEAK_PINS.has(pin) || isSequentialPin(pin)) {
+    return 'Por tu seguridad, no uses combinaciones obvias como secuencias (123456, 234567) o números repetidos.';
+  }
+  if (isDatePin(pin)) {
+    return 'Por tu seguridad, no uses fechas como PIN.';
+  }
+  const dniDigits = typeof opts?.dni === 'string' ? opts.dni.replace(/\D/g, '') : '';
+  if (dniDigits.length >= 6 && dniDigits.includes(pin)) {
+    return 'Por tu seguridad, no uses parte de tu documento de identidad como PIN.';
+  }
+  const phoneDigits = typeof opts?.phone === 'string' ? opts.phone.replace(/\D/g, '').slice(-9) : '';
+  if (phoneDigits.length >= 6 && phoneDigits.includes(pin)) {
+    return 'Por tu seguridad, no uses parte de tu número de celular como PIN.';
   }
   return null;
 }

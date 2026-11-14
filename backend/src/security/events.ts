@@ -35,10 +35,11 @@ export type AlertKind =
   | 'PIN_CHANGED'
   | 'PIN_LOCKED'
   | 'LIMITS_CHANGED'
+  | 'ACCOUNT_FROZEN'
   | 'SECURITY';
 
 // Tipos de alerta que se reenvían también por canal externo (WhatsApp Business / push).
-const EXTERNAL_ALERT_KINDS = new Set<AlertKind>(['PIN_LOCKED', 'PIN_CHANGED', 'NEW_DEVICE', 'DEVICE_REVOKED', 'SECURITY']);
+const EXTERNAL_ALERT_KINDS = new Set<AlertKind>(['PIN_LOCKED', 'PIN_CHANGED', 'NEW_DEVICE', 'DEVICE_REVOKED', 'ACCOUNT_FROZEN', 'SECURITY']);
 
 /**
  * P1-2: entrega por canal externo (fire-and-forget).

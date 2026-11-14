@@ -33,7 +33,7 @@ import {
 import { didit, diditRecoveryEnabled } from '../integrations/didit.js';
 import { checkAndLogDiditSession } from '../security/diditGuard.js';
 import { alertMerchant, alertProvider, recentAlerts } from '../security/events.js';
-import { rateLimit } from '../security/guards.js';
+import { optionalIdempotent, rateLimit } from '../security/guards.js';
 import { clientIp, fail, headerString } from '../security/http.js';
 import { effectiveLimits, usageToday, validLimitValues, type LimitValues } from '../security/limits.js';
 import { addHours, addMinutes, formatLimaDateTime, formatSoles, nowIso } from '../security/time.js';
@@ -176,13 +176,14 @@ authRouter.post('/pin/recover/complete', authLimiter, async (req, res) => {
   const deviceId      = req.body?.device_id;
   const ip            = clientIp(req);
 
-  const pinErr = pinProblem(newPin);
-  if (pinErr) return fail(res, 422, 'PIN_WEAK', pinErr);
   if (!isValidDeviceId(deviceId)) return fail(res, 422, 'DEVICE_ID_INVALID', 'Identificador de dispositivo inválido.');
 
   const pending = recoveryToken ? pendingRecoveries.get(recoveryToken) : undefined;
   if (!pending || pending.used || pending.expiresAt < Date.now())
     return fail(res, 403, 'RECOVERY_TOKEN_INVALID', 'El enlace de recuperación expiró o ya fue usado. Vuelve a iniciar.');
+
+  const pinErr = pinProblem(newPin, { dni: pending.dni });
+  if (pinErr) return fail(res, 422, 'PIN_WEAK', pinErr);
 
   // Verificar decisión Didit
   let decision;
@@ -540,7 +541,11 @@ authRouter.post('/pin/change', authLimiter, requireMerchant, async (req, res) =>
   const check = await checkPin(auth.merchantId, req.body?.current_pin, { ip, deviceId: auth.deviceId, purpose: 'PIN_CHANGE' });
   if (!check.ok) return fail(res, check.status, check.code, check.message, check.extra);
   const newPin = req.body?.new_pin;
-  const problem = pinProblem(newPin);
+  const ownerRow = await coreDb.get<{ dni: string | null; phone: string | null }>(
+    'SELECT dni, phone FROM merchant_profiles WHERE id = ?',
+    auth.merchantId
+  );
+  const problem = pinProblem(newPin, { dni: ownerRow?.dni, phone: ownerRow?.phone });
   if (problem) return fail(res, 422, 'PIN_WEAK', problem);
   const cred = (await credentialFor(auth.merchantId))!;
   if (verifyPin(newPin, cred.pin_hash)) return fail(res, 422, 'PIN_UNCHANGED', 'El nuevo PIN debe ser distinto del actual.');
@@ -562,6 +567,93 @@ authRouter.post('/pin/change', authLimiter, requireMerchant, async (req, res) =>
     `Cerramos tus otras sesiones y tus límites estarán reducidos por ${config.cooldownHours} horas. Si no fuiste tú, escríbenos de inmediato.`
   );
   res.json({ success: true, sessions_closed: closed, cooldown_until: cooldownUntil });
+});
+
+// P1-3: Congelamiento inmediato de la propia cuenta por el usuario (comercio o proveedor).
+// En caso de robo o extravío del celular, o sospecha de compromiso, el titular puede congelar
+// su cuenta desde cualquier sesión abierta: revoca todas las sesiones, tokens de identidad y
+// refresh tokens, y bloquea el PIN hasta que restablezca el acceso con prueba de vida (Didit).
+authRouter.post('/freeze', authLimiter, async (req, res) => {
+  const ip = clientIp(req);
+  const reason = typeof req.body?.reason === 'string' ? req.body.reason.trim().slice(0, 200) : 'USER_REQUESTED';
+  const freezeUntil = addHours(new Date(), 24 * 365).toISOString();
+
+  // ¿Es un proveedor autenticado con X-Provider-Id + X-Provider-Token?
+  const providerId = headerString(req, 'x-provider-id');
+  const providerToken = headerString(req, 'x-provider-token');
+  if (providerId && providerToken) {
+    const prov = await coreDb.get<{ id: string; user_id: string | null; access_token_hash: string | null; provider_token_expires_at: string | null }>(
+      'SELECT id, user_id, access_token_hash, provider_token_expires_at FROM provider_profiles WHERE id = ?',
+      providerId
+    );
+    const tokenOk =
+      !!prov?.access_token_hash &&
+      prov.access_token_hash.length === sha256Hex(providerToken).length &&
+      Buffer.from(prov.access_token_hash).equals(Buffer.from(sha256Hex(providerToken)));
+    const fresh = !prov?.provider_token_expires_at || new Date(prov.provider_token_expires_at) > new Date();
+    if (!tokenOk || !fresh) {
+      return fail(res, 401, 'PROVIDER_AUTH_REQUIRED', 'No pudimos validar tu sesión de proveedor.');
+    }
+    await coreDb.run(
+      'UPDATE provider_profiles SET access_token_hash = NULL, provider_token_expires_at = NULL, pin_locked_until = ? WHERE id = ?',
+      freezeUntil,
+      prov.id
+    );
+    let closed = 0;
+    if (prov.user_id) {
+      const linkedMerchant = await coreDb.get<{ id: string }>('SELECT id FROM merchant_profiles WHERE user_id = ?', prov.user_id);
+      if (linkedMerchant) {
+        closed = await revokeSessions(linkedMerchant.id);
+        await revokeIdentityTokens(linkedMerchant.id);
+        await revokeAllRefreshTokens(linkedMerchant.id);
+        await db.prepare('UPDATE merchant_credentials SET locked_until = ? WHERE merchant_id = ?').run(freezeUntil, linkedMerchant.id);
+      }
+    }
+    await audit({ actorType: 'MERCHANT', actorId: prov.id, action: 'ACCOUNT_FROZEN', result: 'OK', ip, details: { role: 'PROVIDER', reason, sessions_closed: closed } });
+    alertProvider(prov.id, 'ACCOUNT_FROZEN', 'Congelaste tu cuenta Kuota', 'Cerramos todas tus sesiones y bloqueamos el acceso. Para reactivarla usa "¿Olvidé mi PIN?" con verificación de identidad.');
+    return res.json({ frozen: true, role: 'PROVIDER', provider_id: prov.id, sessions_closed: closed, frozen_until: freezeUntil });
+  }
+
+  // Comercio: acepta sesión corta (Bearer) o token de identidad del dispositivo (X-Merchant-Id + X-Merchant-Token + X-Device-Id).
+  let merchantId: string | null = null;
+  let deviceId: string | undefined = headerString(req, 'x-device-id') || undefined;
+  const authHeader = headerString(req, 'authorization');
+  if (authHeader?.startsWith('Bearer ')) {
+    let passed = false;
+    await requireMerchant(req, res, () => { passed = true; });
+    if (!passed) return;
+    merchantId = req.auth!.merchantId;
+    deviceId = req.auth!.deviceId;
+  } else {
+    const claimed = headerString(req, 'x-merchant-id');
+    if (!claimed || !(await verifyIdentityToken(req, claimed))) {
+      return fail(res, 401, 'SESSION_REQUIRED', 'Inicia sesión o envía tu credencial de dispositivo para congelar la cuenta.');
+    }
+    merchantId = claimed;
+  }
+
+  const closed = await revokeSessions(merchantId);
+  await revokeIdentityTokens(merchantId);
+  await revokeAllRefreshTokens(merchantId);
+  await db.prepare('UPDATE merchant_credentials SET locked_until = ? WHERE merchant_id = ?').run(freezeUntil, merchantId);
+  await coreDb.run("UPDATE credit_lines SET status = 'FROZEN' WHERE merchant_id = ?", merchantId);
+  // Si el mismo usuario tiene perfil Proveedor enlazado, congelarlo también.
+  const merchantRow = await coreDb.get<{ user_id: string | null }>('SELECT user_id FROM merchant_profiles WHERE id = ?', merchantId);
+  if (merchantRow?.user_id) {
+    await coreDb.run(
+      'UPDATE provider_profiles SET access_token_hash = NULL, provider_token_expires_at = NULL, pin_locked_until = ? WHERE user_id = ?',
+      freezeUntil,
+      merchantRow.user_id
+    );
+  }
+  await audit({ actorType: 'MERCHANT', actorId: merchantId, action: 'ACCOUNT_FROZEN', result: 'OK', ip, deviceId, details: { reason, sessions_closed: closed } });
+  await alertMerchant(
+    merchantId,
+    'ACCOUNT_FROZEN',
+    'Congelaste tu cuenta Kuota',
+    'Cerramos todas tus sesiones, bloqueamos el PIN y pausamos tu línea de crédito. Para reactivar tu cuenta usa "¿Olvidé mi PIN?" con verificación biométrica.'
+  );
+  res.json({ frozen: true, role: 'MERCHANT', merchant_id: merchantId, sessions_closed: closed, frozen_until: freezeUntil });
 });
 
 // ------------------------------------------------ P1-5: biometría verificada en el servidor
@@ -646,7 +738,7 @@ paymentSecurityRouter.get('/limits', async (req, res) => {
 });
 
 // Bajar un límite rige de inmediato; subirlo exige PIN y entra en vigor tras la espera.
-paymentSecurityRouter.put('/limits', async (req, res) => {
+paymentSecurityRouter.put('/limits', optionalIdempotent, async (req, res) => {
   const auth = req.auth!;
   const merchant = (await getMerchant(auth.merchantId))!;
   const requested = validLimitValues(req.body);

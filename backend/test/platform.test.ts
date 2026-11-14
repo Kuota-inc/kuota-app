@@ -63,11 +63,43 @@ describe('Migraciones', () => {
     const before = await db.all<{ version: string }>('SELECT version FROM public.schema_migrations ORDER BY version');
     assert.deepEqual(
       before.map((r) => r.version),
-      ['0001_core.sql', '0002_payments.sql', '0003_roles.sql', '0004_pay360_coupons.sql', '0005_kyc_didit.sql', '0006_provider_settlement.sql', '0007_openpay.sql', '0008_scoring_level1.sql', '0009_provider_access.sql', '0010_identity_token.sql', '0011_complaints.sql', '0012_provider_login.sql', '0013_plans.sql', '0014_profiles.sql', '0015_ruc_review.sql', '0016_identity_doc_type.sql', '0017_provider_rep_doc_type.sql', '0018_remove_demo_promotions.sql', '0019_merchant_avatars.sql', '0020_provider_avatars.sql']
+      [
+        '0001_core.sql',
+        '0002_payments.sql',
+        '0003_roles.sql',
+        '0004_pay360_coupons.sql',
+        '0005_kyc_didit.sql',
+        '0006_provider_settlement.sql',
+        '0007_openpay.sql',
+        '0008_scoring_level1.sql',
+        '0009_provider_access.sql',
+        '0010_identity_token.sql',
+        '0011_complaints.sql',
+        '0012_provider_login.sql',
+        '0013_plans.sql',
+        '0014_profiles.sql',
+        '0015_ruc_review.sql',
+        '0016_identity_doc_type.sql',
+        '0017_provider_rep_doc_type.sql',
+        '0018_remove_demo_promotions.sql',
+        '0019_merchant_avatars.sql',
+        '0020_provider_avatars.sql',
+        '0021_provider_qr_code.sql',
+        '0022_refresh_tokens.sql',
+        '0023_purchase_idempotency.sql',
+        '0024_purchase_tea.sql',
+        '0025_didit_session_log.sql',
+        '0026_provider_token_expiry.sql',
+        '0027_biometric_keys.sql',
+        '0028_audit_hmac.sql',
+        '0029_rate_limit_shared.sql',
+        '0030_link_settlement.sql',
+        '0031_security_p1.sql'
+      ]
     );
     await migrate(db);
     const again = await db.get<{ n: number }>('SELECT COUNT(*) AS n FROM public.schema_migrations');
-    assert.equal(again!.n, 20);
+    assert.equal(again!.n, 31);
   });
 
   test('las tablas de dinero viven en el esquema payments', async () => {
@@ -142,7 +174,7 @@ describe('Flujos del núcleo sobre Postgres', () => {
     const done = await call('POST', `/onboarding/sessions/${id}/complete`, { business_name: 'Bodega Test', phone: '911222333' });
     assert.equal(done.status, 201);
     const profile = await call('GET', `/onboarding/sessions/${id}`);
-    assert.match(profile.body.merchant_profile.ruc, /^10\d{9}$/);
+    assert.equal(profile.body.merchant_profile.ruc, null);
     const again = await call('POST', `/onboarding/sessions/${id}/complete`, { business_name: 'Bodega Test', phone: '911222333' });
     assert.ok(again.status < 500, 'repetir el cierre no es un error del servidor');
     const pin = await call('POST', `/onboarding/sessions/${id}/security-pin`, { pin: '739164' });

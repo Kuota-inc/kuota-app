@@ -30,6 +30,9 @@ export const getKycByPublicId = (publicId: string) =>
 export async function startVerification(publicId: string) {
   const kyc = await getKycByPublicId(publicId);
   if (!kyc) return null;
+  if (kyc.status === 'APPROVED') {
+    throw new Error('KYC_ALREADY_APPROVED');
+  }
   if (!diditEnabled()) return { provider: 'DEMO' as const, url: null, status: kyc.status };
   if (kyc.provider_session_id && kyc.verification_url && kyc.status === 'IN_PROGRESS') {
     return { provider: 'DIDIT' as const, url: kyc.verification_url, status: kyc.status };

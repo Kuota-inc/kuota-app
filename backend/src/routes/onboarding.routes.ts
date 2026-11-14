@@ -383,7 +383,10 @@ onboardingRouter.post('/merchant-kyc/:requestId/verification', async (req, res) 
       return res.status(503).json({ error: { code: 'KYC_PROVIDER_REQUIRED', message: 'La verificación de identidad no está disponible.' } });
     }
     res.json(started);
-  } catch (e) {
+  } catch (e: any) {
+    if (e?.message === 'KYC_ALREADY_APPROVED') {
+      return res.status(409).json({ error: { code: 'KYC_ALREADY_APPROVED', message: 'Esta solicitud de verificación ya fue aprobada.' } });
+    }
     if (e instanceof DiditError) {
       return res.status(502).json({ error: { code: 'KYC_PROVIDER_UNAVAILABLE', message: 'No pudimos iniciar la verificación. Inténtalo en unos minutos.' } });
     }
@@ -706,18 +709,24 @@ onboardingRouter.post('/sessions/:id/security-pin', async (req, res) => {
       error: { code: 'INVALID_PIN', message: 'El PIN de seguridad debe contener exactamente 6 dígitos numéricos.' }
     });
   }
-  const problem = pinProblem(pin);
-  if (problem) {
-    return res.status(422).json({ error: { code: 'WEAK_PIN', message: problem } });
-  }
-
   // La app puede conocer solo su propio id de sesión (no el del servidor): si no existe, se crea ahora con
   // el rol que corresponde (proveedor si ya hay un perfil de proveedor con ese id de sesión).
-  const providerOwner = (await db.prepare('SELECT id, pin_hash FROM provider_profiles WHERE session_id = ?').get(sessionId)) as { id: string; pin_hash: string | null } | undefined;
+  const providerOwner = (await db.prepare('SELECT id, pin_hash, legal_rep_dni, whatsapp FROM provider_profiles WHERE session_id = ?').get(sessionId)) as
+    | { id: string; pin_hash: string | null; legal_rep_dni: string | null; whatsapp: string | null }
+    | undefined;
   const session = (await ensureSession(sessionId, providerOwner ? 'PROVIDER' : 'MERCHANT', true)) as any;
   // Con el id de sesión (que no es secreto) no se puede sobrescribir el PIN de una cuenta ya
   // protegida: para eso están /auth/pin/change y /auth/pin/recover.
-  const owner = await db.prepare('SELECT id FROM merchant_profiles WHERE session_id = ?').get(sessionId) as { id: string } | undefined;
+  const owner = await db.prepare('SELECT id, dni, phone FROM merchant_profiles WHERE session_id = ?').get(sessionId) as
+    | { id: string; dni: string | null; phone: string | null }
+    | undefined;
+  const problem = pinProblem(pin, {
+    dni: owner?.dni ?? providerOwner?.legal_rep_dni,
+    phone: owner?.phone ?? providerOwner?.whatsapp
+  });
+  if (problem) {
+    return res.status(422).json({ error: { code: 'WEAK_PIN', message: problem } });
+  }
   if (owner && (await credentialFor(owner.id))) {
     return res.status(409).json({ error: { code: 'PIN_ALREADY_SET', message: 'Esta cuenta ya tiene un PIN. Usa "¿Olvidé mi PIN?" si no lo recuerdas.' } });
   }
@@ -731,9 +740,9 @@ onboardingRouter.post('/sessions/:id/security-pin', async (req, res) => {
     await db.prepare('UPDATE provider_profiles SET pin_hash = ?, pin_failed_attempts = 0, pin_locked_until = NULL WHERE id = ?').run(pinHash, providerOwner.id);
   }
   const merchant = await db.transaction(async () => {
-    await db.prepare('UPDATE onboarding_sessions SET security_pin = ?, current_step = ? WHERE id = ?').run(pinHash, 'PIN_CONFIGURED', sessionId);
+    await db.prepare('UPDATE onboarding_sessions SET security_pin = NULL, current_step = ? WHERE id = ?').run('PIN_CONFIGURED', sessionId);
     if (session.user_id) {
-      await db.prepare('UPDATE users SET security_pin = ? WHERE id = ?').run(pinHash, session.user_id);
+      await db.prepare('UPDATE users SET security_pin = NULL WHERE id = ?').run(session.user_id);
     }
     return (await db.prepare('SELECT id FROM merchant_profiles WHERE session_id = ?').get(sessionId)) as { id: string } | undefined;
   })();

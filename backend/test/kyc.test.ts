@@ -81,16 +81,20 @@ async function newRequest(dni: string, phone: string, docType: 'DNI' | 'CE' = 'D
   const s = await call('POST', '/onboarding/sessions', { role: 'MERCHANT', device_id: 't', accepted_terms_version: '2026.1', accepted_privacy_version: '2026.1' });
   const sid = s.body.id ?? s.body.session_id;
   const r = await call('POST', `/onboarding/sessions/${sid}/merchant-identity`, { account_type: 'PERSONAL', doc_type: docType, dni, full_name: 'ANA TORRES RUIZ', phone, whatsapp_opt_in: true });
-  return r.body.request_id as string;
+  return { requestId: r.body.request_id as string, sessionId: sid as string };
 }
 
 describe('KYC con Didit', () => {
   let requestId = '';
+  let kycSessionId = '';
   let sessionId = '';
 
   test('iniciar la verificación crea la sesión en Didit con el DNI esperado', async () => {
-    requestId = await newRequest('41234567', '922333444');
-    const v = await call('POST', `/onboarding/merchant-kyc/${requestId}/verification`);
+    const createdReq = await newRequest('41234567', '922333444');
+    requestId = createdReq.requestId;
+    kycSessionId = createdReq.sessionId;
+    const sh = { 'X-Session-Id': kycSessionId };
+    const v = await call('POST', `/onboarding/merchant-kyc/${requestId}/verification`, undefined, sh);
     assert.equal(v.status, 200);
     assert.equal(v.body.provider, 'DIDIT');
     assert.match(v.body.url, /^https:\/\/verify\.example\//);
@@ -99,12 +103,12 @@ describe('KYC con Didit', () => {
     assert.equal(created.body.workflow_id, 'wf-test');
     assert.equal(created.body.vendor_data, requestId);
     assert.equal(created.body.expected_details.identification_number, '41234567');
-    const st = await call('GET', `/onboarding/merchant-kyc/${requestId}`);
+    const st = await call('GET', `/onboarding/merchant-kyc/${requestId}`, undefined, sh);
     assert.equal(st.body.status, 'IN_PROGRESS');
   });
 
   test('con Didit activo no se aceptan fotos por la API ni se guardan imágenes', async () => {
-    const r = await call('POST', `/onboarding/merchant-kyc/${requestId}/documents`, { dni_front: 'data:x', dni_back: 'data:y', selfie: 'data:z' });
+    const r = await call('POST', `/onboarding/merchant-kyc/${requestId}/documents`, { dni_front: 'data:x', dni_back: 'data:y', selfie: 'data:z' }, { 'X-Session-Id': kycSessionId });
     assert.equal(r.status, 409);
     const cols = await db.all<{ column_name: string }>("SELECT column_name FROM information_schema.columns WHERE table_name = 'kyc_requests'");
     assert.ok(!cols.some((c) => ['dni_front', 'dni_back', 'selfie'].includes(c.column_name)));
@@ -123,7 +127,7 @@ describe('KYC con Didit', () => {
     assert.equal(r.body.outcome, 'APPROVED');
     const again = await call('POST', '/webhooks/didit', raw, headers);
     assert.equal(again.body.duplicate, true);
-    const st = await call('GET', `/onboarding/merchant-kyc/${requestId}`);
+    const st = await call('GET', `/onboarding/merchant-kyc/${requestId}`, undefined, { 'X-Session-Id': kycSessionId });
     assert.equal(st.body.status, 'APPROVED');
     const m = await db.get<{ kyc_status: string }>('SELECT m.kyc_status FROM merchant_profiles m JOIN kyc_requests k ON k.session_id = m.session_id WHERE k.public_id = ?', requestId);
     assert.equal(m!.kyc_status, 'APPROVED');
@@ -132,13 +136,13 @@ describe('KYC con Didit', () => {
   });
 
   test('Didit aprueba pero el DNI del documento es otro: se rechaza (suplantación)', async () => {
-    const rid = await newRequest('49876543', '933444555');
-    await call('POST', `/onboarding/merchant-kyc/${rid}/verification`);
+    const { requestId: rid, sessionId: ksid } = await newRequest('49876543', '933444555');
+    await call('POST', `/onboarding/merchant-kyc/${rid}/verification`, undefined, { 'X-Session-Id': ksid });
     const sid = sessions.at(-1)!.id;
     const { raw, headers } = signed({ event_id: 'evt-2', webhook_type: 'status.updated', session_id: sid, status: 'Approved', decision: decision('Approved', '11111111') });
     const r = await call('POST', '/webhooks/didit', raw, headers);
     assert.equal(r.body.outcome, 'REJECTED');
-    const st = await call('GET', `/onboarding/merchant-kyc/${rid}`);
+    const st = await call('GET', `/onboarding/merchant-kyc/${rid}`, undefined, { 'X-Session-Id': ksid });
     assert.equal(st.body.reason, 'DNI_MISMATCH');
   });
 
@@ -149,23 +153,23 @@ describe('KYC con Didit', () => {
       liveness_checks: [{ status, score: 0.97 }],
       face_matches: [{ status, score: 0.93 }]
     });
-    const rid = await newRequest('A12345678', '955111222', 'CE');
+    const { requestId: rid, sessionId: ksid } = await newRequest('A12345678', '955111222', 'CE');
     assert.ok(rid, 'el registro con carnet crea la solicitud');
-    await call('POST', `/onboarding/merchant-kyc/${rid}/verification`);
+    await call('POST', `/onboarding/merchant-kyc/${rid}/verification`, undefined, { 'X-Session-Id': ksid });
     const sid = sessions.at(-1)!.id;
     const ok = signed({ event_id: 'evt-ce-1', webhook_type: 'status.updated', session_id: sid, status: 'Approved', decision: ce('Approved', 'a1234-5678') });
     assert.equal((await call('POST', '/webhooks/didit', ok.raw, ok.headers)).body.outcome, 'APPROVED', 'las letras del carnet no deben provocar un rechazo');
 
-    const rid2 = await newRequest('B98765432', '955111333', 'CE');
-    await call('POST', `/onboarding/merchant-kyc/${rid2}/verification`);
+    const { requestId: rid2, sessionId: ksid2 } = await newRequest('B98765432', '955111333', 'CE');
+    await call('POST', `/onboarding/merchant-kyc/${rid2}/verification`, undefined, { 'X-Session-Id': ksid2 });
     const sid2 = sessions.at(-1)!.id;
     const bad = signed({ event_id: 'evt-ce-2', webhook_type: 'status.updated', session_id: sid2, status: 'Approved', decision: ce('Approved', 'B98765431') });
     assert.equal((await call('POST', '/webhooks/didit', bad.raw, bad.headers)).body.outcome, 'REJECTED');
   });
 
   test('declinado y en revisión se reflejan tal cual', async () => {
-    const rid = await newRequest('45555666', '944555666');
-    await call('POST', `/onboarding/merchant-kyc/${rid}/verification`);
+    const { requestId: rid, sessionId: ksid } = await newRequest('45555666', '944555666');
+    await call('POST', `/onboarding/merchant-kyc/${rid}/verification`, undefined, { 'X-Session-Id': ksid });
     const sid = sessions.at(-1)!.id;
     const review = signed({ event_id: 'evt-3', webhook_type: 'status.updated', session_id: sid, status: 'In Review', decision: decision('In Review', '45555666') });
     assert.equal((await call('POST', '/webhooks/didit', review.raw, review.headers)).body.outcome, 'IN_REVIEW');

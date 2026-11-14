@@ -3,6 +3,7 @@
 import { after, before, beforeEach, describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import type { AddressInfo } from 'node:net';
@@ -10,6 +11,26 @@ import type { AddressInfo } from 'node:net';
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'kuota-hard-'));
 process.env.KUOTA_DEV_SECRETS_FILE = path.join(tmp, 'secrets.json');
 process.env.NODE_ENV = 'test';
+process.env.DIDIT_API_KEY = 'sk_test_recovery';
+process.env.DIDIT_RECOVERY_WORKFLOW_ID = 'wf-recovery-test';
+
+const diditMock = http.createServer((req, res) => {
+  let raw = '';
+  req.on('data', (c) => (raw += c));
+  req.on('end', () => {
+    res.setHeader('Content-Type', 'application/json');
+    if (req.method === 'POST' && req.url === '/v3/session/') {
+      const sid = 'didit_rec_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+      return res.writeHead(201).end(JSON.stringify({ session_id: sid, url: `https://verify.example/${sid}`, status: 'Not Started' }));
+    }
+    if (req.method === 'GET' && /^\/v3\/session\/[^/]+\/decision\/$/.test(req.url!)) {
+      return res.writeHead(200).end(JSON.stringify({ status: 'APPROVED', liveness_checks: [{ status: 'passed', score: 0.99 }] }));
+    }
+    res.writeHead(404).end('{}');
+  });
+});
+await new Promise<void>((r) => diditMock.listen(0, '127.0.0.1', () => r()));
+process.env.DIDIT_BASE_URL = `http://127.0.0.1:${(diditMock.address() as AddressInfo).port}`;
 
 const { useTestDatabase } = await import('./helpers.js');
 const dropTestDatabase = await useTestDatabase();
@@ -30,6 +51,7 @@ before(async () => {
 
 after(async () => {
   server?.close();
+  diditMock.close();
   await closeDatabases();
   await dropTestDatabase();
   fs.rmSync(tmp, { recursive: true, force: true });
@@ -84,6 +106,16 @@ describe('Onboarding: la sesión no regala la cuenta', () => {
   });
 });
 
+async function recoverPin(payload: { phone: string; dni: string; new_pin: string; device_id: string }) {
+  const start = await call('POST', '/auth/pin/recover/start', { phone: payload.phone, dni: payload.dni, device_id: payload.device_id });
+  if (start.status !== 201) return start;
+  return call('POST', '/auth/pin/recover/complete', {
+    recovery_token: start.body.recovery_token,
+    new_pin: payload.new_pin,
+    device_id: payload.device_id
+  });
+}
+
 describe('Crédito: dueño y validación', () => {
   test('pagar cuota o liquidar compra de otro comercio o inexistente es 404 y no mueve la línea', async () => {
     const victim = await register('930000003', '73000003', '739164');
@@ -91,7 +123,7 @@ describe('Crédito: dueño y validación', () => {
     const v = { 'X-Merchant-Id': victim.merchantId };
     const att = { 'X-Merchant-Id': attacker.merchantId };
 
-    const buy = await call('POST', '/credit/purchases', { provider_id: 'prov_donlucho', total_cents: 20000, installments: 3 }, v);
+    const buy = await call('POST', '/credit/purchases', { provider_id: 'prov_donlucho', total_cents: 20000, installments: 3, pin: '739164', idempotency_key: 'idem_hard_buy_01' }, v);
     assert.equal(buy.status, 201);
     const before = (await call('GET', '/credit/line', undefined, v)).body.line.used_cents;
     assert.ok(before > 0);
@@ -114,14 +146,16 @@ describe('Crédito: dueño y validación', () => {
     const m = await register('930000005', '73000005', '739164');
     const h = { 'X-Merchant-Id': m.merchantId };
     const results = await Promise.all(
-      Array.from({ length: 6 }, () => call('POST', '/credit/purchases', { provider_id: 'prov_donlucho', total_cents: 10000, installments: 3 }, h))
+      Array.from({ length: 6 }, (_, i) =>
+        call('POST', '/credit/purchases', { provider_id: 'prov_donlucho', total_cents: 10000, installments: 3, pin: '739164', idempotency_key: `idem_sim_${i}` }, h)
+      )
     );
     assert.equal(results.filter((r) => r.status === 201).length, 1);
   });
 
   test('un proveedor inexistente no recibe compras', async () => {
     const m = await register('930000013', '73000013', '739164');
-    const r = await call('POST', '/credit/purchases', { provider_id: 'prov_fantasma01', total_cents: 10000, installments: 3 }, { 'X-Merchant-Id': m.merchantId });
+    const r = await call('POST', '/credit/purchases', { provider_id: 'prov_fantasma01', total_cents: 10000, installments: 3, pin: '739164', idempotency_key: 'idem_ghost_01' }, { 'X-Merchant-Id': m.merchantId });
     assert.equal(r.status, 422);
     assert.equal(r.body.error.code, 'PROVIDER_INVALID');
   });
@@ -129,15 +163,15 @@ describe('Crédito: dueño y validación', () => {
   test('montos y cuotas inválidos se rechazan (incluida una simulación enorme)', async () => {
     const m = await register('930000006', '73000006', '739164');
     const h = { 'X-Merchant-Id': m.merchantId };
-    for (const body of [
+    for (const [idx, body] of [
       { provider_id: 'prov_donlucho', total_cents: 20000, installments: 0 },
       { provider_id: 'prov_donlucho', total_cents: 20000, installments: -2 },
       { provider_id: 'prov_donlucho', total_cents: 20000, installments: 999999999 },
       { provider_id: 'prov_donlucho', total_cents: 1.5, installments: 3 },
       { provider_id: 'prov_donlucho', total_cents: '20000', installments: 3 },
       { provider_id: '<b>x</b>', total_cents: 20000, installments: 3 }
-    ]) {
-      assert.equal((await call('POST', '/credit/purchases', body, h)).status, 422, JSON.stringify(body));
+    ].entries()) {
+      assert.equal((await call('POST', '/credit/purchases', { ...body, pin: '739164', idempotency_key: `idem_inv_${idx}` }, h)).status, 422, JSON.stringify(body));
     }
     assert.equal((await call('POST', '/credit/simulations', { purchase_cents: 30000, installments: 2000000000 })).status, 422);
   });
@@ -149,7 +183,7 @@ describe('Recuperación de PIN con DNI', () => {
     await register('930000007', '73000007', '739164');
     const old = await call('POST', '/auth/sessions', { pin: '739164', phone: '+51930000007', device_id: DEVICE });
     assert.equal(old.status, 201);
-    const r = await call('POST', '/auth/pin/recover', { phone: '+51930000007', dni: '73000007', new_pin: '861953', device_id: DEVICE });
+    const r = await recoverPin({ phone: '+51930000007', dni: '73000007', new_pin: '861953', device_id: DEVICE });
     assert.equal(r.status, 201);
     assert.ok(r.body.access_token);
     assert.equal((await call('POST', '/auth/sessions', { pin: '739164', phone: '+51930000007', device_id: DEVICE })).status, 401, 'el PIN viejo ya no sirve');
@@ -160,12 +194,12 @@ describe('Recuperación de PIN con DNI', () => {
 
   test('cuenta inexistente y DNI incorrecto dan la misma respuesta; al 5.º fallo se bloquea', async () => {
     await register('930000008', '73000008', '739164');
-    const ghost = await call('POST', '/auth/pin/recover', { phone: '+51930999999', dni: '73000008', new_pin: '861953', device_id: DEVICE });
-    const bad = await call('POST', '/auth/pin/recover', { phone: '+51930000008', dni: '11111111', new_pin: '861953', device_id: DEVICE });
+    const ghost = await recoverPin({ phone: '+51930999999', dni: '73000008', new_pin: '861953', device_id: DEVICE });
+    const bad = await recoverPin({ phone: '+51930000008', dni: '11111111', new_pin: '861953', device_id: DEVICE });
     assert.equal(ghost.status, 403);
     assert.deepEqual(ghost.body.error.code, bad.body.error.code);
-    for (let i = 0; i < 4; i++) await call('POST', '/auth/pin/recover', { phone: '+51930000008', dni: `2222222${i}`, new_pin: '861953', device_id: DEVICE });
-    const locked = await call('POST', '/auth/pin/recover', { phone: '+51930000008', dni: '73000008', new_pin: '861953', device_id: DEVICE });
+    for (let i = 0; i < 4; i++) await recoverPin({ phone: '+51930000008', dni: `2222222${i}`, new_pin: '861953', device_id: DEVICE });
+    const locked = await recoverPin({ phone: '+51930000008', dni: '73000008', new_pin: '861953', device_id: DEVICE });
     assert.equal(locked.status, 429, 'ni el DNI correcto pasa mientras dure el bloqueo');
     assert.equal((await call('POST', '/auth/sessions', { pin: '739164', phone: '+51930000008', device_id: DEVICE })).status, 201, 'el PIN original sigue intacto');
   });
@@ -179,7 +213,7 @@ describe('Recuperación de PIN con DNI', () => {
     assert.equal(s2.status, 201);
     const { paymentsDb } = await import('../src/db/client.js');
     await paymentsDb.prepare('UPDATE merchant_devices SET revoked_at = utc_now_text() WHERE device_id = ?').run(other);
-    const r = await call('POST', '/auth/pin/recover', { phone: '+51930000009', dni: '73000009', new_pin: '861953', device_id: other });
+    const r = await recoverPin({ phone: '+51930000009', dni: '73000009', new_pin: '861953', device_id: other });
     assert.equal(r.status, 403);
     assert.equal((await call('POST', '/auth/sessions', { pin: '739164', phone: '+51930000009', device_id: DEVICE })).status, 201, 'PIN intacto');
   });
@@ -242,7 +276,7 @@ describe('Identidad por token de dispositivo (X-Merchant-Token)', () => {
       const otherDevice = { ...mine, 'X-Device-Id': 'hardening_test_device_99' };
       assert.equal((await call('GET', '/merchants/me/home', undefined, otherDevice)).status, 401, 'token de otro dispositivo: rechazado');
       // Recuperar el PIN invalida los tokens anteriores y entrega uno nuevo.
-      const rec = await call('POST', '/auth/pin/recover', { phone: '+51930000014', dni: '73000014', new_pin: '861953', device_id: DEVICE });
+      const rec = await recoverPin({ phone: '+51930000014', dni: '73000014', new_pin: '861953', device_id: DEVICE });
       assert.equal(rec.status, 201);
       assert.equal((await call('GET', '/merchants/me/home', undefined, mine)).status, 401, 'token viejo revocado');
       const fresh = { ...idOnly, 'X-Merchant-Token': rec.body.identity_token, 'X-Device-Id': DEVICE };
@@ -453,9 +487,9 @@ describe('Proveedor: recuperar el PIN', () => {
     const conf = await call('POST', '/businesses/confirm', { session_id: sid, ruc: '20100047218', legal_rep_dni: '47891777', whatsapp: '984000222' });
     assert.equal(conf.status, 201);
     assert.equal((await call('POST', `/onboarding/sessions/${sid}/security-pin`, { pin: '739164' })).status, 200);
-    const bad = await call('POST', '/auth/pin/recover', { phone: '+51984000222', dni: '11111111', new_pin: '861953', device_id: 'provider_device_000002' });
+    const bad = await recoverPin({ phone: '+51984000222', dni: '11111111', new_pin: '861953', device_id: 'provider_device_000002' });
     assert.equal(bad.status, 403);
-    const ok = await call('POST', '/auth/pin/recover', { phone: '+51984000222', dni: '47891777', new_pin: '861953', device_id: 'provider_device_000002' });
+    const ok = await recoverPin({ phone: '+51984000222', dni: '47891777', new_pin: '861953', device_id: 'provider_device_000002' });
     assert.equal(ok.status, 201);
     assert.equal(ok.body.role, 'PROVIDER');
     assert.equal((await call('POST', '/auth/sessions', { pin: '739164', phone: '+51984000222', device_id: 'provider_device_000002' })).status, 401, 'el PIN viejo ya no sirve');
@@ -557,10 +591,10 @@ describe('Identidad: DNI o carnet de extranjería', () => {
 
     // Recuperar el PIN con el carnet (con o sin guiones) funciona; con otro número no.
     resetRateLimits();
-    const wrong = await call('POST', '/auth/pin/recover', { phone: '+51930000041', dni: '001234568', new_pin: '582941', device_id: 'ce_device_000000001' });
+    const wrong = await recoverPin({ phone: '+51930000041', dni: '001234568', new_pin: '582941', device_id: 'ce_device_000000001' });
     assert.notEqual(wrong.status, 201);
     resetRateLimits();
-    const rec = await call('POST', '/auth/pin/recover', { phone: '+51930000041', dni: '001234567', new_pin: '582941', device_id: 'ce_device_000000001' });
+    const rec = await recoverPin({ phone: '+51930000041', dni: '001234567', new_pin: '582941', device_id: 'ce_device_000000001' });
     assert.equal(rec.status, 201, JSON.stringify(rec.body));
   });
 });
@@ -578,10 +612,10 @@ describe('Proveedor: representante legal con carnet de extranjería', () => {
     assert.equal((await call('POST', `/onboarding/sessions/${sid}/security-pin`, { pin: '739164' })).status, 200);
 
     resetRateLimits();
-    const wrong = await call('POST', '/auth/pin/recover', { phone: '+51984000222', dni: 'X001234568', new_pin: '582941', device_id: 'prov_ce_device_00001' });
+    const wrong = await recoverPin({ phone: '+51984000222', dni: 'X001234568', new_pin: '582941', device_id: 'prov_ce_device_00001' });
     assert.notEqual(wrong.status, 201);
     resetRateLimits();
-    const rec = await call('POST', '/auth/pin/recover', { phone: '+51984000222', dni: 'x001-234-567', new_pin: '582941', device_id: 'prov_ce_device_00001' });
+    const rec = await recoverPin({ phone: '+51984000222', dni: 'x001-234-567', new_pin: '582941', device_id: 'prov_ce_device_00001' });
     assert.equal(rec.status, 201, JSON.stringify(rec.body));
     assert.equal(rec.body.role, 'PROVIDER');
   });
@@ -615,5 +649,82 @@ describe('Panel del proveedor: cuenta de abono y pedidos', () => {
     assert.equal(orders.status, 200);
     assert.deepEqual(orders.body.orders, []);
     assert.equal((await call('GET', '/providers/orders', undefined, { 'X-Provider-Id': 'prov_donlucho', 'X-Provider-Token': conf.body.provider_token })).status, 401, 'no se ven pedidos de otro proveedor');
+  });
+});
+
+describe('Remediación P1: PIN reforzado, congelación de cuenta, idempotencia concurrente y doble control', () => {
+  test('P1-8: rechaza PINs secuenciales, fechas y subcadenas del DNI o celular; no guarda PIN en users ni onboarding_sessions', async () => {
+    await resetRateLimits();
+    const s = await call('POST', '/onboarding/sessions', { role: 'MERCHANT', device_id: DEVICE, accepted_terms_version: '2026.1', accepted_privacy_version: '2026.1' });
+    const sid = s.body.session_id as string;
+    await call('POST', `/onboarding/sessions/${sid}/merchant-identity`, { account_type: 'PERSONAL', dni: '45829173', full_name: 'PIN TEST', phone: '941827365', whatsapp_opt_in: true });
+    await call('PUT', `/onboarding/sessions/${sid}/merchant-activity`, { category: 'FOOD', seniority_range: 'CONSOLIDATED', business_name: 'Bodega PIN' });
+    await call('PUT', `/onboarding/sessions/${sid}/products`, { products: [{ name: 'Agua', price_cents: 200, is_frequent: true }] });
+    await call('POST', `/onboarding/sessions/${sid}/complete`, { business_name: 'Bodega PIN', phone: '941827365' });
+
+    for (const weak of ['234567', '765432', '150895', '199408', '458291', '182736']) {
+      const r = await call('POST', `/onboarding/sessions/${sid}/security-pin`, { pin: weak });
+      assert.equal(r.status, 422, `PIN débil debe rechazarse: ${weak}`);
+    }
+    const ok = await call('POST', `/onboarding/sessions/${sid}/security-pin`, { pin: '739164' });
+    assert.equal(ok.status, 200);
+
+    const { db: coreDb } = await import('../src/db/database.js');
+    const sessRow = await coreDb.get<{ security_pin: string | null }>('SELECT security_pin FROM onboarding_sessions WHERE id = ?', sid);
+    const userRow = await coreDb.get<{ security_pin: string | null }>('SELECT u.security_pin FROM users u JOIN onboarding_sessions os ON os.user_id = u.id WHERE os.id = ?', sid);
+    assert.equal(sessRow?.security_pin, null, 'onboarding_sessions.security_pin debe ser NULL');
+    assert.equal(userRow?.security_pin, null, 'users.security_pin debe ser NULL');
+  });
+
+  test('P1-3: congelar la cuenta revoca sesiones, bloquea el PIN y pausa la línea de crédito', async () => {
+    await resetRateLimits();
+    const m = await register('930000051', '73000051', '739164');
+    const login = await call('POST', '/auth/sessions', { pin: '739164', phone: '+51930000051', device_id: DEVICE });
+    assert.equal(login.status, 201);
+    const hdr = { Authorization: `Bearer ${login.body.access_token}`, 'X-Device-Id': DEVICE };
+
+    const frz = await call('POST', '/auth/freeze', { reason: 'Robaron mi celular' }, hdr);
+    assert.equal(frz.status, 200);
+    assert.equal(frz.body.frozen, true);
+
+    assert.equal((await call('GET', '/merchants/me/payments/limits', undefined, hdr)).status, 401, 'sesión revocada');
+    assert.equal((await call('POST', '/auth/sessions', { pin: '739164', phone: '+51930000051', device_id: DEVICE })).status, 423, 'PIN bloqueado');
+    const line = await call('GET', '/credit/line', undefined, { 'X-Merchant-Id': m.merchantId });
+    assert.equal(line.body.line.status, 'FROZEN');
+  });
+
+  test('P1-10: dos peticiones simultáneas con el mismo Idempotency-Key reciben la misma respuesta', async () => {
+    await resetRateLimits();
+    const m = await register('930000052', '73000052', '739164');
+    const login = await call('POST', '/auth/sessions', { pin: '739164', phone: '+51930000052', device_id: DEVICE });
+    const hdr = { Authorization: `Bearer ${login.body.access_token}`, 'X-Device-Id': DEVICE, 'Idempotency-Key': 'idem-concurrent-limits-001' };
+    const body = { per_tx_cents: 20000, daily_cents: 80000, daily_count: 10 };
+
+    const [r1, r2] = await Promise.all([
+      call('PUT', '/merchants/me/payments/limits', body, hdr),
+      call('PUT', '/merchants/me/payments/limits', body, hdr)
+    ]);
+    assert.equal(r1.status, 200);
+    assert.equal(r2.status, 200);
+    assert.deepEqual(r1.body.own, r2.body.own);
+  });
+
+  test('P1-9: rol READ no puede mutar y doble control exige segundo aprobador en acciones críticas', async () => {
+    process.env.KUOTA_ADMIN_READ_TOKEN = 'read_only_token_32_chars_minimum_0001';
+    process.env.KUOTA_REQUIRE_DUAL_CONTROL = '1';
+    try {
+      const readH = { Authorization: 'Bearer read_only_token_32_chars_minimum_0001' };
+      assert.equal((await call('GET', '/internal/features', undefined, readH)).status, 200);
+      assert.equal((await call('PUT', '/internal/features/LINK_CREATE', { enabled: true }, readH)).status, 403);
+
+      const { secrets } = await import('../src/security/config.js');
+      const superH = { Authorization: `Bearer ${secrets.adminToken}`, 'X-Admin-Actor': 'ana.ops' };
+      assert.equal((await call('PUT', '/internal/features/LINK_CREATE', { enabled: true }, superH)).status, 403, 'falta segundo aprobador');
+      assert.equal((await call('PUT', '/internal/features/LINK_CREATE', { enabled: true }, { ...superH, 'X-Admin-Approver': 'ana.ops' })).status, 403, 'mismo aprobador rechazado');
+      assert.equal((await call('PUT', '/internal/features/LINK_CREATE', { enabled: true }, { ...superH, 'X-Admin-Approver': 'carlos.lead' })).status, 200);
+    } finally {
+      delete process.env.KUOTA_ADMIN_READ_TOKEN;
+      delete process.env.KUOTA_REQUIRE_DUAL_CONTROL;
+    }
   });
 });

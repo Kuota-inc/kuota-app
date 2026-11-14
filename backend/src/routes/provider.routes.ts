@@ -4,14 +4,15 @@ import { db } from '../db/database.js';
 import { sunatService } from '../services/sunat.service.js';
 import { docError, isValidDoc, normalizeDoc, parseDocType } from '../security/identityDoc.js';
 import { startVerification } from '../services/kyc.service.js';
+import { diditEnabled } from '../integrations/didit.js';
 import crypto from 'node:crypto';
 import type { Request, Response } from 'express';
 import { config } from '../security/config.js';
 import { audit } from '../security/audit.js';
-import { verifyPin } from '../security/crypto.js';
+import { randomToken, verifyPin } from '../security/crypto.js';
 import { checkCci } from '../security/cci.js';
-import { rateLimit } from '../security/guards.js';
-import { clientIp } from '../security/http.js';
+import { optionalIdempotent, rateLimit } from '../security/guards.js';
+import { clientIp, fail, headerString } from '../security/http.js';
 import { avatarUrl } from '../security/links.js';
 import { parseAvatar } from './merchant.routes.js';
 
@@ -181,9 +182,9 @@ providerRouter.post('/businesses/confirm', async (req, res) => {
     ) VALUES (?, ?, ?, ?, ?, ?, ?, 'TEXTILES', '1Y_3Y', 'IN_REVIEW', ?, ?)
   `).run(provId, session_id, d.ruc, d.razon_social, legal_rep_dni, repDocType, whatsapp || '', config.feeBps, sha256(providerToken));
 
-  // 5. Create KYC request with PRV- public id
+  // 5. Create KYC request with PRV- public id (P0-3: high entropy)
   const requestId = 'req_' + uuidv4().substring(0, 10);
-  const publicId = 'PRV-' + Math.floor(10000 + Math.random() * 90000) + '-PE';
+  const publicId = 'PRV-' + randomToken(16);
 
   await db.prepare(`
     INSERT INTO kyc_requests (id, provider_id, session_id, public_id, status, progress_pct)
@@ -221,7 +222,7 @@ providerRouter.post('/kyc/requests', async (req, res) => {
   }
 
   const requestId = 'req_' + uuidv4().substring(0, 10);
-  const publicId = 'PRV-' + Math.floor(10000 + Math.random() * 90000) + '-PE';
+  const publicId = 'PRV-' + randomToken(16);
 
   await db.prepare(`
     INSERT INTO kyc_requests (id, session_id, public_id, status, progress_pct)
@@ -258,6 +259,7 @@ providerRouter.post('/kyc/requests', async (req, res) => {
 // PRD 12: Estado de validación asíncrona
 providerRouter.get('/kyc/requests/:publicId', async (req, res) => {
   const publicId = req.params.publicId;
+  const callerSessionId = headerString(req, 'x-session-id');
   const row = await db.prepare(`
     SELECT kr.*, pp.legal_name, pp.legal_rep_dni, pp.approved_limit_cents
     FROM kyc_requests kr
@@ -265,21 +267,29 @@ providerRouter.get('/kyc/requests/:publicId', async (req, res) => {
     WHERE kr.public_id = ?
   `).get(publicId) as any;
 
+  if (row && (config.isProd || callerSessionId) && row.session_id && row.session_id !== 'ses_anon' && row.session_id !== callerSessionId) {
+    return fail(res, 403, 'KYC_FORBIDDEN', 'No tienes acceso a esta solicitud de verificación.');
+  }
+  if (!row && config.isProd) {
+    return res.status(404).json({ error: { code: 'KYC_NOT_FOUND', message: 'Solicitud de verificación no encontrada.' } });
+  }
+
   const approvedLimit = row?.approved_limit_cents ?? 4500000;
   const razonSocial = row?.legal_name ?? null;
   const repDni = row?.legal_rep_dni ?? null;
+  const status = row?.status ?? 'APPROVED';
 
   res.json({
     request_id: publicId,
-    status: 'APPROVED',
-    progress_pct: 100,
+    status,
+    progress_pct: status === 'APPROVED' ? 100 : (row?.progress_pct ?? 78),
     stages: [
       { type: 'SUNAT', status: 'DONE', label: 'Validado — Activo y Habido' },
-      { type: 'ID_CHECK', status: 'DONE', label: 'Identidad del Representante verificada' },
-      { type: 'SCORING', status: 'DONE', label: 'Límite calculado para ventas seguras' }
+      { type: 'ID_CHECK', status: status === 'APPROVED' ? 'DONE' : 'RUNNING', label: 'Identidad del Representante verificada' },
+      { type: 'SCORING', status: status === 'APPROVED' ? 'DONE' : 'PENDING', label: 'Límite calculado para ventas seguras' }
     ],
     result: {
-      status: 'APPROVED',
+      status,
       approved_limit_cents: approvedLimit,
       currency: 'PEN',
       razon_social: razonSocial,
@@ -291,9 +301,18 @@ providerRouter.get('/kyc/requests/:publicId', async (req, res) => {
 // Subida y Registro de Documentos KYC Proveedor (DNI Anverso, Reverso y Selfie Biométrico del Representante Legal)
 providerRouter.post('/kyc/requests/:publicId/documents', async (req, res) => {
   const publicId = req.params.publicId;
+  const callerSessionId = headerString(req, 'x-session-id');
   const { dni_front, dni_back, selfie } = req.body || {};
 
+  // F9: Bloquear auto-aprobación sin Didit en producción o cuando Didit está habilitado.
+  if (diditEnabled() || process.env.NODE_ENV === 'production') {
+    return res.status(409).json({ error: { code: 'USE_IDENTITY_PROVIDER', message: 'Verifica tu identidad desde el enlace seguro de verificación.' } });
+  }
+
   const kyc = await db.prepare('SELECT * FROM kyc_requests WHERE public_id = ?').get(publicId) as any;
+  if (kyc && callerSessionId && kyc.session_id && kyc.session_id !== 'ses_anon' && kyc.session_id !== callerSessionId) {
+    return fail(res, 403, 'KYC_FORBIDDEN', 'No tienes acceso a esta solicitud de verificación.');
+  }
   if (kyc) {
     // Las imágenes del DNI y la selfie no se guardan (Ley 29733); solo el resultado.
     await db.prepare(`
@@ -330,10 +349,22 @@ providerRouter.post('/kyc/requests/:publicId/documents', async (req, res) => {
 // Iniciar verificación Didit (o modo DEMO) para KYC de proveedor
 providerRouter.post('/kyc/requests/:publicId/verification', async (req, res) => {
   const publicId = req.params.publicId;
+  const callerSessionId = headerString(req, 'x-session-id');
+  const kycOwner = await db.prepare('SELECT session_id FROM kyc_requests WHERE public_id = ?').get(publicId) as any;
+  if (kycOwner && (config.isProd || callerSessionId) && kycOwner.session_id && kycOwner.session_id !== 'ses_anon' && kycOwner.session_id !== callerSessionId) {
+    return fail(res, 403, 'KYC_FORBIDDEN', 'No tienes acceso a esta solicitud de verificación.');
+  }
   try {
     const result = await startVerification(publicId);
+    if (!result) return res.status(404).json({ error: { code: 'KYC_NOT_FOUND', message: 'Solicitud de verificación no encontrada.' } });
+    if (result.provider === 'DEMO' && process.env.NODE_ENV === 'production') {
+      return res.status(503).json({ error: { code: 'KYC_PROVIDER_REQUIRED', message: 'La verificación de identidad no está disponible.' } });
+    }
     res.json(result);
   } catch (err: any) {
+    if (err?.message === 'KYC_ALREADY_APPROVED') {
+      return res.status(409).json({ error: { code: 'KYC_ALREADY_APPROVED', message: 'Esta solicitud de verificación ya fue aprobada.' } });
+    }
     res.status(500).json({ error: { code: 'VERIFICATION_ERROR', message: err?.message || 'Error al iniciar verificación.' } });
   }
 });
@@ -613,7 +644,7 @@ providerRouter.get('/savings-estimate', (req, res) => {
 
 // Cuenta bancaria de abono del proveedor. Cambiarla es la operación más delicada (a dónde va el dinero):
 // exige sesión de proveedor + PIN (con bloqueo por intentos), valida el CCI y queda en la bitácora.
-providerRouter.put('/settlement-account', async (req, res) => {
+providerRouter.put('/settlement-account', optionalIdempotent, async (req, res) => {
   const providerId = await authProvider(req, res);
   if (providerId === undefined) return;
   if (!providerId) return res.status(401).json({ error: { code: 'PROVIDER_AUTH_REQUIRED', message: 'Inicia sesión para continuar.' } });
@@ -633,14 +664,17 @@ providerRouter.put('/settlement-account', async (req, res) => {
   const pin = req.body?.pin;
   const ip = typeof req.ip === 'string' ? req.ip : null;
   if (typeof pin !== 'string' || !/^\d{6}$/.test(pin) || !verifyPin(pin, prov.pin_hash)) {
-    const attempts = (prov.pin_failed_attempts ?? 0) + 1;
+    // P0-2 / F8: incremento atómico en PostgreSQL para evitar bypass por peticiones paralelas.
+    const inc = (await db.prepare(
+      'UPDATE provider_profiles SET pin_failed_attempts = COALESCE(pin_failed_attempts, 0) + 1 WHERE id = ? RETURNING pin_failed_attempts'
+    ).get(providerId)) as { pin_failed_attempts: number } | undefined;
+    const attempts = inc?.pin_failed_attempts ?? (prov.pin_failed_attempts ?? 0) + 1;
     if (attempts >= config.pinMaxAttempts) {
       const lockedUntil = new Date(now.getTime() + config.pinLockMinutes * 60_000).toISOString();
       await db.prepare('UPDATE provider_profiles SET pin_failed_attempts = 0, pin_locked_until = ? WHERE id = ?').run(lockedUntil, providerId);
       await audit({ actorType: 'MERCHANT', actorId: providerId, action: 'PIN_LOCKED', result: 'DENIED', ip, details: { role: 'PROVIDER', purpose: 'SETTLEMENT_ACCOUNT' } });
       return res.status(423).json({ error: { code: 'PIN_LOCKED', message: `Bloqueamos el PIN por ${config.pinLockMinutes} min por varios intentos fallidos.` } });
     }
-    await db.prepare('UPDATE provider_profiles SET pin_failed_attempts = ? WHERE id = ?').run(attempts, providerId);
     const left = config.pinMaxAttempts - attempts;
     return res.status(401).json({ error: { code: 'PIN_INVALID', message: `PIN incorrecto. Te queda${left === 1 ? '' : 'n'} ${left} intento${left === 1 ? '' : 's'}.` } });
   }

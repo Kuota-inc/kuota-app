@@ -91,9 +91,14 @@ export const config = {
   sandboxEnabled: isProd ? process.env.KUOTA_SANDBOX === '1' && !liveGateway() : process.env.KUOTA_SANDBOX !== '0',
   /** Base pública de la página de pago a la que apunta el link y el QR. */
   payBaseUrl: (process.env.KUOTA_PAY_BASE_URL || 'http://localhost:5173/pay').replace(/\/+$/, ''),
-  // El APK carga la app desde https://localhost (WebView con esquema https): ese origen siempre se acepta,
-  // un sitio web externo no puede usarlo.
-  corsOrigins: [...new Set([...(process.env.KUOTA_CORS_ORIGINS || DEV_ORIGINS.join(',')).split(','), 'https://localhost'])]
+  // El APK carga la app desde https://localhost (WebView con esquema https): ese origen se acepta
+  // salvo que se deshabilite explícitamente con KUOTA_ALLOW_APK_ORIGIN=0 (ej. solo web).
+  corsOrigins: [
+    ...new Set([
+      ...(process.env.KUOTA_CORS_ORIGINS || DEV_ORIGINS.join(',')).split(','),
+      ...(process.env.KUOTA_ALLOW_APK_ORIGIN === '0' ? [] : ['https://localhost'])
+    ])
+  ]
     .map((s) => s.trim())
     .filter(Boolean),
   /** Ventana anti-repetición de webhooks (igual que el sandbox de 360pay). */
@@ -148,7 +153,15 @@ export function assertProductionEnv(): void {
   const critical: [string, string][] = [
     ['DIDIT_WEBHOOK_SECRET',      'verificación de webhooks Didit (sin él cualquiera puede aprobar KYC)'],
     ['KUOTA_PLAY_INTEGRITY_KEY',  'Play Integrity (sin él las compras no validan la integridad del APK)'],
+    ['KUOTA_CORS_ORIGINS',        'orígenes CORS explícitos de producción (no permitir localhost de desarrollo)'],
   ];
+
+  if (config.sandboxEnabled) {
+    throw new Error('[CONFIG] KUOTA_SANDBOX=1 no está permitido con el entorno de producción validado.');
+  }
+  if (!config.payBaseUrl.startsWith('https://')) {
+    throw new Error(`[CONFIG] KUOTA_PAY_BASE_URL debe usar https:// en producción (actual: ${config.payBaseUrl}).`);
+  }
 
   // Variables sin las cuales el sistema opera en modo degradado o con datos incorrectos.
   const required: [string, string][] = [
