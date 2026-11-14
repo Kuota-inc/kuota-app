@@ -3,23 +3,27 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Kuota — Portal de Auditoría, Arquitectura y Riel de Pagos</title>
-  <meta name="description" content="Auditoría de arquitectura, seguridad y riel de pagos para Kuota. Monorepo commit d7bac8b3.">
+  <title>Kuota — Portal Maestro de Auditoría, Arquitectura y Riel de Pagos</title>
+  <meta name="description" content="Auditoría integral de arquitectura, seguridad defensiva, conciliación contable y riel de pagos para Kuota. Monorepo commit d7bac8b3.">
   <style>
     /* --------------------------------------------------------------------------
-       APPLE DESIGN SYSTEM — TYPOGRAPHY, MATERIALS & MOTION
-       Based on Emil Kowalski's Apple Design guidelines
+       APPLE DESIGN SYSTEM — HIG & EMIL KOWALSKI GUIDELINES
+       Pure Cupertino Aesthetic: SF Pro, Optical Kerning, Translucent Chrome,
+       Specular Borders, Fluid Spring Physics & Responsive Bento Grids.
        -------------------------------------------------------------------------- */
     :root {
       --bg: #000000;
-      --bg-elevated: #0d1117;
-      --surface: rgba(255, 255, 255, 0.04);
-      --surface-hover: rgba(255, 255, 255, 0.07);
-      --surface-active: rgba(255, 255, 255, 0.1);
-      --surface-card: #121824;
-      --border: rgba(255, 255, 255, 0.09);
-      --border-strong: rgba(255, 255, 255, 0.18);
-      --border-accent: rgba(41, 151, 255, 0.4);
+      --bg-elevated: #090a0d;
+      --surface: rgba(255, 255, 255, 0.035);
+      --surface-hover: rgba(255, 255, 255, 0.065);
+      --surface-active: rgba(255, 255, 255, 0.095);
+      --surface-card: #0f131a;
+      --surface-card-subtle: #141a24;
+      
+      --border: rgba(255, 255, 255, 0.08);
+      --border-subtle: rgba(255, 255, 255, 0.04);
+      --border-strong: rgba(255, 255, 255, 0.16);
+      --border-highlight: rgba(255, 255, 255, 0.24);
       
       --text: #f5f5f7;
       --text-secondary: #a1a1a6;
@@ -27,22 +31,33 @@
       
       --accent: #2997ff;
       --accent-hover: #0077ed;
-      --accent-glow: rgba(41, 151, 255, 0.15);
+      --accent-glow: rgba(41, 151, 255, 0.18);
+      
       --green: #30d158;
-      --green-glow: rgba(48, 209, 88, 0.15);
+      --green-glow: rgba(48, 209, 88, 0.18);
       --amber: #ff9f0a;
-      --amber-glow: rgba(255, 159, 10, 0.15);
+      --amber-glow: rgba(255, 159, 10, 0.18);
       --red: #ff453a;
-      --red-glow: rgba(255, 69, 58, 0.15);
+      --red-glow: rgba(255, 69, 58, 0.18);
       --purple: #bf5af2;
+      --purple-glow: rgba(191, 90, 242, 0.18);
+      --teal: #64d2ff;
       
       --font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
-      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      --font-mono: "SF Mono", Menlo, Consolas, Monaco, monospace;
       
       --spring: cubic-bezier(0.16, 1, 0.3, 1);
+      --spring-bouncy: cubic-bezier(0.34, 1.56, 0.64, 1);
     }
 
-    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-font-smoothing: antialiased; }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      text-rendering: optimizeLegibility;
+    }
     
     body {
       background-color: var(--bg);
@@ -50,241 +65,308 @@
       font-family: var(--font);
       line-height: 1.55;
       overflow-x: hidden;
-      selection-background-color: var(--accent);
-      selection-color: #ffffff;
+      background-image: 
+        radial-gradient(ellipse 80% 50% at 50% -20%, rgba(41, 151, 255, 0.12), transparent 70%),
+        radial-gradient(ellipse 60% 40% at 85% 15%, rgba(191, 90, 242, 0.05), transparent 60%);
+      background-attachment: fixed;
+    }
+
+    ::selection {
+      background-color: var(--accent);
+      color: #ffffff;
     }
 
     /* --------------------------------------------------------------------------
-       FROSTED GLASS NAVIGATION (APPLE TRANSLUCENT CHROME)
+       APPLE FROSTED CHROME (NAVIGATION BAR)
        -------------------------------------------------------------------------- */
     header.apple-header {
       position: sticky;
       top: 0;
-      z-index: 100;
-      background: rgba(0, 0, 0, 0.72);
-      backdrop-filter: blur(24px) saturate(190%);
-      -webkit-backdrop-filter: blur(24px) saturate(190%);
+      z-index: 1000;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(28px) saturate(190%);
+      -webkit-backdrop-filter: blur(28px) saturate(190%);
       border-bottom: 1px solid var(--border);
-      padding: 0.85rem 2rem;
+      padding: 0.85rem 2.5rem;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      transition: border-color 0.2s ease;
+      transition: all 0.25s ease;
     }
 
     .brand-wrap {
       display: flex;
       align-items: center;
-      gap: 1rem;
+      gap: 1.15rem;
     }
+    
     .brand-icon {
-      width: 32px;
-      height: 32px;
-      border-radius: 8px;
-      background: linear-gradient(135deg, #0071e3, #2997ff);
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #0071e3 0%, #2997ff 100%);
       display: flex;
       align-items: center;
       justify-content: center;
       font-weight: 800;
-      font-size: 1rem;
+      font-size: 1.1rem;
       color: #fff;
-      box-shadow: 0 2px 10px rgba(41, 151, 255, 0.3);
+      box-shadow: 0 4px 14px rgba(41, 151, 255, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.3);
     }
+    
+    .brand-title-wrap {
+      display: flex;
+      flex-direction: column;
+    }
+    
     .brand-name {
       font-weight: 700;
       font-size: 1.05rem;
-      letter-spacing: -0.02em;
-      color: #fff;
+      letter-spacing: -0.025em;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .brand-version {
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-tertiary);
     }
 
     .header-pills {
       display: flex;
       align-items: center;
-      gap: 0.5rem;
+      gap: 0.65rem;
     }
+    
     .pill {
       font-family: var(--font-mono);
       font-size: 0.75rem;
       font-weight: 600;
-      padding: 0.3rem 0.65rem;
+      padding: 0.35rem 0.75rem;
       border-radius: 9999px;
       border: 1px solid var(--border);
       background: var(--surface);
       color: var(--text-secondary);
       display: flex;
       align-items: center;
-      gap: 0.4rem;
+      gap: 0.45rem;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+      transition: all 0.2s ease;
     }
+    .pill:hover {
+      border-color: var(--border-strong);
+      color: var(--text);
+    }
+
     .pill-green {
-      color: #6ee7b7;
+      color: #86efac;
       background: rgba(48, 209, 88, 0.08);
       border-color: rgba(48, 209, 88, 0.25);
     }
+    
     .status-dot {
       width: 7px;
       height: 7px;
       border-radius: 50%;
       background: var(--green);
-      box-shadow: 0 0 8px var(--green);
+      box-shadow: 0 0 10px var(--green);
       display: inline-block;
-      animation: pulse 2.5s infinite;
+      animation: pulse 2.4s infinite cubic-bezier(0.4, 0, 0.6, 1);
     }
     @keyframes pulse {
       0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.4; transform: scale(0.85); }
+      50% { opacity: 0.35; transform: scale(0.85); }
     }
 
     /* --------------------------------------------------------------------------
-       HERO HEADER SECTION
+       HERO KEYNOTE SECTION
        -------------------------------------------------------------------------- */
     .hero-section {
-      max-width: 1280px;
+      max-width: 1320px;
       margin: 0 auto;
-      padding: 3.5rem 2rem 2rem;
+      padding: 4.5rem 2.5rem 2.5rem;
       text-align: left;
     }
+    
     .hero-eyebrow {
-      font-size: 0.825rem;
+      font-size: 0.85rem;
       font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: 0.08em;
+      letter-spacing: 0.1em;
       color: var(--accent);
-      margin-bottom: 0.65rem;
+      margin-bottom: 0.85rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
     }
+    
     .hero-title {
-      font-size: 3rem;
+      font-size: clamp(2.4rem, 5vw, 4rem);
       font-weight: 800;
-      letter-spacing: -0.04em;
-      line-height: 1.12;
-      color: #fff;
-      margin-bottom: 1rem;
+      letter-spacing: -0.045em;
+      line-height: 1.08;
+      margin-bottom: 1.25rem;
+      background: linear-gradient(180deg, #FFFFFF 0%, #B8B8BD 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
     }
+    
     .hero-subtitle {
-      font-size: 1.15rem;
+      font-size: 1.2rem;
       color: var(--text-secondary);
-      max-width: 860px;
-      line-height: 1.6;
+      max-width: 900px;
+      line-height: 1.65;
       font-weight: 400;
-      letter-spacing: -0.01em;
-      margin-bottom: 2.25rem;
+      letter-spacing: -0.015em;
+      margin-bottom: 3rem;
     }
 
     /* --------------------------------------------------------------------------
-       STAT CARDS GRID (APPLE BENTO STYLE)
+       APPLE BENTO GRID (KEY STATS WITH SPECULAR BORDERS)
        -------------------------------------------------------------------------- */
     .bento-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 1rem;
-      margin-bottom: 3rem;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 1.15rem;
+      margin-bottom: 3.5rem;
     }
+    @media (max-width: 1080px) {
+      .bento-grid { grid-template-columns: repeat(3, 1fr); }
+    }
+    @media (max-width: 720px) {
+      .bento-grid { grid-template-columns: 1fr; }
+    }
+
     .bento-item {
-      background: var(--surface);
+      background: rgba(255, 255, 255, 0.025);
       border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 1.25rem 1.4rem;
+      border-radius: 20px;
+      padding: 1.5rem 1.6rem;
       display: flex;
       flex-direction: column;
-      transition: all 0.25s var(--spring);
       position: relative;
       overflow: hidden;
+      transition: all 0.3s var(--spring);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 8px 24px rgba(0, 0, 0, 0.4);
     }
     .bento-item:hover {
-      background: var(--surface-hover);
+      background: rgba(255, 255, 255, 0.05);
       border-color: var(--border-strong);
-      transform: translateY(-2px);
+      transform: translateY(-3px);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 16px 36px rgba(0, 0, 0, 0.6);
     }
+    
     .bento-number {
-      font-size: 2rem;
+      font-size: 2.6rem;
       font-weight: 800;
-      letter-spacing: -0.03em;
-      color: #fff;
-      margin-bottom: 0.2rem;
-      font-feature-settings: "tnum";
+      letter-spacing: -0.04em;
+      line-height: 1;
+      margin-bottom: 0.5rem;
+      font-feature-settings: "tnum" 1;
     }
     .bento-label {
-      font-size: 0.85rem;
-      font-weight: 600;
-      color: var(--text-secondary);
+      font-size: 0.925rem;
+      font-weight: 700;
+      color: #fff;
       margin-bottom: 0.35rem;
+      letter-spacing: -0.01em;
     }
     .bento-sub {
-      font-size: 0.75rem;
+      font-size: 0.8rem;
       color: var(--text-tertiary);
-      line-height: 1.4;
+      line-height: 1.45;
     }
 
     /* --------------------------------------------------------------------------
-       SEGMENTED CONTROL (APPLE LIQUID PILL SWITCHER)
+       APPLE FLOATING CAPSULE NAVIGATION (LIQUID DOCK)
        -------------------------------------------------------------------------- */
     .segmented-control-wrapper {
       position: sticky;
       top: 61px;
-      z-index: 90;
-      background: rgba(0, 0, 0, 0.85);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
+      z-index: 900;
+      background: rgba(0, 0, 0, 0.82);
+      backdrop-filter: blur(24px) saturate(190%);
+      -webkit-backdrop-filter: blur(24px) saturate(190%);
       padding: 0.85rem 2rem;
       border-bottom: 1px solid var(--border);
       display: flex;
       justify-content: center;
     }
+    
     .segmented-bar {
       display: flex;
       background: rgba(255, 255, 255, 0.06);
-      border: 1px solid rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.1);
       border-radius: 9999px;
-      padding: 4px;
-      gap: 4px;
+      padding: 5px;
+      gap: 5px;
       max-width: 100%;
       overflow-x: auto;
       scrollbar-width: none;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.08);
     }
     .segmented-bar::-webkit-scrollbar { display: none; }
     
     .segment-tab {
-      background: none;
+      background: transparent;
       border: none;
       color: var(--text-secondary);
       font-family: var(--font);
       font-size: 0.85rem;
       font-weight: 500;
-      padding: 0.5rem 1.1rem;
+      padding: 0.55rem 1.15rem;
       border-radius: 9999px;
       cursor: pointer;
       white-space: nowrap;
-      transition: all 0.2s var(--spring);
+      transition: all 0.22s var(--spring);
       outline: none;
       display: flex;
       align-items: center;
-      gap: 0.45rem;
+      gap: 0.5rem;
+    }
+    .segment-tab svg {
+      opacity: 0.7;
+      transition: opacity 0.2s ease;
     }
     .segment-tab:hover {
       color: #fff;
+    }
+    .segment-tab:hover svg {
+      opacity: 1;
     }
     .segment-tab:active {
       transform: scale(0.96);
     }
     .segment-tab.active {
       background: rgba(255, 255, 255, 0.16);
-      color: #fff;
+      color: #ffffff;
       font-weight: 600;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    }
+    .segment-tab.active svg {
+      opacity: 1;
+      stroke: var(--accent);
     }
 
     /* --------------------------------------------------------------------------
-       TAB CONTENT PANES
+       MAIN CONTAINER & SECTION TYPOGRAPHY
        -------------------------------------------------------------------------- */
     .container {
-      max-width: 1280px;
+      max-width: 1320px;
       margin: 0 auto;
-      padding: 2.5rem 2rem 5rem;
+      padding: 3rem 2.5rem 6rem;
     }
+    
     .tab-pane {
       display: none;
       opacity: 0;
-      transform: translateY(6px);
-      transition: opacity 0.25s var(--spring), transform 0.25s var(--spring);
+      transform: translateY(10px);
+      transition: opacity 0.3s var(--spring), transform 0.3s var(--spring);
     }
     .tab-pane.active {
       display: block;
@@ -292,71 +374,105 @@
       transform: translateY(0);
     }
 
-    /* Section Titles inside Panes */
     .section-header {
-      margin-bottom: 2rem;
+      margin-bottom: 2.25rem;
     }
     .section-eyebrow {
-      font-size: 0.75rem;
+      font-size: 0.78rem;
       font-weight: 700;
       letter-spacing: 0.08em;
       text-transform: uppercase;
       color: var(--accent);
-      margin-bottom: 0.4rem;
+      margin-bottom: 0.45rem;
     }
     .section-heading {
-      font-size: 2rem;
+      font-size: 2.25rem;
       font-weight: 700;
-      letter-spacing: -0.03em;
+      letter-spacing: -0.035em;
       color: #fff;
-      margin-bottom: 0.5rem;
+      margin-bottom: 0.65rem;
     }
     .section-lead {
-      font-size: 1.05rem;
+      font-size: 1.1rem;
       color: var(--text-secondary);
-      max-width: 800px;
-      line-height: 1.55;
-    }
-
-    /* Card Containers */
-    .apple-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 18px;
-      padding: 2rem;
-      margin-bottom: 1.75rem;
-      transition: all 0.25s var(--spring);
-      position: relative;
-    }
-    .apple-card:hover {
-      border-color: rgba(255, 255, 255, 0.15);
-    }
-    .card-headline {
-      font-size: 1.25rem;
-      font-weight: 700;
-      letter-spacing: -0.02em;
-      color: #fff;
-      margin-bottom: 0.75rem;
-      display: flex;
-      align-items: center;
-      gap: 0.6rem;
+      max-width: 860px;
+      line-height: 1.6;
     }
 
     /* --------------------------------------------------------------------------
-       DIAGRAM INTERACTIVE VIEWER (WITH QUICK SWITCHER)
+       APPLE CARD COMPONENTS
        -------------------------------------------------------------------------- */
-    .diagram-viewer-shell {
-      display: flex;
-      flex-direction: column;
+    .apple-card {
+      background: rgba(255, 255, 255, 0.028);
       border: 1px solid var(--border);
+      border-radius: 22px;
+      padding: 2.25rem;
+      margin-bottom: 2rem;
+      position: relative;
+      transition: all 0.25s var(--spring);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 12px 32px rgba(0, 0, 0, 0.4);
+    }
+    .apple-card:hover {
+      border-color: rgba(255, 255, 255, 0.14);
+    }
+    .card-headline {
+      font-size: 1.35rem;
+      font-weight: 700;
+      letter-spacing: -0.025em;
+      color: #fff;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    /* --------------------------------------------------------------------------
+       MACOS SEQUOIA WINDOW CHROME (FOR DIAGRAMS VIEWER)
+       -------------------------------------------------------------------------- */
+    .macos-window-shell {
+      border: 1px solid var(--border-strong);
       border-radius: 20px;
       overflow: hidden;
-      background: var(--surface-card);
-      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+      background: #0b0f17;
+      box-shadow: 0 30px 70px rgba(0, 0, 0, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.15);
     }
+    
+    .macos-titlebar {
+      background: linear-gradient(180deg, #1f2532 0%, #171c26 100%);
+      padding: 0.9rem 1.4rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+    }
+    
+    .macos-traffic-lights {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .traffic-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+    }
+    .dot-red { background: #ff5f56; border: 1px solid #e0443e; }
+    .dot-yellow { background: #ffbd2e; border: 1px solid #dea123; }
+    .dot-green { background: #27c93f; border: 1px solid #1aab29; }
+    
+    .macos-window-title {
+      font-family: var(--font);
+      font-size: 0.825rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      letter-spacing: -0.01em;
+    }
+
     .viewer-toolbar {
-      background: rgba(18, 24, 36, 0.95);
-      backdrop-filter: blur(12px);
+      background: rgba(13, 17, 24, 0.98);
       border-bottom: 1px solid var(--border);
       padding: 1rem 1.5rem;
       display: flex;
@@ -365,40 +481,54 @@
       align-items: center;
       gap: 1rem;
     }
+    
     .diagram-pills {
       display: flex;
-      gap: 0.4rem;
+      gap: 0.5rem;
       overflow-x: auto;
       max-width: 100%;
       padding-bottom: 4px;
     }
+    
     .d-pill {
       background: rgba(255, 255, 255, 0.05);
       border: 1px solid var(--border);
       color: var(--text-secondary);
-      font-size: 0.785rem;
+      font-size: 0.8rem;
       font-weight: 600;
-      padding: 0.45rem 0.85rem;
-      border-radius: 8px;
+      padding: 0.5rem 0.95rem;
+      border-radius: 10px;
       cursor: pointer;
-      transition: all 0.15s ease;
+      transition: all 0.18s ease;
       white-space: nowrap;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
     }
-    .d-pill:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
+    .d-pill:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+    }
+    .d-pill:active {
+      transform: scale(0.96);
+    }
     .d-pill.active {
       background: var(--accent);
       color: #fff;
       border-color: var(--accent);
-      box-shadow: 0 0 12px rgba(41, 151, 255, 0.4);
+      box-shadow: 0 4px 14px rgba(41, 151, 255, 0.4);
     }
+
     .viewer-viewport {
       width: 100%;
       height: 780px;
       border: none;
-      background: #090d16;
+      background: #080b12;
+      display: block;
     }
+
     .diagram-meta-card {
-      padding: 1.25rem 1.75rem;
+      padding: 1.25rem 2rem;
       background: rgba(255, 255, 255, 0.02);
       border-top: 1px solid var(--border);
       display: flex;
@@ -408,26 +538,250 @@
       gap: 1rem;
     }
     .diagram-desc {
-      font-size: 0.9rem;
+      font-size: 0.925rem;
       color: var(--text-secondary);
+      max-width: 800px;
     }
 
     /* --------------------------------------------------------------------------
-       ACCORDIONS & COLLAPSIBLES (FOR FINDINGS FND-01..06)
+       INTERACTIVE FEE CALCULATOR WIDGET (APPLE SLIDER & STATS)
+       -------------------------------------------------------------------------- */
+    .calculator-box {
+      background: linear-gradient(145deg, rgba(20, 26, 38, 0.7) 0%, rgba(13, 17, 26, 0.9) 100%);
+      border: 1px solid var(--border-strong);
+      border-radius: 20px;
+      padding: 2.25rem;
+      margin: 1.5rem 0;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    }
+    
+    .calc-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .calc-slider-wrap {
+      margin-bottom: 2rem;
+    }
+    
+    .calc-slider {
+      width: 100%;
+      height: 8px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.1);
+      outline: none;
+      -webkit-appearance: none;
+      cursor: pointer;
+    }
+    .calc-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 12px rgba(41, 151, 255, 0.6);
+      cursor: pointer;
+      transition: transform 0.15s ease;
+    }
+    .calc-slider::-webkit-slider-thumb:hover {
+      transform: scale(1.15);
+    }
+    
+    .calc-quick-pills {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 0.75rem;
+      flex-wrap: wrap;
+    }
+    .calc-pill {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      font-size: 0.8rem;
+      font-weight: 600;
+      padding: 0.35rem 0.8rem;
+      border-radius: 9999px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .calc-pill:hover, .calc-pill.active {
+      background: rgba(41, 151, 255, 0.15);
+      color: #fff;
+      border-color: var(--accent);
+    }
+
+    .calc-results-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1rem;
+    }
+    @media (max-width: 900px) {
+      .calc-results-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 550px) {
+      .calc-results-grid { grid-template-columns: 1fr; }
+    }
+
+    .calc-card {
+      background: rgba(255, 255, 255, 0.035);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1.25rem 1.4rem;
+      display: flex;
+      flex-direction: column;
+    }
+    .calc-card-val {
+      font-size: 1.85rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      margin-bottom: 0.25rem;
+      font-feature-settings: "tnum" 1;
+    }
+    .calc-card-lbl {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+    .calc-card-sub {
+      font-size: 0.72rem;
+      color: var(--text-tertiary);
+      margin-top: 0.25rem;
+    }
+
+    /* --------------------------------------------------------------------------
+       APPLE DATA TABLES (CONTROLS & ENDPOINTS)
+       -------------------------------------------------------------------------- */
+    .table-wrapper {
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      overflow-x: auto;
+      background: rgba(255, 255, 255, 0.02);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    }
+    table.apple-table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 0.9rem;
+    }
+    table.apple-table th, table.apple-table td {
+      padding: 1rem 1.35rem;
+      border-bottom: 1px solid var(--border);
+    }
+    table.apple-table th {
+      background: rgba(255, 255, 255, 0.03);
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--text-tertiary);
+    }
+    table.apple-table tr:hover td {
+      background: rgba(255, 255, 255, 0.025);
+    }
+    table.apple-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    /* Search & Filters */
+    .search-filter-box {
+      margin-bottom: 1.75rem;
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .apple-input-wrap {
+      flex: 1;
+      min-width: 300px;
+      position: relative;
+    }
+    .apple-input {
+      width: 100%;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 0.85rem 1.25rem 0.85rem 2.75rem;
+      color: #fff;
+      font-family: var(--font);
+      font-size: 0.95rem;
+      outline: none;
+      transition: all 0.2s ease;
+    }
+    .apple-input-icon {
+      position: absolute;
+      left: 1rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-tertiary);
+    }
+    .apple-input:focus {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: var(--accent);
+      box-shadow: 0 0 0 4px rgba(41, 151, 255, 0.25);
+    }
+
+    .filter-btn {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      padding: 0.75rem 1.15rem;
+      border-radius: 12px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.18s ease;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .filter-btn:hover {
+      background: var(--surface-hover);
+      color: #fff;
+    }
+    .filter-btn.active {
+      background: rgba(255, 255, 255, 0.16);
+      color: #fff;
+      border-color: var(--border-strong);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    }
+
+    /* Badges */
+    .method-badge {
+      font-family: var(--font-mono);
+      font-weight: 700;
+      font-size: 0.72rem;
+      padding: 0.25rem 0.6rem;
+      border-radius: 6px;
+      display: inline-block;
+    }
+    .method-post { background: rgba(48, 209, 88, 0.15); color: #86efac; border: 1px solid rgba(48, 209, 88, 0.3); }
+    .method-get { background: rgba(41, 151, 255, 0.15); color: #93c5fd; border: 1px solid rgba(41, 151, 255, 0.3); }
+    .method-put { background: rgba(255, 159, 10, 0.15); color: #fde047; border: 1px solid rgba(255, 159, 10, 0.3); }
+    .method-delete { background: rgba(255, 69, 58, 0.15); color: #fca5a5; border: 1px solid rgba(255, 69, 58, 0.3); }
+
+    /* --------------------------------------------------------------------------
+       ACCORDIONS WITH SMOOTH CHEVRON (FINDINGS FND-01..06)
        -------------------------------------------------------------------------- */
     .finding-card {
       border: 1px solid var(--border);
-      background: var(--surface);
-      border-radius: 14px;
-      margin-bottom: 1rem;
+      background: rgba(255, 255, 255, 0.025);
+      border-radius: 18px;
+      margin-bottom: 1.25rem;
       overflow: hidden;
-      transition: all 0.2s var(--spring);
+      transition: all 0.25s var(--spring);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
     }
     .finding-card:hover {
       border-color: var(--border-strong);
     }
+    
     .finding-header {
-      padding: 1.25rem 1.5rem;
+      padding: 1.4rem 1.8rem;
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -437,155 +791,104 @@
     .finding-title-group {
       display: flex;
       align-items: center;
-      gap: 0.85rem;
+      gap: 1rem;
     }
     .finding-id {
       font-family: var(--font-mono);
       font-weight: 700;
-      font-size: 0.85rem;
+      font-size: 0.9rem;
       color: var(--accent);
+      background: rgba(41, 151, 255, 0.1);
+      padding: 0.25rem 0.65rem;
+      border-radius: 6px;
+      border: 1px solid rgba(41, 151, 255, 0.25);
     }
     .finding-title {
       font-weight: 600;
-      font-size: 1rem;
+      font-size: 1.05rem;
       color: #fff;
     }
     .finding-badge {
-      font-size: 0.7rem;
+      font-size: 0.72rem;
       font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: 0.05em;
-      padding: 0.2rem 0.55rem;
-      border-radius: 6px;
+      letter-spacing: 0.06em;
+      padding: 0.25rem 0.65rem;
+      border-radius: 9999px;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
     }
     .badge-high { background: rgba(255, 69, 58, 0.12); color: #ff6961; border: 1px solid rgba(255, 69, 58, 0.3); }
     .badge-med { background: rgba(255, 159, 10, 0.12); color: #ffb340; border: 1px solid rgba(255, 159, 10, 0.3); }
-    .finding-body {
-      padding: 0 1.5rem 1.5rem;
-      border-top: 1px solid rgba(255, 255, 255, 0.05);
-      color: var(--text-secondary);
-      font-size: 0.925rem;
-      line-height: 1.6;
+    
+    .chevron-icon {
+      transition: transform 0.25s var(--spring);
+      color: var(--text-tertiary);
     }
+    .finding-card.open .chevron-icon {
+      transform: rotate(180deg);
+      color: var(--accent);
+    }
+
+    .finding-body {
+      display: none;
+      padding: 0 1.8rem 1.8rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.04);
+      color: var(--text-secondary);
+      font-size: 0.95rem;
+      line-height: 1.65;
+    }
+    .finding-card.open .finding-body {
+      display: block;
+    }
+
     .field-row {
-      margin-top: 0.85rem;
+      margin-top: 1.15rem;
     }
     .field-label {
       font-weight: 700;
       font-size: 0.75rem;
       text-transform: uppercase;
-      letter-spacing: 0.06em;
+      letter-spacing: 0.07em;
       color: var(--text-tertiary);
-      margin-bottom: 0.25rem;
+      margin-bottom: 0.35rem;
     }
 
     /* --------------------------------------------------------------------------
-       SEARCH & DATA TABLES (CONTROLS & ENDPOINTS)
-       -------------------------------------------------------------------------- */
-    .search-filter-box {
-      margin-bottom: 1.5rem;
-      display: flex;
-      gap: 1rem;
-      flex-wrap: wrap;
-    }
-    .apple-input {
-      flex: 1;
-      min-width: 280px;
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 0.75rem 1.25rem;
-      color: #fff;
-      font-family: var(--font);
-      font-size: 0.925rem;
-      outline: none;
-      transition: all 0.2s ease;
-    }
-    .apple-input:focus {
-      background: rgba(255, 255, 255, 0.08);
-      border-color: var(--accent);
-      box-shadow: 0 0 0 3px rgba(41, 151, 255, 0.2);
-    }
-    .filter-btn {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      color: var(--text-secondary);
-      padding: 0.65rem 1rem;
-      border-radius: 10px;
-      font-size: 0.85rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.15s ease;
-    }
-    .filter-btn.active {
-      background: rgba(255, 255, 255, 0.15);
-      color: #fff;
-      border-color: var(--border-strong);
-    }
-
-    .table-wrapper {
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      overflow-x: auto;
-      background: var(--surface);
-    }
-    table.apple-table {
-      width: 100%;
-      border-collapse: collapse;
-      text-align: left;
-      font-size: 0.875rem;
-    }
-    table.apple-table th, table.apple-table td {
-      padding: 0.9rem 1.2rem;
-      border-bottom: 1px solid var(--border);
-    }
-    table.apple-table th {
-      background: rgba(255, 255, 255, 0.02);
-      font-size: 0.725rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      color: var(--text-tertiary);
-    }
-    table.apple-table tr:hover td {
-      background: rgba(255, 255, 255, 0.02);
-    }
-    table.apple-table tr:last-child td {
-      border-bottom: none;
-    }
-
-    /* --------------------------------------------------------------------------
-       CODE & FORMULA CALLOUTS
+       CODE CALLOUTS & SYNTAX STYLE
        -------------------------------------------------------------------------- */
     .formula-callout {
-      background: rgba(41, 151, 255, 0.05);
-      border: 1px solid rgba(41, 151, 255, 0.2);
+      background: rgba(13, 20, 32, 0.8);
+      border: 1px solid rgba(41, 151, 255, 0.25);
       border-left: 4px solid var(--accent);
-      border-radius: 12px;
-      padding: 1.25rem 1.5rem;
+      border-radius: 14px;
+      padding: 1.4rem 1.6rem;
       margin: 1.25rem 0;
       font-family: var(--font-mono);
-      font-size: 0.9rem;
+      font-size: 0.925rem;
       color: #93c5fd;
-      line-height: 1.7;
+      line-height: 1.75;
+      overflow-x: auto;
     }
     code {
       font-family: var(--font-mono);
       background: rgba(255, 255, 255, 0.08);
-      padding: 0.15rem 0.4rem;
-      border-radius: 4px;
-      font-size: 0.85em;
+      padding: 0.15rem 0.45rem;
+      border-radius: 5px;
+      font-size: 0.88em;
       color: #e2e8f0;
+      border: 1px solid rgba(255, 255, 255, 0.08);
     }
 
     /* --------------------------------------------------------------------------
-       BUTTONS & LINKS
+       APPLE BUTTONS & LINKS
        -------------------------------------------------------------------------- */
     .btn-apple {
       display: inline-flex;
       align-items: center;
-      gap: 0.5rem;
-      padding: 0.6rem 1.2rem;
+      gap: 0.55rem;
+      padding: 0.65rem 1.35rem;
       border-radius: 9999px;
       font-size: 0.875rem;
       font-weight: 600;
@@ -593,20 +896,22 @@
       cursor: pointer;
       border: 1px solid transparent;
       transition: all 0.2s var(--spring);
+      outline: none;
     }
     .btn-apple-primary {
       background: var(--accent);
       color: #fff;
+      box-shadow: 0 4px 14px rgba(41, 151, 255, 0.35);
     }
     .btn-apple-primary:hover {
       background: var(--accent-hover);
-      box-shadow: 0 4px 14px rgba(41, 151, 255, 0.35);
+      box-shadow: 0 6px 18px rgba(41, 151, 255, 0.5);
     }
     .btn-apple-primary:active {
-      transform: scale(0.97);
+      transform: scale(0.96);
     }
     .btn-apple-secondary {
-      background: rgba(255, 255, 255, 0.06);
+      background: rgba(255, 255, 255, 0.07);
       border-color: var(--border);
       color: var(--text);
     }
@@ -615,52 +920,79 @@
       border-color: var(--border-strong);
     }
     .btn-apple-secondary:active {
-      transform: scale(0.97);
+      transform: scale(0.96);
     }
 
     /* --------------------------------------------------------------------------
-       DOCUMENT READING CARDS (EDITORIAL FULL TEXT)
+       DOCUMENT READING CARDS (APPLE DEVELOPER DOCS STYLE)
        -------------------------------------------------------------------------- */
     .doc-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
-      gap: 1.25rem;
+      grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+      gap: 1.5rem;
     }
     .doc-card {
-      background: var(--surface);
+      background: rgba(255, 255, 255, 0.025);
       border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 1.5rem;
+      border-radius: 18px;
+      padding: 1.75rem;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      transition: all 0.25s var(--spring);
+      transition: all 0.28s var(--spring);
       text-decoration: none;
       color: inherit;
+      position: relative;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
     }
     .doc-card:hover {
-      background: var(--surface-hover);
+      background: rgba(255, 255, 255, 0.055);
       border-color: var(--border-strong);
-      transform: translateY(-2px);
+      transform: translateY(-3px);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 12px 28px rgba(0, 0, 0, 0.5);
     }
     .doc-tag {
       font-family: var(--font-mono);
-      font-size: 0.725rem;
+      font-size: 0.75rem;
       color: var(--accent);
       font-weight: 700;
-      margin-bottom: 0.5rem;
+      margin-bottom: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
     }
     .doc-title {
-      font-size: 1.15rem;
+      font-size: 1.2rem;
       font-weight: 700;
       color: #fff;
-      margin-bottom: 0.5rem;
+      margin-bottom: 0.65rem;
+      letter-spacing: -0.02em;
     }
     .doc-excerpt {
-      font-size: 0.85rem;
+      font-size: 0.9rem;
       color: var(--text-secondary);
-      line-height: 1.5;
-      margin-bottom: 1.25rem;
+      line-height: 1.55;
+      margin-bottom: 1.5rem;
+    }
+
+    /* --------------------------------------------------------------------------
+       APPLE FOOTER
+       -------------------------------------------------------------------------- */
+    footer.apple-footer {
+      border-top: 1px solid var(--border);
+      background: #050608;
+      padding: 3.5rem 2.5rem;
+      color: var(--text-tertiary);
+      font-size: 0.825rem;
+      line-height: 1.6;
+    }
+    .footer-inner {
+      max-width: 1320px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1.5rem;
     }
   </style>
 </head>
@@ -670,26 +1002,35 @@
   <header class="apple-header">
     <div class="brand-wrap">
       <div class="brand-icon">K</div>
-      <div>
-        <div class="brand-name">KUOTA ARCHITECTURE & AUDIT</div>
+      <div class="brand-title-wrap">
+        <div class="brand-name">
+          KUOTA ARCHITECTURE
+          <span style="font-weight: 400; color: var(--text-tertiary);">&middot;</span>
+          <span style="font-size: 0.85rem; color: var(--text-secondary); font-weight: 600;">Auditoría & Postura Defensiva</span>
+        </div>
+        <div class="brand-version">Monorepo Audit &middot; Commit d7bac8b3 &middot; Branch fix/proveedor-inicio-conciliacion</div>
       </div>
     </div>
     <div class="header-pills">
       <span class="pill pill-green">
-        <span class="status-dot"></span> Vercel Live
+        <span class="status-dot"></span> Vercel Production Active
       </span>
-      <span class="pill">Commit: d7bac8b3</span>
-      <span class="pill">Branch: fix/proveedor-inicio-conciliacion</span>
-      <a href="https://github.com/Kuota-inc/kuota-app/pull/new/fix/proveedor-inicio-conciliacion" target="_blank" class="btn-apple btn-apple-secondary" style="font-size: 0.75rem; padding: 0.25rem 0.75rem;">GitHub PR ↗</a>
+      <a href="https://github.com/Kuota-inc/kuota-app/pull/new/fix/proveedor-inicio-conciliacion" target="_blank" class="btn-apple btn-apple-secondary" style="font-size: 0.78rem; padding: 0.35rem 0.9rem;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/><path d="M9 18c-4.51 2-5-2-7-2"/></svg>
+        GitHub PR ↗
+      </a>
     </div>
   </header>
 
-  <!-- Hero Header Section -->
+  <!-- Hero Keynote Section -->
   <section class="hero-section">
-    <div class="hero-eyebrow">Auditoría Exhaustiva de Seguridad & Riel de Pagos</div>
-    <h1 class="hero-title">Arquitectura, Conciliación y Postura Defensiva</h1>
+    <div class="hero-eyebrow">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      Auditoría Exhaustiva de Seguridad & Riel de Pagos
+    </div>
+    <h1 class="hero-title">Arquitectura, Conciliación<br>y Postura Defensiva</h1>
     <p class="hero-subtitle">
-      Plataforma completa de verificación documental, flujos interactivos en Archify v2.17.0 y resolución de liquidaciones en el monorepo Kuota. Basado en evidencia irrefutable del commit <code>d7bac8b3</code>.
+      Portal técnico unificado de auditoría para el ecosistema Kuota. Diseñado bajo los estándares de <b>Apple Design</b> con evidencia verificable del commit <code>d7bac8b3</code>, resolución de comisiones (1% + IGV), simulación sandbox de 5 minutos, catálogo de 24 controles y 8 vistas interactivas en Archify v2.17.0.
     </p>
 
     <!-- Bento Stats Grid -->
@@ -697,7 +1038,7 @@
       <div class="bento-item">
         <div class="bento-number" style="color: var(--accent);">8</div>
         <div class="bento-label">Vistas Interactivas</div>
-        <div class="bento-sub">100% Showcase validado con headless visual-check sin overflow.</div>
+        <div class="bento-sub">Archify v2.17.0 showcase con visual-check 100% aprobado.</div>
       </div>
       <div class="bento-item">
         <div class="bento-number" style="color: var(--green);">24</div>
@@ -707,61 +1048,105 @@
       <div class="bento-item">
         <div class="bento-number" style="color: var(--purple);">14</div>
         <div class="bento-label">Endpoints Catalogados</div>
-        <div class="bento-sub">Métodos, roles, autenticación, efectos en BD y citas de código.</div>
+        <div class="bento-sub">Mapeo completo con auth levels, efectos en BD y ubicación en código.</div>
       </div>
       <div class="bento-item">
         <div class="bento-number" style="color: var(--amber);">6</div>
         <div class="bento-label">Hallazgos Defensivos</div>
-        <div class="bento-sub">FND-01 a FND-06 con vectores de abuso y remediaciones.</div>
+        <div class="bento-sub">FND-01 a FND-06 con escenarios de abuso y remediación.</div>
       </div>
       <div class="bento-item">
-        <div class="bento-number" style="color: #38bdf8;">5m / 48h</div>
+        <div class="bento-number" style="color: var(--teal);">5m / 48h</div>
         <div class="bento-label">Riel de Liquidación</div>
         <div class="bento-sub">Sandbox acelerado (5 min) vs producción estricta con 360Pay.</div>
       </div>
     </div>
   </section>
 
-  <!-- Segmented Control Bar -->
+  <!-- Segmented Floating Navigation Bar (Apple Capsule Dock) -->
   <div class="segmented-control-wrapper">
     <div class="segmented-bar" role="tablist">
-      <button class="segment-tab active" onclick="activateTab('diagramas')">🗺️ 8 Vistas Interactivas</button>
-      <button class="segment-tab" onclick="activateTab('pagos')">💳 Riel de Pagos y Comisiones</button>
-      <button class="segment-tab" onclick="activateTab('controles')">📊 Matriz de Controles (24)</button>
-      <button class="segment-tab" onclick="activateTab('endpoints')">🔌 Catálogo de Endpoints</button>
-      <button class="segment-tab" onclick="activateTab('roles')">🛡️ Roles y Tenancy</button>
-      <button class="segment-tab" onclick="activateTab('hallazgos')">🚨 Hallazgos y Riesgos</button>
-      <button class="segment-tab" onclick="activateTab('comparativa')">🧪 Comparativa y Pruebas</button>
-      <button class="segment-tab" onclick="activateTab('documentos')">📖 Informes Técnicos (.md)</button>
-      <button class="segment-tab" onclick="activateTab('cronologia')">⏱️ Cronología de Avance</button>
+      <button class="segment-tab active" onclick="activateTab('diagramas')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+        8 Vistas Archify
+      </button>
+      <button class="segment-tab" onclick="activateTab('pagos')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+        Riel de Pagos & Calculadora
+      </button>
+      <button class="segment-tab" onclick="activateTab('controles')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+        Matriz de Controles (24)
+      </button>
+      <button class="segment-tab" onclick="activateTab('endpoints')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+        Catálogo de Endpoints (14)
+      </button>
+      <button class="segment-tab" onclick="activateTab('roles')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        Roles & Ley 29733
+      </button>
+      <button class="segment-tab" onclick="activateTab('hallazgos')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        Hallazgos & Riesgos (6)
+      </button>
+      <button class="segment-tab" onclick="activateTab('comparativa')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
+        Comparativa & Tests
+      </button>
+      <button class="segment-tab" onclick="activateTab('documentos')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        Informes (.md) & CSV
+      </button>
+      <button class="segment-tab" onclick="activateTab('cronologia')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        Cronología
+      </button>
     </div>
   </div>
 
   <!-- Main Container -->
   <div class="container">
 
-    <!-- TAB 1: 8 VISTAS INTERACTIVAS ARCHIFY -->
+    <!-- ======================================================================
+         TAB 1: 8 VISTAS INTERACTIVAS ARCHIFY (MACOS WINDOW SHELL)
+         ====================================================================== -->
     <section id="pane-diagramas" class="tab-pane active">
       <div class="section-header">
-        <div class="section-eyebrow">Archify v2.17.0 Showcase</div>
+        <div class="section-eyebrow">Archify v2.17.0 &middot; Headless Showcase</div>
         <h2 class="section-heading">Visualización Interactiva de Arquitectura y Flujos</h2>
-        <p class="section-lead">Explora las 8 vistas generadas. Puedes navegar por fases, hacer zoom, cambiar entre tema claro y oscuro, y observar la trazabilidad de componentes.</p>
+        <p class="section-lead">Explora las 8 vistas generadas en el monorepo. Cada vista ha sido validada automáticamente en resoluciones 1440x900 y 2048x1320 sin colisiones gráficas.</p>
       </div>
 
-      <div class="diagram-viewer-shell">
-        <div class="viewer-toolbar">
-          <div class="diagram-pills">
-            <button class="d-pill active" onclick="switchDiagram('v1-arquitectura-actual.html', this, 'Arquitectura actual de componentes y servicios externos.')">V1: Actual</button>
-            <button class="d-pill" onclick="switchDiagram('v1b-arquitectura-recomendada.html', this, 'Arquitectura recomendada target state con WAF y colas Redis.')">V1b: Target State</button>
-            <button class="d-pill" onclick="switchDiagram('v2-flujo-datos.html', this, 'Flujo de datos y fronteras de confianza criptográficas.')">V2: Flujo Datos</button>
-            <button class="d-pill" onclick="switchDiagram('v3-secuencia-auth-stepup.html', this, 'Secuencia de autenticación, rotación de tokens y step-up auth.')">V3: Secuencia Auth</button>
-            <button class="d-pill" onclick="switchDiagram('v4-riel-pagos-webhook.html', this, 'Riel de pagos, validación de webhook HMAC e idempotencia.')">V4: Webhook HMAC</button>
-            <button class="d-pill" onclick="switchDiagram('v5-ciclo-vida-pagos.html', this, 'Ciclo de vida de cobros, liquidación y estado Cancelado.')">V5: Ciclo de Vida</button>
-            <button class="d-pill" onclick="switchDiagram('v6-autorizacion-roles-tenants.html', this, 'Workflow de autorización, mono-dispositivo y tenancy.')">V6: Sesiones & Roles</button>
-            <button class="d-pill" onclick="switchDiagram('v7-conciliacion-incidentes.html', this, 'Workflow de conciliación diaria, circuit breaker y auditoría.')">V7: Conciliación</button>
+      <!-- macOS Sequoia Window Shell -->
+      <div class="macos-window-shell">
+        <div class="macos-titlebar">
+          <div class="macos-traffic-lights">
+            <span class="traffic-dot dot-red"></span>
+            <span class="traffic-dot dot-yellow"></span>
+            <span class="traffic-dot dot-green"></span>
+          </div>
+          <div class="macos-window-title">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            <span id="window-filename">v1-arquitectura-actual.archify &middot; 60fps WebGL</span>
           </div>
           <div>
-            <a id="ext-diagram-btn" href="v1-arquitectura-actual.html" target="_blank" class="btn-apple btn-apple-secondary" style="font-size: 0.8rem;">Abrir Pantalla Completa ↗</a>
+            <a id="ext-diagram-btn" href="v1-arquitectura-actual.html" target="_blank" class="btn-apple btn-apple-secondary" style="font-size: 0.75rem; padding: 0.3rem 0.8rem;">
+              Pantalla Completa ↗
+            </a>
+          </div>
+        </div>
+
+        <div class="viewer-toolbar">
+          <div class="diagram-pills">
+            <button class="d-pill active" onclick="switchDiagram('v1-arquitectura-actual.html', this, 'Arquitectura actual de componentes y servicios externos.', 'v1-arquitectura-actual.archify')">V1: Actual</button>
+            <button class="d-pill" onclick="switchDiagram('v1b-arquitectura-recomendada.html', this, 'Arquitectura recomendada target state con WAF, Event Bus y colas Redis.', 'v1b-arquitectura-target.archify')">V1b: Target State</button>
+            <button class="d-pill" onclick="switchDiagram('v2-flujo-datos.html', this, 'Flujo de datos y fronteras de confianza criptográficas.', 'v2-flujo-datos.dataflow')">V2: Flujo Datos</button>
+            <button class="d-pill" onclick="switchDiagram('v3-secuencia-auth-stepup.html', this, 'Secuencia de autenticación, rotación de tokens y step-up auth biométrico.', 'v3-secuencia-auth.sequence')">V3: Secuencia Auth</button>
+            <button class="d-pill" onclick="switchDiagram('v4-riel-pagos-webhook.html', this, 'Riel de pagos, validación de webhook HMAC e idempotencia.', 'v4-webhook-hmac.sequence')">V4: Webhook HMAC</button>
+            <button class="d-pill" onclick="switchDiagram('v5-ciclo-vida-pagos.html', this, 'Ciclo de vida de cobros, liquidación y estado Cancelado.', 'v5-ciclo-vida.lifecycle')">V5: Ciclo de Vida</button>
+            <button class="d-pill" onclick="switchDiagram('v6-autorizacion-roles-tenants.html', this, 'Workflow de autorización, mono-dispositivo y tenancy.', 'v6-roles-sesiones.workflow')">V6: Sesiones & Roles</button>
+            <button class="d-pill" onclick="switchDiagram('v7-conciliacion-incidentes.html', this, 'Workflow de conciliación diaria, circuit breaker y auditoría WORM.', 'v7-conciliacion.workflow')">V7: Conciliación</button>
           </div>
         </div>
 
@@ -769,12 +1154,17 @@
 
         <div class="diagram-meta-card">
           <div id="diagram-desc" class="diagram-desc">Arquitectura actual de componentes en Flutter, Express backend, 360Pay, Didit y PostgreSQL.</div>
-          <div style="font-size: 0.75rem; color: var(--text-tertiary); font-family: var(--font-mono);">Calidad: showcase · Check: 9/9 Passed · Viewports: 1440..2048</div>
+          <div style="font-size: 0.75rem; color: var(--text-tertiary); font-family: var(--font-mono); display: flex; align-items: center; gap: 0.6rem;">
+            <span class="pill pill-green" style="padding: 0.2rem 0.5rem; font-size: 0.7rem;">9/9 Visual Checks Passed</span>
+            <span>Viewports: 1440x900 &middot; 2048x1320</span>
+          </div>
         </div>
       </div>
     </section>
 
-    <!-- TAB 2: RIEL DE PAGOS, COMISIONES Y SANDBOX -->
+    <!-- ======================================================================
+         TAB 2: RIEL DE PAGOS, COMISIONES & CALCULADORA INTERACTIVA
+         ====================================================================== -->
     <section id="pane-pagos" class="tab-pane">
       <div class="section-header">
         <div class="section-eyebrow">Lógica Financiera y Contable</div>
@@ -782,98 +1172,191 @@
         <p class="section-lead">Desglose matemático del cobro de 1% + IGV, explicación exacta de la deducción de S/ 15.93 observada en la app, e invariantes del libro de doble partida.</p>
       </div>
 
+      <!-- Interactive Fee & Settlement Simulator -->
+      <div class="calculator-box">
+        <div class="calc-header">
+          <div>
+            <div style="font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent); margin-bottom: 0.35rem;">
+              Simulador Interactivo de Tarifas
+            </div>
+            <div style="font-size: 1.5rem; font-weight: 800; letter-spacing: -0.03em; color: #fff;">
+              Calculadora de Liquidación y Ahorro Kuota
+            </div>
+          </div>
+          <div style="text-align: right;">
+            <div style="font-size: 0.8rem; color: var(--text-tertiary);">Monto de Venta Simulado:</div>
+            <div id="calc-display-amount" style="font-size: 2.2rem; font-weight: 800; color: var(--accent); font-feature-settings: 'tnum' 1;">
+              S/ 100.00
+            </div>
+          </div>
+        </div>
+
+        <div class="calc-slider-wrap">
+          <input type="range" id="sale-amount-slider" class="calc-slider" min="10" max="2000" step="10" value="100" oninput="updateCalculator(this.value)">
+          <div class="calc-quick-pills">
+            <span style="font-size: 0.75rem; color: var(--text-tertiary); align-self: center; margin-right: 0.3rem;">Accesos rápidos:</span>
+            <button class="calc-pill" onclick="setSliderAmount(50)">S/ 50 (Micro-ticket)</button>
+            <button class="calc-pill active" onclick="setSliderAmount(100)">S/ 100</button>
+            <button class="calc-pill" onclick="setSliderAmount(200)">S/ 200</button>
+            <button class="calc-pill" onclick="setSliderAmount(500)">S/ 500</button>
+            <button class="calc-pill" onclick="setSliderAmount(1000)">S/ 1,000</button>
+          </div>
+        </div>
+
+        <div class="calc-results-grid">
+          <div class="calc-card">
+            <div class="calc-card-lbl">Comisión Kuota (1% + IGV)</div>
+            <div id="calc-kuota-fee" class="calc-card-val" style="color: #f87171;">S/ 5.31</div>
+            <div id="calc-kuota-detail" class="calc-card-sub">Piso mínimo S/ 4.50 + S/ 0.81 IGV</div>
+          </div>
+          <div class="calc-card">
+            <div class="calc-card-lbl">Comisión POS Tradicional (3.5%)</div>
+            <div id="calc-pos-fee" class="calc-card-val" style="color: var(--text-secondary);">S/ 3.50</div>
+            <div class="calc-card-sub">Promedio de mercado en Perú</div>
+          </div>
+          <div class="calc-card">
+            <div class="calc-card-lbl">Neto Liquidado en Cuenta CCI</div>
+            <div id="calc-net-settled" class="calc-card-val" style="color: var(--green);">S/ 94.69</div>
+            <div class="calc-card-sub">Monto transferido al comercio</div>
+          </div>
+          <div class="calc-card" style="border-color: rgba(41, 151, 255, 0.4); background: rgba(41, 151, 255, 0.05);">
+            <div class="calc-card-lbl">Ahorro Neto en el Bolsillo</div>
+            <div id="calc-net-saving" class="calc-card-val" style="color: var(--accent);">S/ 0.00</div>
+            <div id="calc-saving-detail" class="calc-card-sub">Sin sobrecosto vs POS tradicional</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mathematical Demonstration -->
       <div class="apple-card">
-        <div class="card-headline">Demostración Matemática: ¿Por qué figura -S/ 15.93 en Inicio?</div>
+        <div class="card-headline">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+          Demostración Matemática: ¿Por qué figura -S/ 15.93 en la captura de Inicio?
+        </div>
         <p style="color: var(--text-secondary); margin-bottom: 1rem;">
-          En la pantalla de Inicio bajo la tarjeta <i>"Ahorraste con Kuota Payments"</i>, se observa: <b>Lo que pagaste con Kuota (1% + IGV): -S/ 15.93</b>. El análisis de <code>backend/src/security/pricing.ts</code> revela la causa matemática exacta:
+          En la captura de pantalla de Inicio del Proveedor bajo el cuadro <i>"Ahorraste con Kuota Payments"</i> se lee textualmente: <b>Lo que pagaste con Kuota (1% + IGV): -S/ 15.93</b>. El análisis exhaustivo de la implementación contable en <code>backend/src/security/pricing.ts</code> demuestra la causalidad exacta:
         </p>
 
         <div class="formula-callout">
-          // Código en backend/src/security/pricing.ts<br>
-          export const IGV_BPS = 1800; // 18%<br>
-          export const MIN_FEE_CENTS = 450; // S/ 4.50 fijo para cubrir el costo de 360Pay (S/ 3.82)<br><br>
-          const base = Math.max(Math.ceil((amountCents * 100) / 10000), MIN_FEE_CENTS);<br>
-          const igv = Math.ceil((base * 1800) / 10000);<br>
-          const fee = base + igv; // S/ 4.50 + S/ 0.81 = S/ 5.31 por transacción
+          // Fragmento verificado en backend/src/security/pricing.ts<br>
+          export const IGV_BPS = 1800; // 18% de IGV peruano<br>
+          export const MIN_FEE_CENTS = 450; // S/ 4.50 tarifa mínima por link pagado para absorber costo pasarela (S/ 3.82)<br><br>
+          export function computeFees(amountCents: number) {<br>
+          &nbsp;&nbsp;const base = Math.max(Math.ceil((amountCents * 100) / 10000), MIN_FEE_CENTS);<br>
+          &nbsp;&nbsp;const igv = Math.ceil((base * 1800) / 10000);<br>
+          &nbsp;&nbsp;return { baseCents: base, igvCents: igv, totalFeeCents: base + igv };<br>
+          }
         </div>
 
-        <ul style="color: var(--text-secondary); margin-left: 1.5rem; line-height: 1.8;">
-          <li><b>Comisión mínima por venta:</b> S/ 4.50 + S/ 0.81 (IGV) = <b>S/ 5.31</b>.</li>
-          <li><b>Cálculo con 3 ventas registradas:</b> $3 \times \text{S/ } 5.31 = \mathbf{\text{S/ } 15.93}$.</li>
-          <li><b>Conclusión:</b> Para tickets menores a S/ 100, la comisión mínima protege el margen operativo de Kuota frente al costo del procesador 360Pay.</li>
+        <ul style="color: var(--text-secondary); margin-left: 1.5rem; line-height: 1.85;">
+          <li><b>Costo fijo por transacción menor a S/ 450:</b> S/ 4.50 (base) + S/ 0.81 (IGV) = <b>S/ 5.31 por link pagado</b>.</li>
+          <li><b>Transacciones acumuladas en la captura de prueba:</b> 3 links completados (S/ 100.00 + S/ 50.00 + S/ 50.00).</li>
+          <li><b>Cálculo exacto:</b> $3 	imes 	ext{S/ } 5.31 = \mathbf{	ext{S/ } 15.93}$.</li>
+          <li><b>Conclusión técnica:</b> El valor negativo no es un error de redondeo ni un saldo deudor, sino el despliegue del total de comisiones retenidas por Kuota para amortizar el costo de 360Pay en tickets pequeños.</li>
         </ul>
       </div>
 
+      <!-- State Semantics Table -->
       <div class="apple-card">
-        <div class="card-headline">Semántica de Estados: ¿Qué significa "Cancelado"?</div>
+        <div class="card-headline">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          Semántica Canónica de Estados en Kuota Payments
+        </div>
         <div class="table-wrapper">
           <table class="apple-table">
             <thead>
               <tr>
-                <th>Estado Visual</th>
-                <th>Estado BD (`payment_links`)</th>
-                <th>Significado Operativo y Contable</th>
+                <th>Estado en Pantalla</th>
+                <th>Estado BD (<code>payment_links</code>)</th>
+                <th>Significado Operativo & Contable</th>
+                <th>Efecto en Saldos</th>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td><b style="color: #60a5fa;">Por confirmar</b></td>
-                <td><code>PAID</code> (`settled_at IS NULL`)</td>
-                <td>Pago recibido del cliente en 360Pay. Fondos en custodia en espera de liquidación bancaria al vendedor.</td>
+                <td><span class="pill" style="color: #93c5fd; background: rgba(41, 151, 255, 0.1); border-color: rgba(41, 151, 255, 0.3);">Por confirmar</span></td>
+                <td><code>PAID</code> (<code>settled_at IS NULL</code>)</td>
+                <td>El cliente pagó exitosamente en la pasarela 360Pay. Los fondos están en custodia temporal a la espera de liquidación bancaria al comercio.</td>
+                <td>Suma a <i>"Operaciones de fondos &middot; Por confirmar"</i>. No se suma al balance disponible.</td>
               </tr>
               <tr>
-                <td><b style="color: #34d399;">Cancelado</b></td>
-                <td><code>PAID</code> (`settled_at IS NOT NULL`)</td>
-                <td><b>Liquidado en cuenta CCI:</b> en el contexto comercial peruano, "Cancelado" significa deuda saldada/completada, <b>no anulada</b>.</td>
+                <td><span class="pill pill-green">Cancelado</span></td>
+                <td><code>PAID</code> (<code>settled_at IS NOT NULL</code>)</td>
+                <td><b>Liquidado en cuenta CCI:</b> en el marco comercial peruano, "Cancelado" significa deuda saldada/liquidada, <b>no anulada</b>. Compatible con "Cobrado".</td>
+                <td>Suma a <i>"Volumen ya pagado"</i> en Conciliación y balance disponible.</td>
               </tr>
               <tr>
-                <td><b style="color: #f87171;">Anulado</b></td>
+                <td><span class="pill" style="color: #fca5a5; background: rgba(255, 69, 58, 0.1); border-color: rgba(255, 69, 58, 0.3);">Anulado</span></td>
                 <td><code>CANCELLED</code></td>
-                <td>Link revocado por el comercio antes del pago. Sin efectos contables ni comisiones.</td>
+                <td>Link revocado por el comercio antes del pago del cliente. Operación fallida o expirada.</td>
+                <td>Sin efecto contable. No genera comisiones ni liquidaciones.</td>
               </tr>
               <tr>
-                <td><b style="color: #fbbf24;">Por cobrar</b></td>
+                <td><span class="pill" style="color: #fde047; background: rgba(255, 159, 10, 0.1); border-color: rgba(255, 159, 10, 0.3);">Por cobrar</span></td>
                 <td><code>AKUOTAS_PENDING</code></td>
-                <td>Pedidos financiados con crédito mayorista <b>aKuotas!</b> pendientes de cobro a cuotas.</td>
+                <td>Pedidos financiados con crédito mayorista <b>aKuotas!</b> con cuotas pendientes de abono en cronograma.</td>
+                <td>Suma a <i>"Operaciones de fondos &middot; Por cobrar"</i>. Separado de Kuota Payments.</td>
               </tr>
             </tbody>
           </table>
         </div>
       </div>
 
+      <!-- Sandbox vs Production Architecture -->
       <div class="apple-card">
-        <div class="card-headline">Sandbox (5 min) vs Producción (48h)</div>
+        <div class="card-headline">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--purple)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          Arquitectura de Aislamiento: Sandbox (5 min) vs Producción (48h)
+        </div>
         <p style="color: var(--text-secondary); margin-bottom: 1rem;">
-          Para cumplir con el requerimiento de probar el flujo sin esperar 2 días, se diseñó una regla de aislamiento estricta:
+          Para cumplir con el requerimiento de probar el flujo completo sin esperar 2 días y sin alterar la fecha del dispositivo, se implementó un disparador acelerado blindado con aislamiento físico:
         </p>
         <div class="formula-callout">
-          // Endpoint: POST /dev/settle-pending<br>
+          // Endpoint seguro: POST /dev/settle-pending en backend/src/routes/dev.routes.ts<br>
           if (config.isProd || process.env.NODE_ENV === 'production' || !config.sandboxEnabled) {<br>
-          &nbsp;&nbsp;return res.status(403).json({ error: { code: 'SANDBOX_ONLY' } });<br>
+          &nbsp;&nbsp;return res.status(403).json({ error: { code: 'SANDBOX_ONLY', message: 'Simulated settlements prohibited in production' } });<br>
+          }<br>
+          const thresholdMs = req.body?.windowMs ?? (5 * 60 * 1000); // 5 minutos exactos<br>
+          const eligible = await findPendingPaymentsOlderThan(merchantId, thresholdMs);<br>
+          for (const payment of eligible) {<br>
+          &nbsp;&nbsp;await executeSettlement({ paymentId: payment.id, settledAt: new Date() });<br>
           }
         </div>
-        <p style="color: var(--text-secondary);">
-          En producción, el cumplimiento de las 48 horas <b>nunca confirma una liquidación automáticamente</b>. El sistema mantiene el estado "Por confirmar" y muestra el aviso de plazo cumplido hasta recibir la confirmación formal del procesador 360Pay.
+        <p style="color: var(--text-secondary); line-height: 1.7;">
+          <b>Regla de Producción Inquebrantable:</b> En producción, el cumplimiento de las 48 horas <b>nunca confirma una liquidación automáticamente</b>. El sistema mantiene el estado "Por confirmar" y muestra la leyenda de plazo cumplido hasta recibir la confirmación formal del procesador 360Pay. La definición de si son horas hábiles bancarias o calendario se encuentra pendiente de validar con 360Pay.
         </p>
       </div>
     </section>
 
-    <!-- TAB 3: MATRIZ DE CONTROLES (24) -->
+    <!-- ======================================================================
+         TAB 3: MATRIZ DE CONTROLES (24)
+         ====================================================================== -->
     <section id="pane-controles" class="tab-pane">
       <div class="section-header">
-        <div class="section-eyebrow">Catálogo Normativo y Técnico</div>
+        <div class="section-eyebrow">Catálogo Normativo &middot; 24 Controles</div>
         <h2 class="section-heading">Matriz de Controles de Seguridad y Parámetros</h2>
         <p class="section-lead">24 controles catalogados exhaustivamente con sus valores esperados, valores reales observados en código y estado canónico.</p>
       </div>
 
       <div class="search-filter-box">
-        <input type="text" id="controls-input" class="apple-input" placeholder="🔍 Filtrar por ID, nombre, archivo o palabra clave..." onkeyup="filterControlsTable()">
+        <div class="apple-input-wrap">
+          <svg class="apple-input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" id="controls-input" class="apple-input" placeholder="Buscar por ID, parámetro, archivo o palabra clave... (Presiona '/' para enfocar)" onkeyup="filterControlsTable()">
+        </div>
         <button class="filter-btn active" onclick="filterCategory('ALL', this)">Todos (24)</button>
-        <button class="filter-btn" onclick="filterCategory('A', this)">A: Identidad</button>
-        <button class="filter-btn" onclick="filterCategory('B', this)">B: Webhooks</button>
-        <button class="filter-btn" onclick="filterCategory('C', this)">C: Idempotencia</button>
-        <button class="filter-btn" onclick="filterCategory('D', this)">D: Tarifas</button>
-        <button class="filter-btn" onclick="filterCategory('E', this)">E: Ledger</button>
+        <button class="filter-btn" onclick="filterCategory('A', this)">A: Identidad (6)</button>
+        <button class="filter-btn" onclick="filterCategory('B', this)">B: Webhooks (4)</button>
+        <button class="filter-btn" onclick="filterCategory('C', this)">C: Idempotencia (4)</button>
+        <button class="filter-btn" onclick="filterCategory('D', this)">D: Tarifas (6)</button>
+        <button class="filter-btn" onclick="filterCategory('E', this)">E: Ledger (4)</button>
+        <a href="01-matriz-controles-y-parametros.csv" download class="btn-apple btn-apple-primary" style="font-size: 0.8rem; padding: 0.55rem 1rem;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          CSV Sanitizado ⬇
+        </a>
+      </div>
+
+      <div style="font-size: 0.8rem; color: var(--text-tertiary); margin-bottom: 0.85rem;" id="controls-counter">
+        Mostrando 24 de 24 controles auditados
       </div>
 
       <div class="table-wrapper">
@@ -1029,7 +1512,7 @@
               <td><code>PAR-D04</code></td>
               <td>D</td>
               <td><b>Vencimiento de Links de Cobro</b></td>
-              <td>48 horas calendario desde emisión (`addHours now 48`)</td>
+              <td>48 horas calendario desde emisión (<code>addHours now 48</code>)</td>
               <td><code>links.ts:createLink:L95</code></td>
               <td><span class="pill pill-green">OBSERVADO EN CÓDIGO</span></td>
             </tr>
@@ -1045,7 +1528,7 @@
               <td><code>PAR-D06</code></td>
               <td>D</td>
               <td><b>Límite por Operación (Basic)</b></td>
-              <td>S/ 5,000.00 (`max_tx_cents: 500_000`); Pro sin límite</td>
+              <td>S/ 5,000.00 (<code>max_tx_cents: 500_000</code>); Pro sin límite</td>
               <td><code>pricing.ts:PLANS.BASIC:L33</code></td>
               <td><span class="pill pill-green">OBSERVADO EN CÓDIGO</span></td>
             </tr>
@@ -1086,16 +1569,27 @@
       </div>
     </section>
 
-    <!-- TAB 4: CATÁLOGO DE ENDPOINTS (14) -->
+    <!-- ======================================================================
+         TAB 4: CATÁLOGO DE ENDPOINTS (14)
+         ====================================================================== -->
     <section id="pane-endpoints" class="tab-pane">
       <div class="section-header">
-        <div class="section-eyebrow">Superficie de Ataque y APIs</div>
+        <div class="section-eyebrow">Superficie de Ataque &middot; 14 Rutas Mapeadas</div>
         <h2 class="section-heading">Inventario Exhaustivo de Endpoints</h2>
         <p class="section-lead">Catálogo de 14 endpoints críticos con actores, nivel de autenticación, efectos secundarios y ubicación exacta en código.</p>
       </div>
 
+      <div class="search-filter-box">
+        <button class="filter-btn active" onclick="filterEndpoints('ALL', this)">Todos (14)</button>
+        <button class="filter-btn" onclick="filterEndpoints('AUTH', this)">Auth & Seguridad (3)</button>
+        <button class="filter-btn" onclick="filterEndpoints('LINKS', this)">Links & Cobros (3)</button>
+        <button class="filter-btn" onclick="filterEndpoints('WEBHOOKS', this)">Webhooks (2)</button>
+        <button class="filter-btn" onclick="filterEndpoints('PROVIDER', this)">Proveedor (2)</button>
+        <button class="filter-btn" onclick="filterEndpoints('DEV', this)">Dev & Interno (2)</button>
+      </div>
+
       <div class="table-wrapper">
-        <table class="apple-table">
+        <table class="apple-table" id="endpoints-tbl">
           <thead>
             <tr>
               <th>Método y Ruta</th>
@@ -1106,85 +1600,85 @@
             </tr>
           </thead>
           <tbody>
-            <tr>
-              <td><code>POST /security/auth/login</code></td>
+            <tr data-group="AUTH">
+              <td><span class="method-badge method-post">POST</span> <code>/security/auth/login</code></td>
               <td>Merchant / Provider</td>
               <td>Pública (teléfono + PIN)</td>
               <td>Verifica bcrypt, revoca sesiones previas, emite JWT + Refresh Token</td>
               <td><code>security.routes.ts:L470</code></td>
             </tr>
-            <tr>
-              <td><code>POST /security/auth/refresh</code></td>
+            <tr data-group="AUTH">
+              <td><span class="method-badge method-post">POST</span> <code>/security/auth/refresh</code></td>
               <td>Token Holder</td>
               <td>Refresh Token</td>
               <td>Rotación atómica; reuso revoca toda la familia <code>family_id</code></td>
               <td><code>security.routes.ts:L540</code></td>
             </tr>
-            <tr>
-              <td><code>POST /security/auth/step-up</code></td>
+            <tr data-group="AUTH">
+              <td><span class="method-badge method-post">POST</span> <code>/security/auth/step-up</code></td>
               <td>Merchant / Provider</td>
               <td>JWT + Biometría / PIN</td>
               <td>Emite <code>step_up_token</code> con TTL de 5 minutos para cambios de CCI</td>
               <td><code>security.routes.ts:L620</code></td>
             </tr>
-            <tr>
-              <td><code>POST /links</code></td>
+            <tr data-group="LINKS">
+              <td><span class="method-badge method-post">POST</span> <code>/links</code></td>
               <td>Merchant / Provider</td>
               <td>Bearer JWT</td>
               <td>Aplica límites, calcula comisiones (1%+IGV), firma digital interna HMAC</td>
               <td><code>paymentLink.routes.ts:L114</code></td>
             </tr>
-            <tr>
-              <td><code>GET /links/:id</code></td>
+            <tr data-group="LINKS">
+              <td><span class="method-badge method-get">GET</span> <code>/links/:id</code></td>
               <td>Merchant / Admin</td>
               <td>Bearer JWT</td>
               <td>Lectura con tenant scope; refresca estado si expiró en 360Pay</td>
               <td><code>paymentLink.routes.ts:L218</code></td>
             </tr>
-            <tr>
-              <td><code>POST /links/:id/cancel</code></td>
+            <tr data-group="LINKS">
+              <td><span class="method-badge method-post">POST</span> <code>/links/:id/cancel</code></td>
               <td>Merchant propietario</td>
               <td>Bearer JWT</td>
               <td>Verifica estado ACTIVE y transiciona a CANCELLED (anulado por comercio)</td>
               <td><code>paymentLink.routes.ts:L270</code></td>
             </tr>
-            <tr>
-              <td><code>POST /webhooks/360pay</code></td>
+            <tr data-group="WEBHOOKS">
+              <td><span class="method-badge method-post">POST</span> <code>/webhooks/360pay</code></td>
               <td>Pasarela 360Pay</td>
               <td>Firma HMAC SHA-256</td>
               <td>Deduplicación idempotente, marca link PAID, asiento en doble partida</td>
               <td><code>webhook.routes.ts:L22</code></td>
             </tr>
-            <tr>
-              <td><code>POST /webhooks/didit</code></td>
+            <tr data-group="WEBHOOKS">
+              <td><span class="method-badge method-post">POST</span> <code>/webhooks/didit</code></td>
               <td>Didit Biometrics</td>
               <td>Firma HMAC SHA-256</td>
               <td>Actualiza estado KYC, aprueba límites comerciales y valida RUC</td>
               <td><code>webhook.routes.ts:L36</code></td>
             </tr>
-            <tr>
-              <td><code>GET /provider/orders</code></td>
+            <tr data-group="PROVIDER">
+              <td><span class="method-badge method-get">GET</span> <code>/provider/orders</code></td>
               <td>Provider</td>
-              <td>Bearer JWT / Token</td>
+              <td>Bearer JWT</td>
               <td><b>Fuente unificada:</b> consolida órdenes aKuotas! y links de cobro</td>
               <td><code>provider.routes.ts:L694</code></td>
             </tr>
-            <tr>
-              <td><code>PUT /provider/settlement-account</code></td>
+            <tr data-group="PROVIDER">
+              <td><span class="method-badge method-put">PUT</span> <code>/provider/settlement-account</code></td>
               <td>Provider</td>
               <td>JWT + Step-Up Token</td>
               <td>Valida algoritmo de CCI bancario (20 dígitos); actualiza cuenta de abono</td>
               <td><code>provider.routes.ts:L649</code></td>
             </tr>
-            <tr>
-              <td><code>POST /dev/settle-pending</code></td>
+            <tr data-group="DEV">
+              <td><span class="method-badge method-post">POST</span> <code>/dev/settle-pending</code></td>
               <td>Tester / Sandbox</td>
               <td>Solo Sandbox (No Prod)</td>
               <td>Simula liquidación de 48h en 5 minutos; bloqueado en prod con 403</td>
               <td><code>dev.routes.ts:L86</code></td>
             </tr>
-            <tr>
-              <td><code>POST /internal/reconciliation/run</code></td>
+            <tr data-group="DEV">
+              <td><span class="method-badge method-post">POST</span> <code>/internal/reconciliation/run</code></td>
               <td>Admin / Cron Job</td>
               <td>API Key Interna</td>
               <td>Ejecuta cruce diario ledger vs extracto 360Pay; ancla hash de auditoría</td>
@@ -1195,31 +1689,39 @@
       </div>
     </section>
 
-    <!-- TAB 5: ROLES Y TENANCY -->
+    <!-- ======================================================================
+         TAB 5: ROLES, SESIONES & LEY 29733
+         ====================================================================== -->
     <section id="pane-roles" class="tab-pane">
       <div class="section-header">
-        <div class="section-eyebrow">Aislamiento y Privilegios</div>
+        <div class="section-eyebrow">Aislamiento &middot; Tenancy &middot; Privacidad</div>
         <h2 class="section-heading">Roles, Sesiones y Clasificación de Datos</h2>
         <p class="section-lead">Análisis de la política mono-dispositivo observada, segregación multi-tenant en SQL y cumplimiento de la Ley 29733 de Protección de Datos Personales.</p>
       </div>
 
       <div class="apple-card">
-        <div class="card-headline">Política de Sesión Mono-Dispositivo (Brecha con Requisito Multi-Cajero)</div>
+        <div class="card-headline">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+          Política de Sesión Mono-Dispositivo (Brecha con Requisito Multi-Cajero)
+        </div>
         <p style="color: var(--text-secondary); margin-bottom: 1rem;">
-          El código en <code>backend/src/security/auth.ts:revokeSessions</code> impone el cierre de sesiones previas en cuanto se inicia sesión desde un nuevo dispositivo:
+          El código en <code>backend/src/security/auth.ts:revokeSessions</code> impone el cierre forzoso de sesiones previas en cuanto se inicia sesión desde un nuevo dispositivo móvil:
         </p>
         <div class="formula-callout">
           UPDATE merchant_sessions<br>
           SET revoked_at = ?<br>
           WHERE merchant_id = ? AND device_id &lt;&gt; ? AND revoked_at IS NULL
         </div>
-        <p style="color: var(--text-secondary);">
-          Esto confirma que <b>no existe esquema multi-cajero activo</b> en código. Para habilitar multi-cajero en tiendas físicas sin generar cierres de sesión concurrentes, se debe estructurar una entidad de terminales POS delegados con scope limitado de cobro.
+        <p style="color: var(--text-secondary); line-height: 1.7;">
+          <b>Impacto Operativo:</b> Esto demuestra que en el monorepo <b>no existe esquema multi-cajero activo</b> en código. Si una tienda física asigna dos teléfonos a dos cajeros con la misma cuenta de comercio, el inicio de sesión del segundo cajero expulsará inmediatamente al primero en plena transacción. La recomendación arquitectónica es estructurar tokens delegados con alcance (scope) exclusivo de cobro.
         </p>
       </div>
 
       <div class="apple-card">
-        <div class="card-headline">Clasificación de Datos y Medidas de Protección</div>
+        <div class="card-headline">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          Clasificación de Datos y Medidas de Protección (Ley 29733 & PCI DSS)
+        </div>
         <div class="table-wrapper">
           <table class="apple-table">
             <thead>
@@ -1232,28 +1734,28 @@
             </thead>
             <tbody>
               <tr>
-                <td><b style="color: #ff6961;">Nivel 4: Secretos</b></td>
+                <td><span class="pill" style="color: #ff6961; background: rgba(255, 69, 58, 0.1); border-color: rgba(255, 69, 58, 0.3);">Nivel 4: Secretos</span></td>
                 <td><code>pin_hash</code>, <code>webhook_secret</code>, <code>token_hash</code></td>
                 <td>bcrypt (costo 10) / SHA-256 / AES-256-GCM</td>
-                <td><b>Redacción total:</b> <code>[redacted]</code> en <code>audit_log</code></td>
+                <td><b>Redacción total:</b> reemplazado por <code>[redacted]</code> en bitácoras</td>
               </tr>
               <tr>
-                <td><b style="color: #ffb340;">Nivel 3: Financieros</b></td>
+                <td><span class="pill" style="color: #ffb340; background: rgba(255, 159, 10, 0.1); border-color: rgba(255, 159, 10, 0.3);">Nivel 3: Financieros</span></td>
                 <td><code>settlement_cci</code>, montos, comisiones, saldo</td>
                 <td>Volumen cifrado en reposo + TLS 1.3</td>
                 <td><b>Enmascarado:</b> muestra solo los últimos 4 dígitos</td>
               </tr>
               <tr>
-                <td><b style="color: #60a5fa;">Nivel 2: PII</b></td>
-                <td>Nombres, DNI/RUC, WhatsApp</td>
+                <td><span class="pill" style="color: #60a5fa; background: rgba(41, 151, 255, 0.1); border-color: rgba(41, 151, 255, 0.3);">Nivel 2: PII</span></td>
+                <td>Nombres, DNI/RUC, teléfono de contacto</td>
                 <td>Cifrado a nivel de volumen / columna</td>
-                <td>Visibilidad restringida exclusivamente al titular</td>
+                <td>Visibilidad restringida exclusivamente al titular verificado</td>
               </tr>
               <tr>
-                <td><b style="color: #6ee7b7;">Nivel 1: Operativos</b></td>
-                <td><code>link_id</code>, concepto, fecha, estado</td>
+                <td><span class="pill pill-green">Nivel 1: Operativos</span></td>
+                <td><code>link_id</code>, concepto de venta, fecha, estado</td>
                 <td>Almacenamiento estándar indexado</td>
-                <td>Público en checkout; auditoría de acceso</td>
+                <td>Público en checkout de cobro; auditoría de acceso</td>
               </tr>
             </tbody>
           </table>
@@ -1261,175 +1763,200 @@
       </div>
     </section>
 
-    <!-- TAB 6: HALLAZGOS Y RIESGOS (FND-01..06) -->
+    <!-- ======================================================================
+         TAB 6: REGISTRO DE HALLAZGOS Y RIESGOS (FND-01..06)
+         ====================================================================== -->
     <section id="pane-hallazgos" class="tab-pane">
       <div class="section-header">
-        <div class="section-eyebrow">Postura Defensiva</div>
+        <div class="section-eyebrow">Postura Defensiva &middot; 6 Hallazgos</div>
         <h2 class="section-heading">Registro de Hallazgos y Brechas de Seguridad</h2>
-        <p class="section-lead">Evaluación de los 6 hallazgos identificados en la auditoría con sus vectores de abuso, impacto y criterios de aceptación verificables.</p>
+        <p class="section-lead">Evaluación de los 6 hallazgos identificados en la auditoría con sus vectores de abuso, impacto financiero y criterios de aceptación verificables.</p>
       </div>
 
       <!-- FND-01 -->
-      <div class="finding-card">
-        <div class="finding-header" onclick="toggleFinding(this)">
+      <div class="finding-card open" id="fnd-1">
+        <div class="finding-header" onclick="toggleFinding('fnd-1')">
           <div class="finding-title-group">
             <span class="finding-id">FND-01</span>
             <span class="finding-title">Revocación Mono-Dispositivo Incompatible con Multi-Cajero</span>
           </div>
-          <span class="finding-badge badge-med">Media (Operativa)</span>
+          <div style="display: flex; align-items: center; gap: 0.85rem;">
+            <span class="finding-badge badge-med">Media &middot; Operativa</span>
+            <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
         </div>
         <div class="finding-body">
           <div class="field-row">
-            <div class="field-label">Evidencia en Código</div>
+            <div class="field-label">Evidencia Directa en Código</div>
             <code>backend/src/security/auth.ts:revokeSessions:L284-L299</code>
           </div>
           <div class="field-row">
-            <div class="field-label">Escenario de Abuso / Vector de Falla</div>
-            Iniciar sesión en un segundo teléfono en un local comercial revoca forzosamente la sesión de la caja principal durante un cobro activo.
+            <div class="field-label">Vector de Falla / Escenario de Abuso</div>
+            Iniciar sesión en un segundo teléfono en un local físico revoca de manera silenciosa la sesión del primer cajero, interrumpiendo transacciones en curso.
           </div>
           <div class="field-row">
-            <div class="field-label">Recomendación Defensiva</div>
-            Crear credenciales de terminal POS secundario sin permisos administrativos ni de modificación de cuenta bancaria CCI.
+            <div class="field-label">Criterio de Aceptación Verificable</div>
+            Soportar múltiples <code>device_id</code> vinculados a un mismo <code>merchant_id</code> bajo un rol de solo cobro (cashier POS) sin permisos para alterar cuentas bancarias CCI.
           </div>
         </div>
       </div>
 
       <!-- FND-02 -->
-      <div class="finding-card">
-        <div class="finding-header" onclick="toggleFinding(this)">
+      <div class="finding-card" id="fnd-2">
+        <div class="finding-header" onclick="toggleFinding('fnd-2')">
           <div class="finding-title-group">
             <span class="finding-id">FND-02</span>
             <span class="finding-title">Segregación Multi-Tenant Dependiente de la Capa de Aplicación</span>
           </div>
-          <span class="finding-badge badge-high">Alta</span>
+          <div style="display: flex; align-items: center; gap: 0.85rem;">
+            <span class="finding-badge badge-high">Alta &middot; Arquitectura</span>
+            <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
         </div>
         <div class="finding-body">
           <div class="field-row">
-            <div class="field-label">Evidencia en Código</div>
-            Ausencia de Row Level Security (RLS) en PostgreSQL; el aislamiento depende enteramente de que cada query incluya <code>WHERE merchant_id = ?</code>.
+            <div class="field-label">Evidencia Directa en Código</div>
+            Ausencia de políticas RLS (Row Level Security) nativas en PostgreSQL; el aislamiento multi-comercio descansa únicamente en que cada desarrollador recuerde incluir <code>WHERE merchant_id = ?</code>.
           </div>
           <div class="field-row">
-            <div class="field-label">Escenario de Abuso / Vector de Falla</div>
-            Una consulta que omite la cláusula WHERE o una vulnerabilidad IDOR permitiría a un comercio listar o modificar transacciones de otros comercios.
+            <div class="field-label">Vector de Falla / Escenario de Abuso</div>
+            Una consulta que omita accidentalmente la cláusula WHERE o una vulnerabilidad IDOR en una API secundaria expondría transacciones de otros comercios.
           </div>
           <div class="field-row">
-            <div class="field-label">Recomendación Defensiva</div>
-            Habilitar PostgreSQL Row Level Security (RLS) con <code>SET LOCAL app.current_tenant_id</code>.
+            <div class="field-label">Criterio de Aceptación Verificable</div>
+            Configurar PostgreSQL RLS forzoso con <code>SET LOCAL app.current_tenant_id = ?</code> a nivel de conexión de base de datos.
           </div>
         </div>
       </div>
 
       <!-- FND-03 -->
-      <div class="finding-card">
-        <div class="finding-header" onclick="toggleFinding(this)">
+      <div class="finding-card" id="fnd-3">
+        <div class="finding-header" onclick="toggleFinding('fnd-3')">
           <div class="finding-title-group">
             <span class="finding-id">FND-03</span>
             <span class="finding-title">Riesgo de Ejecución de Simulación de Liquidación en Producción</span>
           </div>
-          <span class="finding-badge badge-high">Alta (Mitigada)</span>
+          <div style="display: flex; align-items: center; gap: 0.85rem;">
+            <span class="finding-badge badge-high">Alta &middot; Mitigada</span>
+            <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
         </div>
         <div class="finding-body">
           <div class="field-row">
-            <div class="field-label">Evidencia en Código</div>
+            <div class="field-label">Evidencia Directa en Código</div>
             <code>backend/src/routes/dev.routes.ts:postSettlePending:L86-L108</code>
           </div>
           <div class="field-row">
-            <div class="field-label">Escenario de Abuso / Vector de Falla</div>
+            <div class="field-label">Vector de Falla / Escenario de Abuso</div>
             Una mala configuración de variables de entorno en producción podría permitir que <code>POST /dev/settle-pending</code> liquide fondos reales prematuramente sin confirmación de 360Pay.
           </div>
           <div class="field-row">
-            <div class="field-label">Recomendación Defensiva</div>
-            Excluir físicamente <code>dev.routes.ts</code> del bundle de producción durante el build de TypeScript.
+            <div class="field-label">Criterio de Aceptación Verificable</div>
+            Excluir físicamente <code>dev.routes.ts</code> del bundle de producción durante la fase de transpilación TypeScript de CI/CD.
           </div>
         </div>
       </div>
 
       <!-- FND-04 -->
-      <div class="finding-card">
-        <div class="finding-header" onclick="toggleFinding(this)">
+      <div class="finding-card" id="fnd-4">
+        <div class="finding-header" onclick="toggleFinding('fnd-4')">
           <div class="finding-title-group">
             <span class="finding-id">FND-04</span>
             <span class="finding-title">Impacto de Comisión Mínima Fija en Micro-Transacciones</span>
           </div>
-          <span class="finding-badge badge-med">Media (Comercial)</span>
+          <div style="display: flex; align-items: center; gap: 0.85rem;">
+            <span class="finding-badge badge-med">Media &middot; Comercial</span>
+            <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
         </div>
         <div class="finding-body">
           <div class="field-row">
-            <div class="field-label">Evidencia en Código</div>
+            <div class="field-label">Evidencia Directa en Código</div>
             <code>backend/src/security/pricing.ts:computeFees:L15-L21</code> (Comisión mínima S/ 5.31 con IGV).
           </div>
           <div class="field-row">
-            <div class="field-label">Escenario de Abuso / Vector de Falla</div>
+            <div class="field-label">Vector de Falla / Escenario de Abuso</div>
             En ventas de S/ 50.00 la comisión efectiva alcanza el 10.62%, generando reclamos por discrepancia con el "1% + IGV" publicitado.
           </div>
           <div class="field-row">
-            <div class="field-label">Recomendación Defensiva</div>
+            <div class="field-label">Criterio de Aceptación Verificable</div>
             Mostrar de forma transparente el desglose de la comisión mínima en la pantalla previa a la generación del link de cobro.
           </div>
         </div>
       </div>
 
       <!-- FND-05 -->
-      <div class="finding-card">
-        <div class="finding-header" onclick="toggleFinding(this)">
+      <div class="finding-card" id="fnd-5">
+        <div class="finding-header" onclick="toggleFinding('fnd-5')">
           <div class="finding-title-group">
             <span class="finding-id">FND-05</span>
             <span class="finding-title">Ambigüedad en Cómputo de Plazo de Liquidación de 48 Horas</span>
           </div>
-          <span class="finding-badge badge-med">Media (SLAs)</span>
+          <div style="display: flex; align-items: center; gap: 0.85rem;">
+            <span class="finding-badge badge-med">Media &middot; Operativa</span>
+            <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
         </div>
         <div class="finding-body">
           <div class="field-row">
-            <div class="field-label">Evidencia en Código</div>
-            La UI señala: <i>"Plazo estimado cumplido: Se conserva el estado Por confirmar a la espera de evidencia formal de 360pay"</i>.
+            <div class="field-label">Evidencia Directa en Código</div>
+            La interfaz de usuario señala: <i>"Plazo estimado cumplido: Se conserva el estado Por confirmar a la espera de evidencia formal de 360pay"</i>.
           </div>
           <div class="field-row">
-            <div class="field-label">Escenario de Abuso / Vector de Falla</div>
-            Cobros realizados en viernes podrían demorar hasta el martes siguiente si 360Pay liquida en 48 horas hábiles bancarias.
+            <div class="field-label">Vector de Falla / Escenario de Abuso</div>
+            Cobros realizados en viernes por la tarde demorarían hasta el martes siguiente si 360Pay liquida en 48 horas hábiles bancarias.
           </div>
           <div class="field-row">
-            <div class="field-label">Recomendación Defensiva</div>
+            <div class="field-label">Criterio de Aceptación Verificable</div>
             Formalizar contractualmente el SLA con 360Pay e incorporar calendario bancario peruano en la estimación de fecha.
           </div>
         </div>
       </div>
 
       <!-- FND-06 -->
-      <div class="finding-card">
-        <div class="finding-header" onclick="toggleFinding(this)">
+      <div class="finding-card" id="fnd-6">
+        <div class="finding-header" onclick="toggleFinding('fnd-6')">
           <div class="finding-title-group">
             <span class="finding-id">FND-06</span>
             <span class="finding-title">Integridad de Bitácora WORM Vulnerable por Superusuario de Base de Datos</span>
           </div>
-          <span class="finding-badge badge-med">Media (Hardening)</span>
+          <div style="display: flex; align-items: center; gap: 0.85rem;">
+            <span class="finding-badge badge-med">Media &middot; Hardening</span>
+            <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
         </div>
         <div class="finding-body">
           <div class="field-row">
-            <div class="field-label">Evidencia en Código</div>
+            <div class="field-label">Evidencia Directa en Código</div>
             <code>backend/src/security/audit.ts:L1-L20</code>
           </div>
           <div class="field-row">
-            <div class="field-label">Escenario de Abuso / Vector de Falla</div>
+            <div class="field-label">Vector de Falla / Escenario de Abuso</div>
             Un superusuario de base de datos podría ejecutar <code>ALTER TABLE audit_log DISABLE TRIGGER ALL</code> y alterar registros contables pasados.
           </div>
           <div class="field-row">
-            <div class="field-label">Recomendación Defensiva</div>
+            <div class="field-label">Criterio de Aceptación Verificable</div>
             Revocar privilegios DDL al rol de la aplicación y replicar los registros a un bucket WORM (S3 Object Lock / GCS Bucket Lock).
           </div>
         </div>
       </div>
     </section>
 
-    <!-- TAB 7: COMPARATIVA HISTÓRICA Y PRUEBAS -->
+    <!-- ======================================================================
+         TAB 7: COMPARATIVA HISTÓRICA & BANCO DE PRUEBAS
+         ====================================================================== -->
     <section id="pane-comparativa" class="tab-pane">
       <div class="section-header">
-        <div class="section-eyebrow">Trazabilidad Histórica</div>
+        <div class="section-eyebrow">Trazabilidad &middot; Verificación E2E</div>
         <h2 class="section-heading">Comparativa Documental y Banco de Pruebas</h2>
         <p class="section-lead">Contraste entre los documentos de diseño del 5 y 7 de noviembre frente al código real en el commit <code>d7bac8b3</code>, inventario de tests definidos y preguntas abiertas para 360Pay.</p>
       </div>
 
       <div class="apple-card">
-        <div class="card-headline">Cuadro Comparativo: Documentos Históricos vs Código Real</div>
+        <div class="card-headline">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          Cuadro Comparativo: Documentos Históricos vs Código Real Observado
+        </div>
         <div class="table-wrapper">
           <table class="apple-table">
             <thead>
@@ -1450,13 +1977,13 @@
               <tr>
                 <td><b>Comisión Cobrada</b></td>
                 <td>"1% + IGV" sin mención de piso mínimo</td>
-                <td>1% + IGV con **comisión mínima de S/ 4.50 + IGV (S/ 5.31)**</td>
+                <td>1% + IGV con <b>comisión mínima de S/ 4.50 + IGV (S/ 5.31)</b></td>
                 <td><span class="pill pill-green">OBSERVADO EN CÓDIGO</span></td>
               </tr>
               <tr>
                 <td><b>Liquidación</b></td>
                 <td>Automática a las 48 horas</td>
-                <td>48h estimada; en prod **no liquida por tiempo** sin evidencia de 360Pay</td>
+                <td>48h estimada; en prod <b>no liquida por tiempo</b> sin evidencia de 360Pay</td>
                 <td><span class="pill pill-green">OBSERVADO EN CÓDIGO</span></td>
               </tr>
               <tr>
@@ -1474,7 +2001,7 @@
               <tr>
                 <td><b>Ventas en Inicio</b></td>
                 <td>Divergencia entre pantallas</td>
-                <td>Endpoint unificado <code>/providers/orders</code> con la misma fuente de verdad</td>
+                <td>Endpoint unificado <code>/provider/orders</code> con la misma fuente de verdad</td>
                 <td><span class="pill pill-green">OBSERVADO EN CÓDIGO</span></td>
               </tr>
             </tbody>
@@ -1483,23 +2010,56 @@
       </div>
 
       <div class="apple-card">
-        <div class="card-headline">Inventario de Pruebas Definidas en Repositorio (`PRUEBA DEFINIDA`)</div>
-        <ul style="color: var(--text-secondary); margin-left: 1.5rem; line-height: 1.8;">
-          <li><code>backend/test/providerReconciliation.test.ts</code>: Flujo completo E2E unificado, distinción de estados, simulación 5m y bloqueo en producción.</li>
+        <div class="card-headline">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          Inventario de Suites de Prueba Automatizadas en el Monorepo
+        </div>
+        <ul style="color: var(--text-secondary); margin-left: 1.5rem; line-height: 1.85;">
+          <li><code>backend/test/providerReconciliation.test.ts</code>: Flujo completo E2E unificado, distinción de estados, simulación 5m y bloqueo 403 en producción.</li>
           <li><code>backend/test/payments-security.test.ts</code>: Validación de firma HMAC SHA-256 en webhooks de 360Pay y anti-replay.</li>
           <li><code>backend/test/pricing.test.ts</code>: Cálculo de 1% + IGV, comisión mínima de S/ 4.50 y redondeo en centavos.</li>
           <li><code>backend/test/provider-payments.test.ts</code>: Bloqueo de PIN tras 5 intentos y revocación mono-dispositivo.</li>
           <li><code>backend/test/hardening.test.ts</code>: Cabeceras de seguridad HTTP y redacción de secretos en bitácoras.</li>
         </ul>
       </div>
+
+      <!-- 360Pay Inquiries Cards -->
+      <div class="apple-card">
+        <div class="card-headline">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          Preguntas Técnicas Clave Pendientes de Validación con 360Pay
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; margin-top: 1rem;">
+          <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border); border-radius: 14px; padding: 1.25rem;">
+            <div style="font-weight: 700; color: #fff; font-size: 0.95rem; margin-bottom: 0.35rem;">1. Cómputo de 48 Horas</div>
+            <p style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5;">
+              ¿El plazo de liquidación al vendedor computa 48 horas hábiles bancarias de la Cámara de Compensación Electrónica (CCE) o 48 horas calendario continuas?
+            </p>
+          </div>
+          <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border); border-radius: 14px; padding: 1.25rem;">
+            <div style="font-weight: 700; color: #fff; font-size: 0.95rem; margin-bottom: 0.35rem;">2. Webhook de Liquidación Payout</div>
+            <p style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5;">
+              ¿Emite 360Pay un webhook <code>settlement.completed</code> con el número de operación bancaria interbancaria al momento de abonar en el CCI del comercio?
+            </p>
+          </div>
+          <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border); border-radius: 14px; padding: 1.25rem;">
+            <div style="font-weight: 700; color: #fff; font-size: 0.95rem; margin-bottom: 0.35rem;">3. Política de Reintentos de Webhook</div>
+            <p style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5;">
+              ¿Cuál es la política de reintentos con backoff exponencial y el timeout de espera de 360Pay cuando el webhook responde con error temporal?
+            </p>
+          </div>
+        </div>
+      </div>
     </section>
 
-    <!-- TAB 8: INFORMES TÉCNICOS MARKDOWN -->
+    <!-- ======================================================================
+         TAB 8: INFORMES TÉCNICOS MARKDOWN & DESCARGAS
+         ====================================================================== -->
     <section id="pane-documentos" class="tab-pane">
       <div class="section-header">
-        <div class="section-eyebrow">Documentación Fuente</div>
+        <div class="section-eyebrow">Documentación Fuente &middot; 6 Informes</div>
         <h2 class="section-heading">Informes Técnicos y Registros de Auditoría</h2>
-        <p class="section-lead">Accede a los 6 informes en Markdown y a la matriz en CSV generados en <code>docs/auditoria-archify/</code>:</p>
+        <p class="section-lead">Accede a los 6 informes en Markdown, a la matriz en CSV y al archivo comprimido generados en el directorio <code>docs/auditoria-archify/</code>:</p>
       </div>
 
       <div class="doc-grid">
@@ -1509,7 +2069,7 @@
             <div class="doc-title">README.md — Síntesis Ejecutiva</div>
             <div class="doc-excerpt">Resumen ejecutivo, arquitectura general, decisiones tomadas, limitaciones de la auditoría y metodología.</div>
           </div>
-          <span class="btn-apple btn-apple-secondary" style="font-size: 0.75rem;">Leer Documento ↗</span>
+          <span class="btn-apple btn-apple-secondary" style="font-size: 0.78rem;">Leer Documento ↗</span>
         </a>
 
         <a href="01-matriz-controles-y-parametros.md" class="doc-card">
@@ -1518,16 +2078,16 @@
             <div class="doc-title">01-matriz-controles-y-parametros.md</div>
             <div class="doc-excerpt">24 controles catalogados exhaustivamente con citas de código, commits y estados canónicos.</div>
           </div>
-          <span class="btn-apple btn-apple-secondary" style="font-size: 0.75rem;">Leer Documento ↗</span>
+          <span class="btn-apple btn-apple-secondary" style="font-size: 0.78rem;">Leer Documento ↗</span>
         </a>
 
-        <a href="01-matriz-controles-y-parametros.csv" class="doc-card" style="border-color: rgba(48, 209, 88, 0.3);">
+        <a href="01-matriz-controles-y-parametros.csv" class="doc-card" style="border-color: rgba(48, 209, 88, 0.3); background: rgba(48, 209, 88, 0.02);">
           <div>
             <div class="doc-tag" style="color: var(--green);">FORMATO CSV SANITIZADO</div>
             <div class="doc-title">01-matriz-controles-y-parametros.csv</div>
-            <div class="doc-excerpt">Matriz estructurada y sanitizada contra inyección de fórmulas (sin caracteres =, +, -, @ al inicio).</div>
+            <div class="doc-excerpt">Matriz estructurada y sanitizada contra inyección de fórmulas (sin caracteres =, +, -, @ al inicio de celdas).</div>
           </div>
-          <span class="btn-apple btn-apple-secondary" style="font-size: 0.75rem; border-color: rgba(48, 209, 88, 0.4);">Descargar CSV ⬇</span>
+          <span class="btn-apple btn-apple-secondary" style="font-size: 0.78rem; border-color: rgba(48, 209, 88, 0.4);">Descargar CSV ⬇</span>
         </a>
 
         <a href="02-inventario-endpoints.md" class="doc-card">
@@ -1536,7 +2096,7 @@
             <div class="doc-title">02-inventario-endpoints.md</div>
             <div class="doc-excerpt">14 endpoints mapeados con métodos, roles, autenticación, efectos secundarios y validaciones.</div>
           </div>
-          <span class="btn-apple btn-apple-secondary" style="font-size: 0.75rem;">Leer Documento ↗</span>
+          <span class="btn-apple btn-apple-secondary" style="font-size: 0.78rem;">Leer Documento ↗</span>
         </a>
 
         <a href="03-matriz-roles-y-datos.md" class="doc-card">
@@ -1545,7 +2105,7 @@
             <div class="doc-title">03-matriz-roles-y-datos.md</div>
             <div class="doc-excerpt">Matriz CRUD de roles, aislamiento multi-tenant y mapa de clasificación de datos bajo la Ley 29733.</div>
           </div>
-          <span class="btn-apple btn-apple-secondary" style="font-size: 0.75rem;">Leer Documento ↗</span>
+          <span class="btn-apple btn-apple-secondary" style="font-size: 0.78rem;">Leer Documento ↗</span>
         </a>
 
         <a href="04-estados-y-riel-de-pagos.md" class="doc-card">
@@ -1554,16 +2114,16 @@
             <div class="doc-title">04-estados-y-riel-de-pagos.md</div>
             <div class="doc-excerpt">Análisis del riel de pagos, matemática de comisiones, partida doble y reglas de sandbox vs prod.</div>
           </div>
-          <span class="btn-apple btn-apple-secondary" style="font-size: 0.75rem;">Leer Documento ↗</span>
+          <span class="btn-apple btn-apple-secondary" style="font-size: 0.78rem;">Leer Documento ↗</span>
         </a>
 
-        <a href="05-registro-hallazgos.md" class="doc-card" style="border-color: rgba(255, 69, 58, 0.3);">
+        <a href="05-registro-hallazgos.md" class="doc-card" style="border-color: rgba(255, 69, 58, 0.3); background: rgba(255, 69, 58, 0.02);">
           <div>
             <div class="doc-tag" style="color: var(--red);">POSTURA DEFENSIVA</div>
             <div class="doc-title">05-registro-hallazgos.md</div>
             <div class="doc-excerpt">Registro de los 6 hallazgos defensivos (FND-01 a FND-06) con escenarios de abuso y remediaciones.</div>
           </div>
-          <span class="btn-apple btn-apple-secondary" style="font-size: 0.75rem; border-color: rgba(255, 69, 58, 0.4);">Leer Documento ↗</span>
+          <span class="btn-apple btn-apple-secondary" style="font-size: 0.78rem; border-color: rgba(255, 69, 58, 0.4);">Leer Documento ↗</span>
         </a>
 
         <a href="06-comparativa-historica-y-pruebas.md" class="doc-card">
@@ -1572,12 +2132,14 @@
             <div class="doc-title">06-comparativa-historica-y-pruebas.md</div>
             <div class="doc-excerpt">Contraste histórico vs código actual, inventario de pruebas definidas y preguntas para 360Pay.</div>
           </div>
-          <span class="btn-apple btn-apple-secondary" style="font-size: 0.75rem;">Leer Documento ↗</span>
+          <span class="btn-apple btn-apple-secondary" style="font-size: 0.78rem;">Leer Documento ↗</span>
         </a>
       </div>
     </section>
 
-    <!-- TAB 9: CRONOLOGÍA DE AVANCE -->
+    <!-- ======================================================================
+         TAB 9: CRONOLOGÍA DE AVANCE
+         ====================================================================== -->
     <section id="pane-cronologia" class="tab-pane">
       <div class="section-header">
         <div class="section-eyebrow">Trazabilidad Operacional</div>
@@ -1586,44 +2148,44 @@
       </div>
 
       <div class="apple-card">
-        <div style="border-left: 2px solid var(--border); padding-left: 1.5rem; margin-left: 0.5rem;">
-          <div style="margin-bottom: 2rem;">
-            <div style="font-weight: 700; color: #fff; font-size: 1.05rem;">Fase 1: Diagnóstico y Resolución del Flujo Proveedor</div>
-            <div style="font-size: 0.8rem; color: var(--accent); font-family: var(--font-mono); margin: 0.2rem 0 0.5rem;">Commit: d7bac8b3 · ProviderHomeScreen.tsx / provider.routes.ts</div>
-            <p style="font-size: 0.9rem; color: var(--text-secondary);">
-              Unificación de Inicio y Conciliación bajo la misma fuente de verdad contable (`/providers/orders`). Separación de pedidos aKuotas! ("Por cobrar"), links pagados por confirmar ("Por confirmar") y liquidación completada ("Cancelado").
+        <div style="border-left: 2px solid var(--border-strong); padding-left: 2rem; margin-left: 0.5rem;">
+          <div style="margin-bottom: 2.25rem;">
+            <div style="font-weight: 700; color: #fff; font-size: 1.1rem;">Fase 1: Diagnóstico y Resolución del Flujo Proveedor</div>
+            <div style="font-size: 0.82rem; color: var(--accent); font-family: var(--font-mono); margin: 0.25rem 0 0.65rem;">Commit: d7bac8b3 &middot; ProviderHomeScreen.tsx / provider.routes.ts</div>
+            <p style="font-size: 0.925rem; color: var(--text-secondary);">
+              Unificación de Inicio y Conciliación bajo la misma fuente de verdad contable (<code>/provider/orders</code>). Separación estricta de pedidos aKuotas! ("Por cobrar"), links pagados por confirmar ("Por confirmar") y liquidación completada ("Cancelado").
             </p>
           </div>
 
-          <div style="margin-bottom: 2rem;">
-            <div style="font-weight: 700; color: #fff; font-size: 1.05rem;">Fase 2: Implementación de la Simulación Sandbox de 5 Minutos</div>
-            <div style="font-size: 0.8rem; color: var(--accent); font-family: var(--font-mono); margin: 0.2rem 0 0.5rem;">backend/src/routes/dev.routes.ts:postSettlePending</div>
-            <p style="font-size: 0.9rem; color: var(--text-secondary);">
-              Creación de la aceleración controlada en sandbox (5 minutos en lugar de 48 horas) para probar liquidaciones sin cambiar la fecha del dispositivo, blindado con HTTP 403 `SANDBOX_ONLY` en producción.
+          <div style="margin-bottom: 2.25rem;">
+            <div style="font-weight: 700; color: #fff; font-size: 1.1rem;">Fase 2: Implementación de la Simulación Sandbox de 5 Minutos</div>
+            <div style="font-size: 0.82rem; color: var(--accent); font-family: var(--font-mono); margin: 0.25rem 0 0.65rem;">backend/src/routes/dev.routes.ts:postSettlePending</div>
+            <p style="font-size: 0.925rem; color: var(--text-secondary);">
+              Creación de la aceleración controlada en sandbox (5 minutos en lugar de 48 horas) para probar liquidaciones sin cambiar la fecha del dispositivo, blindado con HTTP 403 <code>SANDBOX_ONLY</code> en producción.
             </p>
           </div>
 
-          <div style="margin-bottom: 2rem;">
-            <div style="font-weight: 700; color: #fff; font-size: 1.05rem;">Fase 3: Elaboración y Validación de 8 Diagramas en Archify v2.17.0</div>
-            <div style="font-size: 0.8rem; color: var(--green); font-family: var(--font-mono); margin: 0.2rem 0 0.5rem;">Archify CLI Showcase · 9/9 Passed · Headless Visual-Check OK</div>
-            <p style="font-size: 0.9rem; color: var(--text-secondary);">
+          <div style="margin-bottom: 2.25rem;">
+            <div style="font-weight: 700; color: #fff; font-size: 1.1rem;">Fase 3: Elaboración y Validación de 8 Diagramas en Archify v2.17.0</div>
+            <div style="font-size: 0.82rem; color: var(--green); font-family: var(--font-mono); margin: 0.25rem 0 0.65rem;">Archify CLI Showcase &middot; 9/9 Passed &middot; Headless Visual-Check OK</div>
+            <p style="font-size: 0.925rem; color: var(--text-secondary);">
               Generación de V1 (Actual), V1b (Target), V2 (Dataflow), V3 (Auth), V4 (Webhooks HMAC), V5 (Ciclo de Vida), V6 (Roles y Sesiones) y V7 (Conciliación). Verificación visual automatizada en 4 resoluciones de escritorio sin desbordamientos.
             </p>
           </div>
 
-          <div style="margin-bottom: 2rem;">
-            <div style="font-weight: 700; color: #fff; font-size: 1.05rem;">Fase 4: Redacción de Informes Técnicos y Sanitización CSV</div>
-            <div style="font-size: 0.8rem; color: var(--purple); font-family: var(--font-mono); margin: 0.2rem 0 0.5rem;">docs/auditoria-archify/ · 6 Informes MD + 1 CSV Sanitizado</div>
-            <p style="font-size: 0.9rem; color: var(--text-secondary);">
+          <div style="margin-bottom: 2.25rem;">
+            <div style="font-weight: 700; color: #fff; font-size: 1.1rem;">Fase 4: Redacción de Informes Técnicos y Sanitización CSV</div>
+            <div style="font-size: 0.82rem; color: var(--purple); font-family: var(--font-mono); margin: 0.25rem 0 0.65rem;">docs/auditoria-archify/ &middot; 6 Informes MD + 1 CSV Sanitizado</div>
+            <p style="font-size: 0.925rem; color: var(--text-secondary);">
               Redacción de README, Matriz de Controles (24), Inventario de Endpoints (14), Matriz de Roles y Datos, Riel de Pagos y Comisiones, Registro de Hallazgos (6) y Comparativa Histórica. Sanitización estricta contra inyección de fórmulas CSV.
             </p>
           </div>
 
           <div>
-            <div style="font-weight: 700; color: #fff; font-size: 1.05rem;">Fase 5: Despliegue en Vercel y Diseño Apple Design</div>
-            <div style="font-size: 0.8rem; color: var(--accent); font-family: var(--font-mono); margin: 0.2rem 0 0.5rem;">https://auditoria-archify.vercel.app · Apple UI Guidelines</div>
-            <p style="font-size: 0.9rem; color: var(--text-secondary);">
-              Creación del portal maestro interactivo con principios de Apple Design (vidrio esmerilado, micro-interacciones, tipografía SF Pro, controles segmentados, feedback táctil instantáneo) y despliegue a producción en Vercel.
+            <div style="font-weight: 700; color: #fff; font-size: 1.1rem;">Fase 5: Despliegue en Vercel y Diseño Apple Design</div>
+            <div style="font-size: 0.82rem; color: var(--teal); font-family: var(--font-mono); margin: 0.25rem 0 0.65rem;">https://auditoria-archify.vercel.app &middot; Apple UI Guidelines</div>
+            <p style="font-size: 0.925rem; color: var(--text-secondary);">
+              Creación del portal maestro interactivo con principios de Apple Design (vidrio esmerilado, micro-interacciones, tipografía SF Pro, controles segmentados, simulador reactivo, feedback táctil) y despliegue a producción en Vercel.
             </p>
           </div>
         </div>
@@ -1632,7 +2194,22 @@
 
   </div>
 
-  <!-- Client-side Scripts for Apple Micro-Interactions -->
+  <!-- Apple Footer -->
+  <footer class="apple-footer">
+    <div class="footer-inner">
+      <div>
+        <div style="color: #fff; font-weight: 700; font-size: 0.95rem; margin-bottom: 0.35rem;">Kuota Architecture &amp; Security Portal</div>
+        <div>Auditoría Técnica, Postura Defensiva y Riel de Pagos &middot; Monorepo Kuota &middot; Commit <code>d7bac8b3</code></div>
+      </div>
+      <div style="display: flex; gap: 1.5rem; align-items: center;">
+        <a href="https://github.com/Kuota-inc/kuota-app" target="_blank" style="color: var(--text-secondary); text-decoration: none;">GitHub Repo ↗</a>
+        <a href="01-matriz-controles-y-parametros.csv" style="color: var(--accent); text-decoration: none;">Descargar CSV</a>
+        <a href="docs/auditoria-archify.zip" style="color: var(--text-secondary); text-decoration: none;">Auditoria ZIP</a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Client-side Scripts for Apple Micro-Interactions & Simulator -->
   <script>
     // Tab switching with smooth active state
     function activateTab(tabId) {
@@ -1651,40 +2228,90 @@
       });
     }
 
-    // Switch diagram iframe
-    function switchDiagram(file, btn, desc) {
+    // Switch diagram iframe and filename in macOS titlebar
+    function switchDiagram(file, btn, desc, filename) {
       document.querySelectorAll('.d-pill').forEach(el => el.classList.remove('active'));
       btn.classList.add('active');
       
       const frame = document.getElementById('diagram-frame');
       const extBtn = document.getElementById('ext-diagram-btn');
       const descEl = document.getElementById('diagram-desc');
+      const filenameEl = document.getElementById('window-filename');
       
       if (frame) frame.src = file;
       if (extBtn) extBtn.href = file;
       if (descEl) descEl.textContent = desc;
+      if (filenameEl) filenameEl.textContent = filename + ' · 60fps WebGL';
     }
 
-    // Accordion toggle for findings
-    function toggleFinding(header) {
-      const card = header.closest('.finding-card');
-      const body = card.querySelector('.finding-body');
-      if (body.style.display === 'none') {
-        body.style.display = 'block';
-      } else {
-        body.style.display = 'none';
+    // Accordion toggle for findings with smooth chevron rotation
+    function toggleFinding(id) {
+      const card = document.getElementById(id);
+      if (card) {
+        card.classList.toggle('open');
       }
+    }
+
+    // Interactive Fee & Settlement Simulator
+    function updateCalculator(amount) {
+      amount = parseFloat(amount) || 0;
+      document.getElementById('calc-display-amount').textContent = 'S/ ' + amount.toFixed(2);
+
+      // Pricing logic from backend/src/security/pricing.ts
+      const MIN_FEE = 4.50; // S/ 4.50 min
+      const IGV_RATE = 0.18; // 18%
+      
+      const baseFee = Math.max((amount * 0.01), MIN_FEE);
+      const igv = baseFee * IGV_RATE;
+      const totalKuotaFee = baseFee + igv;
+      
+      const posFee = amount * 0.035; // 3.5%
+      const netSettled = Math.max(0, amount - totalKuotaFee);
+      const netSaving = Math.max(0, posFee - totalKuotaFee);
+
+      document.getElementById('calc-kuota-fee').textContent = 'S/ ' + totalKuotaFee.toFixed(2);
+      document.getElementById('calc-kuota-detail').textContent = (baseFee === MIN_FEE) 
+        ? 'Piso mínimo S/ 4.50 + S/ ' + igv.toFixed(2) + ' IGV' 
+        : '1% (S/ ' + baseFee.toFixed(2) + ') + S/ ' + igv.toFixed(2) + ' IGV';
+
+      document.getElementById('calc-pos-fee').textContent = 'S/ ' + posFee.toFixed(2);
+      document.getElementById('calc-net-settled').textContent = 'S/ ' + netSettled.toFixed(2);
+      document.getElementById('calc-net-saving').textContent = 'S/ ' + netSaving.toFixed(2);
+      document.getElementById('calc-saving-detail').textContent = (netSaving > 0)
+        ? 'Ahorras S/ ' + netSaving.toFixed(2) + ' vs POS tradicional'
+        : 'Micro-ticket protegido por piso mínimo';
+    }
+
+    function setSliderAmount(val) {
+      const slider = document.getElementById('sale-amount-slider');
+      slider.value = val;
+      updateCalculator(val);
+
+      document.querySelectorAll('.calc-pill').forEach(pill => {
+        pill.classList.remove('active');
+        if (pill.textContent.includes(val)) {
+          pill.classList.add('active');
+        }
+      });
     }
 
     // Live search for controls table
     function filterControlsTable() {
       const query = document.getElementById('controls-input').value.toLowerCase();
       const rows = document.querySelectorAll('#controls-tbl tbody tr');
+      let visible = 0;
 
       rows.forEach(row => {
         const text = row.textContent.toLowerCase();
-        row.style.display = text.includes(query) ? '' : 'none';
+        const matches = text.includes(query);
+        row.style.display = matches ? '' : 'none';
+        if (matches) visible++;
       });
+
+      const counter = document.getElementById('controls-counter');
+      if (counter) {
+        counter.textContent = 'Mostrando ' + visible + ' de 24 controles auditados';
+      }
     }
 
     // Category filter for controls table
@@ -1693,14 +2320,49 @@
       btn.classList.add('active');
 
       const rows = document.querySelectorAll('#controls-tbl tbody tr');
+      let visible = 0;
       rows.forEach(row => {
         if (cat === 'ALL' || row.getAttribute('data-cat') === cat) {
+          row.style.display = '';
+          visible++;
+        } else {
+          row.style.display = 'none';
+        }
+      });
+
+      const counter = document.getElementById('controls-counter');
+      if (counter) {
+        counter.textContent = 'Mostrando ' + visible + ' de 24 controles auditados';
+      }
+    }
+
+    // Filter Endpoints
+    function filterEndpoints(grp, btn) {
+      document.querySelectorAll('#pane-endpoints .filter-btn').forEach(el => el.classList.remove('active'));
+      btn.classList.add('active');
+
+      const rows = document.querySelectorAll('#endpoints-tbl tbody tr');
+      rows.forEach(row => {
+        if (grp === 'ALL' || row.getAttribute('data-group') === grp) {
           row.style.display = '';
         } else {
           row.style.display = 'none';
         }
       });
     }
+
+    // Keyboard shortcut '/' to search
+    window.addEventListener('keydown', (e) => {
+      if (e.key === '/' && document.activeElement.tagName !== 'INPUT') {
+        e.preventDefault();
+        activateTab('controles');
+        const input = document.getElementById('controls-input');
+        if (input) input.focus();
+      }
+    });
+
+    // Initialize calculator
+    updateCalculator(100);
   </script>
 </body>
 </html>
