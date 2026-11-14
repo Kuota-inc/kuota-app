@@ -57,6 +57,24 @@ export async function createApp() {
 
   app.use('/api/v1', rateLimit({ name: 'api', windowMs: 60_000, max: 600 }));
 
+  // D6 / P0: versión mínima del APK forzada cuando se configura KUOTA_MIN_APP_VERSION_CODE (ej. rotación de pins TLS).
+  app.use('/api/v1', (req: Request, res: Response, next: NextFunction) => {
+    const minCode = Number(process.env.KUOTA_MIN_APP_VERSION_CODE || 0);
+    if (minCode > 0 && req.path !== '/health') {
+      const clientCode = Number(req.headers['x-app-version-code']);
+      if (Number.isFinite(clientCode) && clientCode > 0 && clientCode < minCode) {
+        return res.status(426).json({
+          error: {
+            code: 'APP_UPDATE_REQUIRED',
+            message: 'Actualiza la app de Kuota a la última versión para continuar operando con seguridad.',
+            min_version_code: minCode
+          }
+        });
+      }
+    }
+    next();
+  });
+
   app.use('/api/v1', publicRouter);
   app.use('/api/v1/public', publicRouter);
   app.use('/api/v1/catalogs', publicRouter);
@@ -80,7 +98,30 @@ export async function createApp() {
   if (!config.isProd) app.use('/api/v1/dev', devRouter);
 
   app.get('/api/v1/health', (_req: Request, res: Response) => {
-    res.json({ status: 'ok', app: 'Kuota Backend API', version: '1.1.0', currency: 'PEN', sandbox: config.sandboxEnabled, fee_bps: config.feeBps, timestamp: new Date().toISOString() });
+    res.json({
+      status: 'ok',
+      app: 'Kuota Backend API',
+      version: '1.1.0',
+      min_app_version_code: Number(process.env.KUOTA_MIN_APP_VERSION_CODE || 1),
+      currency: 'PEN',
+      sandbox: config.sandboxEnabled,
+      fee_bps: config.feeBps,
+      timestamp: new Date().toISOString()
+    });
+  });
+
+  // D13: divulgación responsable de vulnerabilidades (RFC 9116).
+  app.get('/.well-known/security.txt', (_req: Request, res: Response) => {
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.send(
+      [
+        'Contact: mailto:seguridad@kuota.pe',
+        'Preferred-Languages: es, en',
+        'Policy: https://kuota.pe/privacidad',
+        'Expires: 2027-12-31T23:59:59.000Z',
+        ''
+      ].join('\n')
+    );
   });
 
   // Página de cobro para clientes (sin sesión, HTML)

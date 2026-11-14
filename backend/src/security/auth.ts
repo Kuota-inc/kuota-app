@@ -140,12 +140,16 @@ export async function checkPin(merchantId: string, pin: unknown, ctx: { ip: stri
     if (attempts >= config.pinMaxAttempts) {
       const lockedUntil = addMinutes(now, config.pinLockMinutes).toISOString();
       await db.prepare('UPDATE merchant_credentials SET failed_attempts = 0, locked_until = ? WHERE merchant_id = ?').run(lockedUntil, merchantId);
-      await audit({ ...base, action: 'PIN_LOCKED', target: ctx.purpose, result: 'DENIED', details: { attempts } });
+      const knownDevice = ctx.deviceId ? await getDevice(merchantId, ctx.deviceId) : null;
+      const unrecognizedDevice = !!(ctx.deviceId && (!knownDevice || knownDevice.revoked_at));
+      await audit({ ...base, action: 'PIN_LOCKED', target: ctx.purpose, result: 'DENIED', details: { attempts, unrecognized_device: unrecognizedDevice } });
       await alertMerchant(
         merchantId,
         'PIN_LOCKED',
-        'Bloqueamos tu PIN por intentos fallidos',
-        'Si no fuiste tú, alguien intentó usar tu cuenta. Kuota nunca te pedirá tu PIN por WhatsApp ni por llamada.'
+        unrecognizedDevice ? 'Alguien intentó tu PIN desde un dispositivo no reconocido' : 'Bloqueamos tu PIN por intentos fallidos',
+        unrecognizedDevice
+          ? 'Bloqueamos tu PIN tras 5 intentos fallidos desde un equipo nuevo o no vinculado. Si no fuiste tú, congela tu cuenta de inmediato.'
+          : 'Si no fuiste tú, alguien intentó usar tu cuenta. Kuota nunca te pedirá tu PIN por WhatsApp ni por llamada.'
       );
       return {
         ok: false,

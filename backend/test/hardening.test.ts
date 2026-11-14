@@ -727,4 +727,35 @@ describe('Remediación P1: PIN reforzado, congelación de cuenta, idempotencia c
       delete process.env.KUOTA_REQUIRE_DUAL_CONTROL;
     }
   });
+
+  test('D2/D6/D13: alerta de PIN desde dispositivo desconocido, versión mínima forzada (426) y security.txt', async () => {
+    await resetRateLimits();
+    await register('930000053', '73000053', '739164');
+    const login = await call('POST', '/auth/sessions', { pin: '739164', phone: '+51930000053', device_id: DEVICE });
+    assert.equal(login.status, 201);
+
+    // 5 fallos desde un dispositivo no reconocido generan alerta específica.
+    const unknownDevice = 'unknown_device_attacker_99';
+    for (let i = 0; i < 5; i++) {
+      await call('POST', '/auth/sessions', { pin: '999999', phone: '+51930000053', device_id: unknownDevice });
+    }
+    const alerts = await call('GET', '/merchants/me/payments/alerts', undefined, { Authorization: `Bearer ${login.body.access_token}`, 'X-Device-Id': DEVICE });
+    assert.equal(alerts.status, 200);
+    assert.ok(alerts.body.data.some((a: Json) => a.kind === 'PIN_LOCKED' && String(a.title).includes('dispositivo no reconocido')));
+
+    // Versión mínima forzada (426 Upgrade Required).
+    process.env.KUOTA_MIN_APP_VERSION_CODE = '5';
+    try {
+      const oldApp = await call('GET', '/merchants/me/home', undefined, { 'X-Merchant-Id': login.body.merchant_id, 'X-App-Version-Code': '4' });
+      assert.equal(oldApp.status, 426);
+      assert.equal(oldApp.body.error.code, 'APP_UPDATE_REQUIRED');
+    } finally {
+      delete process.env.KUOTA_MIN_APP_VERSION_CODE;
+    }
+
+    // /.well-known/security.txt disponible.
+    const secTxt = await fetch(`${base.replace('/api/v1', '')}/.well-known/security.txt`);
+    assert.equal(secTxt.status, 200);
+    assert.ok((await secTxt.text()).includes('Contact: mailto:seguridad@kuota.pe'));
+  });
 });
