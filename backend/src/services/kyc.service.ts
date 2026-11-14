@@ -6,6 +6,7 @@
 //   Ampliado → Didit aprobó documento + prueba de vida + rostro y el DNI coincide (APPROVED)
 import { db } from '../db/database.js';
 import { didit, diditEnabled, type DiditCheck, type DiditDecision } from '../integrations/didit.js';
+import { checkAndLogDiditSession } from '../security/diditGuard.js';
 
 export type KycOutcome = 'APPROVED' | 'REJECTED' | 'IN_REVIEW' | 'IN_PROGRESS';
 
@@ -33,12 +34,14 @@ export async function startVerification(publicId: string) {
   if (kyc.provider_session_id && kyc.verification_url && kyc.status === 'IN_PROGRESS') {
     return { provider: 'DIDIT' as const, url: kyc.verification_url, status: kyc.status };
   }
-  const merchant = await db.get<{ dni: string | null; full_name: string | null }>('SELECT dni, full_name FROM merchant_profiles WHERE session_id = ?', kyc.session_id);
+  const merchant = await db.get<{ id: string; dni: string | null; full_name: string | null }>('SELECT id, dni, full_name FROM merchant_profiles WHERE session_id = ?', kyc.session_id);
   // Proveedor: el documento esperado es el del representante legal (DNI o carnet de extranjería).
   const rep = merchant
     ? undefined
-    : await db.get<{ legal_rep_dni: string | null }>('SELECT legal_rep_dni FROM provider_profiles WHERE session_id = ?', kyc.session_id);
+    : await db.get<{ id: string; legal_rep_dni: string | null }>('SELECT id, legal_rep_dni FROM provider_profiles WHERE session_id = ?', kyc.session_id);
   const expectedNumber = merchant?.dni ?? rep?.legal_rep_dni ?? null;
+  // P0-8: tope de gasto en Didit antes de crear la sesión.
+  await checkAndLogDiditSession(merchant?.id ?? rep?.id ?? kyc.session_id, 'KYC');
   const session = await didit.createSession({
     vendor_data: publicId,
     callback: process.env.DIDIT_CALLBACK_URL || undefined,

@@ -30,6 +30,7 @@ import {
   stepUpRequired
 } from '../security/auth.js';
 import { didit, diditRecoveryEnabled } from '../integrations/didit.js';
+import { checkAndLogDiditSession } from '../security/diditGuard.js';
 import { alertMerchant, recentAlerts } from '../security/events.js';
 import { rateLimit } from '../security/guards.js';
 import { clientIp, fail, headerString } from '../security/http.js';
@@ -141,6 +142,10 @@ authRouter.post('/pin/recover/start', authLimiter, async (req, res) => {
     }
     merchantId = profile.id;
   }
+
+  // P0-8: tope de gasto en Didit antes de crear la sesión de recuperación.
+  const recoveryActorKey = 'recovery:' + (merchantId ?? providerId ?? 'unknown');
+  await checkAndLogDiditSession(recoveryActorKey, 'RECOVERY');
 
   const recoveryToken = randomToken(32);
   const session = await didit.createRecoverySession({
