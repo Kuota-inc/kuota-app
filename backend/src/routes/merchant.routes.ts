@@ -132,14 +132,12 @@ merchantRouter.post('/provider-profile', async (req, res) => {
   if (!cred?.pin_hash) return res.status(409).json({ error: { code: 'PIN_NOT_CONFIGURED', message: 'Primero crea tu PIN.' } });
   const token = crypto.randomBytes(32).toString('base64url');
   const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
-  const existing = (await db.prepare('SELECT id, whatsapp FROM provider_profiles WHERE ruc = ?').get(m.ruc)) as { id: string; whatsapp: string | null } | undefined;
+  const existing = (await db.prepare('SELECT id FROM provider_profiles WHERE ruc = ?').get(m.ruc)) as { id: string } | undefined;
   let providerId: string;
   if (existing) {
-    if (lastNine(existing.whatsapp) !== phone) {
-      return res.status(409).json({ error: { code: 'RUC_ALREADY_REGISTERED', message: 'Este RUC ya tiene un perfil Proveedor con otro teléfono.' } });
-    }
-    providerId = existing.id;
-    await db.prepare('UPDATE provider_profiles SET access_token_hash = ? WHERE id = ?').run(tokenHash, providerId);
+    // Un perfil Proveedor ya existe con este RUC: el comercio no puede vincularlo ni modificarlo.
+    // Para acceder a ese perfil, el proveedor debe iniciar sesión directamente con su PIN.
+    return res.status(409).json({ error: { code: 'PROVIDER_ALREADY_EXISTS', message: 'Este RUC ya tiene un perfil Proveedor. Inicia sesión como Proveedor para acceder a él.' } });
   } else {
     providerId = 'prov_' + uuidv4().substring(0, 10);
     await db.prepare(

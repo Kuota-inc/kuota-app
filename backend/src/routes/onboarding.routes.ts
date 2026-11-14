@@ -457,7 +457,7 @@ onboardingRouter.get('/sessions/:id', async (req, res) => {
       ? {
           id: merchant.id,
           business_name: merchant.business_name,
-          ruc: merchant.ruc,
+          ruc: maskTail(merchant.ruc, 3),
           category: merchant.category,
           seniority_range: merchant.seniority_range,
           tier_hint: merchant.tier_hint
@@ -583,7 +583,7 @@ onboardingRouter.post('/sessions/:id/complete', async (req, res) => {
       welcome_summary: {
         business: {
           name: merchant.business_name || 'Mi Negocio Kuota',
-          ruc: merchant.ruc || null,
+          ruc: maskTail(merchant.ruc, 3),
           city: 'Lima',
           status: 'ACTIVE'
         },
@@ -615,7 +615,7 @@ onboardingRouter.post('/sessions/:id/complete', async (req, res) => {
 
   // Atómico: users + merchant_profiles deben actualizarse juntos para que el
   // phone lookup de resolveClaimedMerchant encuentre el comercio en el login.
-  const rucProvisional = `10${String(Math.floor(Math.random() * 1e9)).padStart(9, '0')}`;
+  // ruc y business_name se fijan solo desde el flujo de identidad/SUNAT, nunca desde el body.
   try {
   await db.tx(async () => {
     await db.prepare(`
@@ -623,11 +623,7 @@ onboardingRouter.post('/sessions/:id/complete', async (req, res) => {
       VALUES (?, ?, 'MERCHANT', 'ACTIVE', ?, 'Comerciante', utc_now_text(), utc_now_text())
     `).run(userId, phone, req.body.first_name || String(merchant.full_name || 'Emprendedor').split(' ')[0]);
 
-    await db.prepare(`
-      UPDATE merchant_profiles
-      SET user_id = ?, business_name = coalesce(?, business_name, 'Mi Negocio Kuota'), ruc = coalesce(?, ruc, ?)
-      WHERE id = ?
-    `).run(userId, req.body.business_name, req.body.ruc, rucProvisional, merchant.id);
+    await db.prepare('UPDATE merchant_profiles SET user_id = ? WHERE id = ?').run(userId, merchant.id);
   });
   } catch (e: any) {
     // Dos registros simultáneos con el mismo celular: el segundo choca con el índice único.
@@ -681,7 +677,7 @@ onboardingRouter.post('/sessions/:id/complete', async (req, res) => {
     welcome_summary: {
       business: {
         name: merchant.business_name || 'Mi Negocio Kuota',
-        ruc: merchant.ruc || null,
+        ruc: maskTail(merchant.ruc, 3),
         city: 'Lima',
         status: 'ACTIVE'
       },
