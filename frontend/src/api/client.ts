@@ -153,6 +153,7 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestInit
   const providerId = getProviderId();
   const headers = {
     'Content-Type': 'application/json',
+    'X-App-Version-Code': '5',
     ...(merchantId ? { 'X-Merchant-Id': merchantId } : {}),
     ...(getMerchantToken() ? { 'X-Merchant-Token': getMerchantToken() as string, 'X-Device-Id': deviceId() } : {}),
     ...(providerId ? { 'X-Provider-Id': providerId } : {}),
