@@ -50,6 +50,7 @@ interface ProviderRow {
   pin_failed_attempts: number | null;
   pin_locked_until: string | null;
   access_token_hash: string | null;
+  provider_token_expires_at: string | null;
   user_id: string | null;
 }
 
@@ -66,13 +67,15 @@ providerPaymentsRouter.post('/session', limiter, async (req, res) => {
   const prov = providerId
     ? await coreDb.get<ProviderRow>(
         `SELECT id, ruc, legal_name, whatsapp, category, seniority_range, kyc_status, legal_rep_dni, pin_hash,
-                pin_failed_attempts, pin_locked_until, access_token_hash, user_id
+                pin_failed_attempts, pin_locked_until, access_token_hash, provider_token_expires_at, user_id
          FROM provider_profiles WHERE id = ?`,
         providerId
       )
     : undefined;
-  if (!prov || !tokenMatches(prov.access_token_hash, headerString(req, 'x-provider-token'))) {
-    return fail(res, 401, 'PROVIDER_AUTH_REQUIRED', 'No pudimos validar tu sesión de proveedor. Vuelve a iniciar sesión.');
+  const tokenValid = prov && tokenMatches(prov.access_token_hash, headerString(req, 'x-provider-token'));
+  const tokenFresh = !prov?.provider_token_expires_at || new Date(prov.provider_token_expires_at) > new Date();
+  if (!tokenValid || !tokenFresh) {
+    return fail(res, 401, 'PROVIDER_AUTH_REQUIRED', tokenFresh ? 'No pudimos validar tu sesión de proveedor. Vuelve a iniciar sesión.' : 'Tu sesión venció. Inicia sesión de nuevo.');
   }
   const deviceId = req.body?.device_id;
   if (!isValidDeviceId(deviceId)) return fail(res, 422, 'DEVICE_ID_INVALID', 'Identificador de dispositivo inválido.');

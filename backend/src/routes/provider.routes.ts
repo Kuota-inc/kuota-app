@@ -30,13 +30,14 @@ async function authProvider(req: Request, res: Response): Promise<string | null 
     res.status(401).json({ error: { code: 'PROVIDER_AUTH_REQUIRED', message: 'Inicia el registro de proveedor de nuevo.' } });
     return undefined;
   }
-  const row = (await db.prepare('SELECT access_token_hash FROM provider_profiles WHERE id = ?').get(id)) as { access_token_hash: string | null } | undefined;
-  const ok =
+  const row = (await db.prepare('SELECT access_token_hash, provider_token_expires_at FROM provider_profiles WHERE id = ?').get(id)) as { access_token_hash: string | null; provider_token_expires_at: string | null } | undefined;
+  const tokenOk =
     typeof token === 'string' && !!row?.access_token_hash &&
     row.access_token_hash.length === sha256(token).length &&
     crypto.timingSafeEqual(Buffer.from(row.access_token_hash), Buffer.from(sha256(token)));
-  if (!ok) {
-    res.status(401).json({ error: { code: 'PROVIDER_AUTH_REQUIRED', message: 'No pudimos validar tu sesión de proveedor.' } });
+  const notExpired = !row?.provider_token_expires_at || new Date(row.provider_token_expires_at) > new Date();
+  if (!tokenOk || !notExpired) {
+    res.status(401).json({ error: { code: 'PROVIDER_AUTH_REQUIRED', message: notExpired ? 'No pudimos validar tu sesión de proveedor.' : 'Tu sesión venció. Inicia sesión de nuevo.' } });
     return undefined;
   }
   return id;
@@ -765,7 +766,7 @@ providerRouter.get('/me', async (req, res) => {
 providerRouter.post('/logout', async (req, res) => {
   const id = await authProvider(req, res);
   if (id === undefined) return;
-  if (id) await db.prepare('UPDATE provider_profiles SET access_token_hash = NULL WHERE id = ?').run(id);
+  if (id) await db.prepare('UPDATE provider_profiles SET access_token_hash = NULL, provider_token_expires_at = NULL WHERE id = ?').run(id);
   res.status(204).end();
 });
 

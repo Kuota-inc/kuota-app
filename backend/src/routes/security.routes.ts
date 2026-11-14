@@ -208,8 +208,8 @@ authRouter.post('/pin/recover/complete', authLimiter, async (req, res) => {
   if (pending.providerId) {
     const token = randomToken(32);
     await coreDb.run(
-      'UPDATE provider_profiles SET pin_hash=?, access_token_hash=?, pin_failed_attempts=0, pin_locked_until=NULL WHERE id=?',
-      hashPin(newPin), sha256Hex(token), pending.providerId
+      'UPDATE provider_profiles SET pin_hash=?, access_token_hash=?, provider_token_expires_at=?, pin_failed_attempts=0, pin_locked_until=NULL WHERE id=?',
+      hashPin(newPin), sha256Hex(token), addHours(new Date(), 90 * 24).toISOString(), pending.providerId
     );
     recoverFailures.delete(pending.providerId);
     await audit({ actorType: 'MERCHANT', actorId: pending.providerId, action: 'PIN_RESET', result: 'OK', ip, deviceId, details: { method: 'DIDIT_LIVENESS', role: 'PROVIDER' } });
@@ -309,9 +309,10 @@ async function _legacyPinRecover(req: Request, res: Response) {
     }
     const token = randomToken(32);
     await coreDb.run(
-      'UPDATE provider_profiles SET pin_hash = ?, access_token_hash = ?, pin_failed_attempts = 0, pin_locked_until = NULL WHERE id = ?',
+      'UPDATE provider_profiles SET pin_hash = ?, access_token_hash = ?, provider_token_expires_at = ?, pin_failed_attempts = 0, pin_locked_until = NULL WHERE id = ?',
       hashPin(newPin),
       sha256Hex(token),
+      addHours(new Date(), 90 * 24).toISOString(),
       prov.id
     );
     recoverFailures.delete(prov.id);
@@ -417,8 +418,9 @@ async function providerLogin(req: Request, res: Response): Promise<boolean> {
   }
   const token = randomToken(32);
   await coreDb.run(
-    'UPDATE provider_profiles SET access_token_hash = ?, pin_failed_attempts = 0, pin_locked_until = NULL WHERE id = ?',
+    'UPDATE provider_profiles SET access_token_hash = ?, provider_token_expires_at = ?, pin_failed_attempts = 0, pin_locked_until = NULL WHERE id = ?',
     sha256Hex(token),
+    addHours(new Date(), 90 * 24).toISOString(),
     prov.id
   );
   await audit({ actorType: 'MERCHANT', actorId: prov.id, action: 'SESSION_OPEN', result: 'OK', ip, details: { role: 'PROVIDER' } });
@@ -445,7 +447,7 @@ async function dualProviderLogin(phoneRaw: unknown, pin: unknown) {
   );
   if (!prov?.pin_hash || !verifyPin(pin, prov.pin_hash)) return null;
   const token = randomToken(32);
-  await coreDb.run('UPDATE provider_profiles SET access_token_hash = ? WHERE id = ?', sha256Hex(token), prov.id);
+  await coreDb.run('UPDATE provider_profiles SET access_token_hash = ?, provider_token_expires_at = ? WHERE id = ?', sha256Hex(token), addHours(new Date(), 90 * 24).toISOString(), prov.id);
   return { provider_id: prov.id, provider_token: token, business_name: prov.legal_name, kyc_status: prov.kyc_status };
 }
 
