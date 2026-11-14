@@ -4,7 +4,7 @@
 import { Router } from 'express';
 import { paymentsDb as db, db as coreDb } from '../db/client.js';
 import { secrets } from '../security/config.js';
-import { audit, recentAudit, verifyAuditChain } from '../security/audit.js';
+import { anchorAuditChain, audit, recentAudit, verifyAuditChain } from '../security/audit.js';
 import { revokeSessions } from '../security/auth.js';
 import { alertMerchant, paymentEvent } from '../security/events.js';
 import { requireAdmin } from '../security/guards.js';
@@ -77,6 +77,7 @@ internalRouter.post('/complaints/:code/respond', async (req, res) => {
 
 // ---------------------------------------------------------------- bitácora
 internalRouter.get('/audit/verify', async (_req, res) => res.json(await verifyAuditChain()));
+internalRouter.post('/audit/anchor', async (req, res) => res.json(await anchorAuditChain(typeof req.body?.note === 'string' ? req.body.note : undefined)));
 internalRouter.get('/audit', async (req, res) => res.json({ data: await recentAudit(Number(req.query.limit) || 50) }));
 
 // ----------------------------------------------------------------- riesgo
