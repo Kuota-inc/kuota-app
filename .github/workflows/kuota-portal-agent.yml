@@ -1,0 +1,77 @@
+name: Kuota Web & Docs Sync Agent
+
+on:
+  push:
+    branches:
+      - main
+      - fix/proveedor-inicio-conciliacion
+      - 'fix/**'
+      - 'feat/**'
+      - 'release/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync-and-deploy:
+    name: Autonomous Web & Portal Sync Agent
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout monorepo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Setup Node.js for Vercel CLI
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Run Kuota Portal Sync Agent
+        run: |
+          python .github/scripts/sync-portal-agent.py
+
+      - name: Commit and push portal updates (if any)
+        run: |
+          git config --global user.name "kuota-portal-agent[bot]"
+          git config --global user.email "kuota-portal-agent@users.noreply.github.com"
+          git add docs/auditoria-archify/index.html docs/auditoria-archify/portal-auditoria-completa.html docs/auditoria-archify.zip
+          if ! git diff --staged --quiet; then
+            git commit -m "chore(agent): sync portal with commit ${GITHUB_SHA::7} [skip ci]"
+            git push origin HEAD:${{ github.ref_name }}
+            echo "PORTAL_UPDATED=true" >> $GITHUB_ENV
+          else
+            echo "PORTAL_UPDATED=false" >> $GITHUB_ENV
+          fi
+
+      - name: Deploy to Vercel Production
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID || 'team_TdxMosnpbYQKS6CVQ07hQROA' }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID || 'prj_xGZOTS6vucTxMnyvImiLl6rxVY7v' }}
+        run: |
+          if [ -n "$VERCEL_TOKEN" ]; then
+            echo "Deploying to Vercel Production with VERCEL_TOKEN..."
+            npx vercel "docs/auditoria-archify" --prod --yes --token="$VERCEL_TOKEN"
+          else
+            echo "Nota: VERCEL_TOKEN no configurado en secrets. Si tienes Vercel GitHub Integration activa, el push actualiza la web automáticamente."
+          fi
+
+      - name: Agent Run Summary
+        run: |
+          echo "### 🚀 Kuota Autonomous Portal Agent" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Rama:** \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Portal Web:** [https://auditoria-archify.vercel.app](https://auditoria-archify.vercel.app)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Estado de sincronización:** Completado con éxito." >> $GITHUB_STEP_SUMMARY
+          echo "- **Artefactos actualizados:** \`index.html\`, \`portal-auditoria-completa.html\`, \`docs/auditoria-archify.zip\`" >> $GITHUB_STEP_SUMMARY

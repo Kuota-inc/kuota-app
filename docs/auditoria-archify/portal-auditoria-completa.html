@@ -21,13 +21,10 @@
 
   <style>
     /* ==========================================================================
-       VARIABLES Y SISTEMA DE DISEÑO OFICIAL KUOTA
-       Paleta de marca (DESIGN.md):
-       - Lavender (#EEF3FD)
-       - White (#FFFFFF)
-       - Periwinkle (#AFC5F6)
-       - Persian Blue (#1A3BB0)
-       - Prussian Blue (#0B2545)
+       VARIABLES Y SISTEMA DE DISEÑO OFICIAL KUOTA (DESIGN.md)
+       - Lavender (#EEF3FD), White (#FFFFFF), Periwinkle (#AFC5F6)
+       - Persian Blue (#1A3BB0), Prussian Blue (#0B2545)
+       - Tipografías: Plus Jakarta Sans / Inter / JetBrains Mono
        ========================================================================== */
     :root {
       --kuota-white: #FFFFFF;
@@ -60,7 +57,7 @@
       --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
     }
 
-    /* TEMA CLARO (PREDETERMINADO - IDENTIDAD OFICIAL KUOTA) */
+    /* TEMA CLARO */
     html[data-theme="kuota-light"] {
       --bg: #EEF3FD;
       --surface: #FFFFFF;
@@ -86,7 +83,7 @@
       --dock-border: #CBDDF8;
     }
 
-    /* TEMA OSCURO (OBSIDIAN PRO) */
+    /* TEMA OSCURO */
     html[data-theme="kuota-dark"] {
       --bg: #070B14;
       --surface: #0E1626;
@@ -112,7 +109,6 @@
       --dock-border: rgba(175, 197, 246, 0.18);
     }
 
-    /* RESET & BASE */
     *, *::before, *::after {
       box-sizing: border-box;
       margin: 0;
@@ -137,6 +133,13 @@
     ::selection {
       background-color: var(--kuota-persian-blue);
       color: #FFFFFF;
+    }
+
+    /* SVGs Geométricos Oficiales */
+    .icon-svg {
+      display: inline-block;
+      vertical-align: middle;
+      flex-shrink: 0;
     }
 
     /* ==========================================================================
@@ -243,7 +246,7 @@
       cursor: pointer;
       display: flex;
       align-items: center;
-      gap: 0.4rem;
+      gap: 0.45rem;
       transition: all 0.18s ease;
       outline: none;
     }
@@ -254,7 +257,7 @@
       transform: scale(0.96);
     }
     @media (max-width: 480px) {
-      .theme-btn span:last-child {
+      .theme-btn span.theme-label {
         display: none;
       }
     }
@@ -270,7 +273,7 @@
       text-decoration: none;
       display: flex;
       align-items: center;
-      gap: 0.35rem;
+      gap: 0.45rem;
       transition: all 0.18s ease;
       white-space: nowrap;
     }
@@ -319,6 +322,9 @@
       letter-spacing: 0.08em;
       color: var(--kuota-periwinkle);
       margin-bottom: 0.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
     }
 
     .hero-title {
@@ -359,6 +365,9 @@
       background: rgba(255, 255, 255, 0.16);
       color: #FFFFFF;
       white-space: nowrap;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
     }
 
     /* MÉTRICAS CLAVE (GRID) */
@@ -473,7 +482,7 @@
       outline: none;
       display: flex;
       align-items: center;
-      gap: 0.45rem;
+      gap: 0.5rem;
     }
     @media (max-width: 640px) {
       .nav-tab {
@@ -569,16 +578,34 @@
         border-radius: 16px;
       }
     }
+    
     .card-title {
       font-family: var(--font-display);
-      font-size: 1.25rem;
+      font-size: 1.2rem;
       font-weight: 700;
       letter-spacing: -0.015em;
       color: var(--text);
       margin-bottom: 0.85rem;
       display: flex;
       align-items: center;
-      gap: 0.6rem;
+      gap: 0.65rem;
+    }
+
+    .icon-badge {
+      width: 30px;
+      height: 30px;
+      border-radius: 8px;
+      background: var(--surface-soft);
+      color: var(--kuota-persian-blue);
+      border: 1px solid var(--border);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    html[data-theme="kuota-dark"] .icon-badge {
+      color: #60A5FA;
+      background: rgba(175, 197, 246, 0.1);
     }
 
     /* ==========================================================================
@@ -1079,7 +1106,7 @@
       text-decoration: none;
       display: flex;
       align-items: center;
-      gap: 0.35rem;
+      gap: 0.4rem;
       transition: all 0.15s ease;
     }
     .reader-btn:hover {
@@ -1247,15 +1274,26 @@
     </div>
     
     <div class="header-actions">
-      <span class="pill-status">
-        <span class="status-dot"></span> Vercel Live
+      <span class="pill-status" title="Última sincronización: 2026-11-14 21:45 UTC">
+        <span class="status-dot"></span> Vercel Live &middot; CI/CD Sync
       </span>
       <button class="theme-btn" onclick="toggleTheme()" title="Cambiar tema">
-        <span id="theme-icon">🌙</span>
-        <span id="theme-text">Modo Oscuro</span>
+        <span id="theme-icon">
+          <!-- Luna Monoline SVG -->
+          <svg class="icon-svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>
+          </svg>
+        </span>
+        <span id="theme-text" class="theme-label">Modo Oscuro</span>
       </button>
       <a href="https://github.com/Kuota-inc/kuota-app/pull/new/fix/proveedor-inicio-conciliacion" target="_blank" class="btn-github">
-        GitHub PR ↗
+        <svg class="icon-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 0 1 2 2v7"/><line x1="6" x2="6" y1="9" y2="21"/>
+        </svg>
+        <span>GitHub PR</span>
+        <svg class="icon-svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M7 17L17 7"/><path d="M7 7h10v10"/>
+        </svg>
       </a>
     </div>
   </header>
@@ -1263,17 +1301,35 @@
   <!-- Banner Principal (Hero Card) -->
   <div class="hero-container">
     <div class="card-hero">
-      <div class="hero-eyebrow">Documentación Técnica &middot; Monorepo Kuota</div>
+      <div class="hero-eyebrow">
+        <svg class="icon-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+        </svg>
+        <span>Documentación Técnica &middot; Monorepo Kuota</span>
+      </div>
       <h1 class="hero-title">Arquitectura, Pagos<br>y Seguridad Técnica</h1>
       <p class="hero-subtitle">
         Portal unificado para el equipo de desarrollo y producto. Documenta la unificación de Inicio y Conciliación del perfil Proveedor, el cálculo verificado de comisiones (1% + IGV con piso de S/ 4.50), las reglas de liquidación bancaria, el catálogo de 24 controles normativos y la lectura en vivo de los 7 informes técnicos.
       </p>
 
       <div class="hero-chips">
-        <span class="hero-chip">Commit: d7bac8b3</span>
-        <span class="hero-chip">Rama: fix/proveedor-inicio-conciliacion</span>
+        <span class="hero-chip">
+          <svg class="icon-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"/><line x1="3" x2="9" y1="12" y2="12"/><line x1="15" x2="21" y1="12" y2="12"/>
+          </svg>
+          Commit: 9e4a774
+        </span>
+        <span class="hero-chip">
+          <svg class="icon-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="6" x2="6" y1="3" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/>
+          </svg>
+          Rama: fix/proveedor-inicio-conciliacion
+        </span>
         <span class="hero-chip">Archify v2.17.0</span>
         <span class="hero-chip">Ley N° 29733 (Perú)</span>
+        <span class="hero-chip" style="background: rgba(16, 185, 129, 0.25);">
+          <span class="status-dot"></span> Sincronizado: 2026-11-14 21:45 UTC
+        </span>
       </div>
     </div>
 
@@ -1307,23 +1363,46 @@
     </div>
   </div>
 
-  <!-- Barra de Navegación Segmentada (5 Módulos Claros) -->
+  <!-- Barra de Navegación Segmentada con Íconos SVG Ultra-Limpios -->
   <div class="nav-dock-wrapper">
     <div class="nav-dock" role="tablist">
       <button class="nav-tab active" onclick="switchMainTab('diagramas')">
-        🗺️ Arquitectura (8 Vistas)
+        <svg class="icon-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="12 2 2 7 12 12 22 7 12 2"/>
+          <polyline points="2 17 12 22 22 17"/>
+          <polyline points="2 12 12 17 22 12"/>
+        </svg>
+        <span>Arquitectura (8 Vistas)</span>
       </button>
       <button class="nav-tab" onclick="switchMainTab('pagos')">
-        💳 Pagos &amp; Calculadora
+        <svg class="icon-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect width="20" height="14" x="2" y="5" rx="2"/>
+          <line x1="2" x2="22" y1="10" y2="10"/>
+        </svg>
+        <span>Pagos &amp; Calculadora</span>
       </button>
       <button class="nav-tab" onclick="switchMainTab('seguridad')">
-        🛡️ Seguridad &amp; Endpoints
+        <svg class="icon-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          <path d="m9 12 2 2 4-4"/>
+        </svg>
+        <span>Seguridad &amp; Endpoints</span>
       </button>
       <button class="nav-tab" onclick="switchMainTab('hallazgos')">
-        🚨 Hallazgos (6)
+        <svg class="icon-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
+          <line x1="12" y1="9" x2="12" y2="13"/>
+          <line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
+        <span>Hallazgos (6)</span>
       </button>
       <button class="nav-tab" onclick="switchMainTab('documentos')">
-        📖 Informes &amp; Lector
+        <svg class="icon-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/>
+          <path d="M6 6h10"/>
+          <path d="M6 10h10"/>
+        </svg>
+        <span>Informes &amp; Lector</span>
       </button>
     </div>
   </div>
@@ -1351,7 +1430,10 @@
           <div class="window-title" id="archify-title">v1-arquitectura-actual.archify &middot; Diagrama de Arquitectura</div>
           <div>
             <a id="btn-fullscreen-diagram" href="v1-arquitectura-actual.html" target="_blank" class="reader-btn" style="color: #FFFFFF; background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.25);">
-              Pantalla Completa ↗
+              <svg class="icon-svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" x2="14" y1="3" y2="10"/><line x1="3" x2="10" y1="21" y2="14"/>
+              </svg>
+              <span>Pantalla Completa</span>
             </a>
           </div>
         </div>
@@ -1439,7 +1521,13 @@
       <!-- Explicación del -S/ 15.93 -->
       <div class="card">
         <div class="card-title">
-          <span>💡</span> ¿Por qué figuraba -S/ 15.93 en la pantalla de Inicio?
+          <span class="icon-badge">
+            <svg class="icon-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/>
+              <path d="M9 18h6"/><path d="M10 22h4"/>
+            </svg>
+          </span>
+          <span>¿Por qué figuraba -S/ 15.93 en la pantalla de Inicio?</span>
         </div>
         <p style="color: var(--text-secondary); margin-bottom: 0.85rem;">
           En la tarjeta <i>"Ahorraste con Kuota Payments"</i> de la app aparece: <b>Lo que pagaste con Kuota (1% + IGV): -S/ 15.93</b>. La razón técnica se encuentra en la lógica de comisiones mínimas implementada en <code>backend/src/security/pricing.ts</code>:
@@ -1462,7 +1550,14 @@
       <!-- Estados de Pago -->
       <div class="card">
         <div class="card-title">
-          <span>📋</span> Estados Operativos de Kuota Payments
+          <span class="icon-badge">
+            <svg class="icon-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect width="8" height="4" x="8" y="2" rx="1" ry="1"/>
+              <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+              <path d="m9 14 2 2 4-4"/>
+            </svg>
+          </span>
+          <span>Estados Operativos de Kuota Payments</span>
         </div>
         <div class="table-container">
           <table class="data-table">
@@ -1507,7 +1602,12 @@
       <!-- Sandbox vs Producción -->
       <div class="card">
         <div class="card-title">
-          <span>⚡</span> Simulación Sandbox (5 min) vs Producción (48h)
+          <span class="icon-badge">
+            <svg class="icon-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+            </svg>
+          </span>
+          <span>Simulación Sandbox (5 min) vs Producción (48h)</span>
         </div>
         <p style="color: var(--text-secondary); margin-bottom: 0.85rem;">
           Para validar el cambio de estado sin esperar 2 días ni alterar la fecha del teléfono, el backend expone un endpoint seguro exclusivo de pruebas:
@@ -1539,10 +1639,18 @@
       <div class="card">
         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 1rem;">
           <div class="card-title" style="margin-bottom: 0;">
-            <span>🛡️</span> Matriz de Controles y Parámetros (24)
+            <span class="icon-badge">
+              <svg class="icon-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              </svg>
+            </span>
+            <span>Matriz de Controles y Parámetros (24)</span>
           </div>
           <a href="01-matriz-controles-y-parametros.csv" download class="reader-btn" style="color: var(--kuota-persian-blue); font-weight: 700;">
-            Descargar CSV Sanitizado ⬇
+            <svg class="icon-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>
+            </svg>
+            <span>Descargar CSV Sanitizado</span>
           </a>
         </div>
 
@@ -1604,7 +1712,12 @@
       <!-- Catálogo de 14 Endpoints -->
       <div class="card">
         <div class="card-title">
-          <span>🔌</span> Catálogo de Endpoints de API (14)
+          <span class="icon-badge">
+            <svg class="icon-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2v10"/><path d="M18.4 6.6a9 9 0 1 1-12.77.01"/>
+            </svg>
+          </span>
+          <span>Catálogo de Endpoints de API (14)</span>
         </div>
         <div class="table-container">
           <table class="data-table">
@@ -1654,7 +1767,11 @@
           </div>
           <div style="display: flex; align-items: center; gap: 0.75rem;">
             <span class="severity-badge sev-med">Media &middot; Operativo</span>
-            <span class="chevron">▼</span>
+            <span class="chevron">
+              <svg class="icon-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </span>
           </div>
         </div>
         <div class="finding-details">
@@ -1673,7 +1790,11 @@
           </div>
           <div style="display: flex; align-items: center; gap: 0.75rem;">
             <span class="severity-badge sev-high">Alta &middot; Arquitectura</span>
-            <span class="chevron">▼</span>
+            <span class="chevron">
+              <svg class="icon-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </span>
           </div>
         </div>
         <div class="finding-details">
@@ -1692,7 +1813,11 @@
           </div>
           <div style="display: flex; align-items: center; gap: 0.75rem;">
             <span class="severity-badge sev-high">Alta &middot; Mitigada</span>
-            <span class="chevron">▼</span>
+            <span class="chevron">
+              <svg class="icon-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </span>
           </div>
         </div>
         <div class="finding-details">
@@ -1711,7 +1836,11 @@
           </div>
           <div style="display: flex; align-items: center; gap: 0.75rem;">
             <span class="severity-badge sev-med">Media &middot; Comercial</span>
-            <span class="chevron">▼</span>
+            <span class="chevron">
+              <svg class="icon-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </span>
           </div>
         </div>
         <div class="finding-details">
@@ -1730,7 +1859,11 @@
           </div>
           <div style="display: flex; align-items: center; gap: 0.75rem;">
             <span class="severity-badge sev-med">Media &middot; Operativo</span>
-            <span class="chevron">▼</span>
+            <span class="chevron">
+              <svg class="icon-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </span>
           </div>
         </div>
         <div class="finding-details">
@@ -1749,7 +1882,11 @@
           </div>
           <div style="display: flex; align-items: center; gap: 0.75rem;">
             <span class="severity-badge sev-med">Media &middot; Hardening</span>
-            <span class="chevron">▼</span>
+            <span class="chevron">
+              <svg class="icon-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </span>
           </div>
         </div>
         <div class="finding-details">
@@ -1785,10 +1922,17 @@
           
           <div class="reader-actions">
             <button class="reader-btn" onclick="copyCurrentDoc()">
-              📋 Copiar
+              <svg class="icon-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect width="14" height="14" x="8" y="8" rx="2" ry="2"/>
+                <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>
+              </svg>
+              <span>Copiar</span>
             </button>
             <a id="btn-download-doc" href="README.md" download="README.md" class="reader-btn" style="background: var(--kuota-persian-blue); color: #FFFFFF; border-color: var(--kuota-persian-blue);">
-              Descargar .md ⬇
+              <svg class="icon-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>
+              </svg>
+              <span>Descargar .md</span>
             </a>
           </div>
         </div>
@@ -1810,7 +1954,12 @@
             <div style="font-family: var(--font-display); font-size: 1.05rem; font-weight: 700; margin: 0.35rem 0;">README.md &middot; Síntesis</div>
             <div style="font-size: 0.85rem; color: var(--text-secondary);">Resumen ejecutivo, arquitectura general, decisiones tomadas y metodología.</div>
           </div>
-          <div style="font-size: 0.8rem; font-weight: 700; color: var(--kuota-persian-blue); margin-top: 1rem;">Abrir en lector &uarr;</div>
+          <div style="font-size: 0.8rem; font-weight: 700; color: var(--kuota-persian-blue); margin-top: 1rem; display: flex; align-items: center; gap: 0.35rem;">
+            <span>Abrir en lector</span>
+            <svg class="icon-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/>
+            </svg>
+          </div>
         </div>
 
         <div class="doc-tile" onclick="openDocTile('controles')">
@@ -1819,7 +1968,12 @@
             <div style="font-family: var(--font-display); font-size: 1.05rem; font-weight: 700; margin: 0.35rem 0;">01-matriz-controles.md</div>
             <div style="font-size: 0.85rem; color: var(--text-secondary);">24 controles catalogados con citas exactas de código y estados canónicos.</div>
           </div>
-          <div style="font-size: 0.8rem; font-weight: 700; color: var(--kuota-persian-blue); margin-top: 1rem;">Abrir en lector &uarr;</div>
+          <div style="font-size: 0.8rem; font-weight: 700; color: var(--kuota-persian-blue); margin-top: 1rem; display: flex; align-items: center; gap: 0.35rem;">
+            <span>Abrir en lector</span>
+            <svg class="icon-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/>
+            </svg>
+          </div>
         </div>
 
         <a href="01-matriz-controles-y-parametros.csv" download class="doc-tile" style="border-color: rgba(16, 185, 129, 0.4); background: rgba(16, 185, 129, 0.04);">
@@ -1828,7 +1982,12 @@
             <div style="font-family: var(--font-display); font-size: 1.05rem; font-weight: 700; margin: 0.35rem 0;">01-matriz-controles.csv</div>
             <div style="font-size: 0.85rem; color: var(--text-secondary);">Matriz protegida contra inyección de fórmulas para abrir en Excel o Google Sheets.</div>
           </div>
-          <div style="font-size: 0.8rem; font-weight: 700; color: var(--green); margin-top: 1rem;">Descargar archivo CSV ⬇</div>
+          <div style="font-size: 0.8rem; font-weight: 700; color: var(--green); margin-top: 1rem; display: flex; align-items: center; gap: 0.35rem;">
+            <span>Descargar archivo CSV</span>
+            <svg class="icon-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>
+            </svg>
+          </div>
         </a>
 
         <div class="doc-tile" onclick="openDocTile('endpoints')">
@@ -1837,7 +1996,12 @@
             <div style="font-family: var(--font-display); font-size: 1.05rem; font-weight: 700; margin: 0.35rem 0;">02-inventario-endpoints.md</div>
             <div style="font-size: 0.85rem; color: var(--text-secondary);">14 endpoints analizados con roles, nivel de autenticación y mutaciones.</div>
           </div>
-          <div style="font-size: 0.8rem; font-weight: 700; color: var(--kuota-persian-blue); margin-top: 1rem;">Abrir en lector &uarr;</div>
+          <div style="font-size: 0.8rem; font-weight: 700; color: var(--kuota-persian-blue); margin-top: 1rem; display: flex; align-items: center; gap: 0.35rem;">
+            <span>Abrir en lector</span>
+            <svg class="icon-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/>
+            </svg>
+          </div>
         </div>
 
         <div class="doc-tile" onclick="openDocTile('roles')">
@@ -1846,7 +2010,12 @@
             <div style="font-family: var(--font-display); font-size: 1.05rem; font-weight: 700; margin: 0.35rem 0;">03-roles-y-datos.md</div>
             <div style="font-size: 0.85rem; color: var(--text-secondary);">Aislamiento multi-tenant, sesiones mono-dispositivo y Ley N° 29733.</div>
           </div>
-          <div style="font-size: 0.8rem; font-weight: 700; color: var(--kuota-persian-blue); margin-top: 1rem;">Abrir en lector &uarr;</div>
+          <div style="font-size: 0.8rem; font-weight: 700; color: var(--kuota-persian-blue); margin-top: 1rem; display: flex; align-items: center; gap: 0.35rem;">
+            <span>Abrir en lector</span>
+            <svg class="icon-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/>
+            </svg>
+          </div>
         </div>
 
         <div class="doc-tile" onclick="openDocTile('pagos')">
@@ -1855,7 +2024,12 @@
             <div style="font-family: var(--font-display); font-size: 1.05rem; font-weight: 700; margin: 0.35rem 0;">04-riel-de-pagos.md</div>
             <div style="font-size: 0.85rem; color: var(--text-secondary);">Matemática de comisiones (1% + IGV), libro de doble partida y ventana de 5 min.</div>
           </div>
-          <div style="font-size: 0.8rem; font-weight: 700; color: var(--kuota-persian-blue); margin-top: 1rem;">Abrir en lector &uarr;</div>
+          <div style="font-size: 0.8rem; font-weight: 700; color: var(--kuota-persian-blue); margin-top: 1rem; display: flex; align-items: center; gap: 0.35rem;">
+            <span>Abrir en lector</span>
+            <svg class="icon-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/>
+            </svg>
+          </div>
         </div>
 
         <div class="doc-tile" onclick="openDocTile('hallazgos')">
@@ -1864,7 +2038,12 @@
             <div style="font-family: var(--font-display); font-size: 1.05rem; font-weight: 700; margin: 0.35rem 0;">05-registro-hallazgos.md</div>
             <div style="font-size: 0.85rem; color: var(--text-secondary);">6 hallazgos analizados con vectores de abuso y criterios de remediación.</div>
           </div>
-          <div style="font-size: 0.8rem; font-weight: 700; color: var(--red); margin-top: 1rem;">Abrir en lector &uarr;</div>
+          <div style="font-size: 0.8rem; font-weight: 700; color: var(--red); margin-top: 1rem; display: flex; align-items: center; gap: 0.35rem;">
+            <span>Abrir en lector</span>
+            <svg class="icon-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/>
+            </svg>
+          </div>
         </div>
 
         <div class="doc-tile" onclick="openDocTile('comparativa')">
@@ -1873,7 +2052,12 @@
             <div style="font-family: var(--font-display); font-size: 1.05rem; font-weight: 700; margin: 0.35rem 0;">06-comparativa-historica.md</div>
             <div style="font-size: 0.85rem; color: var(--text-secondary);">Contraste contra documentos previos, inventario de pruebas y dudas con 360Pay.</div>
           </div>
-          <div style="font-size: 0.8rem; font-weight: 700; color: var(--kuota-persian-blue); margin-top: 1rem;">Abrir en lector &uarr;</div>
+          <div style="font-size: 0.8rem; font-weight: 700; color: var(--kuota-persian-blue); margin-top: 1rem; display: flex; align-items: center; gap: 0.35rem;">
+            <span>Abrir en lector</span>
+            <svg class="icon-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/>
+            </svg>
+          </div>
         </div>
       </div>
     </section>
@@ -1892,13 +2076,16 @@
         <img src="assets/Kuotalogotiposvg.svg" alt="Kuota" style="height: 24px; width: auto;">
         <div>
           <div style="font-family: var(--font-display); font-weight: 700; color: var(--text);">Kuota &middot; Portal Técnico de Arquitectura y Pagos</div>
-          <div>Monorepo Kuota &middot; Commit <code>d7bac8b3</code></div>
+          <div>Monorepo Kuota &middot; Commit <code>9e4a774</code> &middot; Rama <code>fix/proveedor-inicio-conciliacion</code></div>
         </div>
       </div>
       <div style="display: flex; gap: 1.25rem; align-items: center; flex-wrap: wrap;">
-        <a href="https://github.com/Kuota-inc/kuota-app" target="_blank" style="color: var(--text-secondary); text-decoration: none; font-weight: 600;">GitHub ↗</a>
+        <a href="https://github.com/Kuota-inc/kuota-app" target="_blank" style="color: var(--text-secondary); text-decoration: none; font-weight: 600; display: inline-flex; align-items: center; gap: 0.35rem;">
+          <span>GitHub</span>
+          <svg class="icon-svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg>
+        </a>
         <a href="01-matriz-controles-y-parametros.csv" download style="color: var(--kuota-persian-blue); text-decoration: none; font-weight: 700;">Descargar CSV</a>
-        <a href="docs/auditoria-archify.zip" download style="color: var(--text-secondary); text-decoration: none; font-weight: 600;">Auditoría ZIP ⬇</a>
+        <a href="docs/auditoria-archify.zip" download style="color: var(--text-secondary); text-decoration: none; font-weight: 600;">Auditoría ZIP</a>
       </div>
     </div>
   </footer>
@@ -1929,7 +2116,7 @@
       }
     }
 
-    // Alternador de Tema
+    // Alternador de Tema con Íconos SVG Limpios
     function toggleTheme() {
       const html = document.documentElement;
       const current = html.getAttribute('data-theme') || 'kuota-light';
@@ -1939,10 +2126,10 @@
       const icon = document.getElementById('theme-icon');
       const text = document.getElementById('theme-text');
       if (next === 'kuota-dark') {
-        icon.textContent = '☀️';
+        icon.innerHTML = '<svg class="icon-svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>';
         text.textContent = 'Modo Claro';
       } else {
-        icon.textContent = '🌙';
+        icon.innerHTML = '<svg class="icon-svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>';
         text.textContent = 'Modo Oscuro';
       }
     }
@@ -2059,7 +2246,6 @@
       if (window.marked) {
         container.innerHTML = marked.parse(doc.content);
       } else {
-        // Fallback básico si marked no cargó
         container.innerHTML = '<h1>' + doc.title + '</h1><pre style="white-space: pre-wrap;">' + doc.content + '</pre>';
       }
     }
