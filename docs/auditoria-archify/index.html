@@ -1274,7 +1274,7 @@
     </div>
     
     <div class="header-actions">
-      <span class="pill-status" title="Última sincronización: 2026-11-14 21:47 UTC">
+      <span class="pill-status" title="Última sincronización: 2026-11-14 22:00 UTC">
         <span class="status-dot"></span> Vercel Live &middot; CI/CD Sync
       </span>
       <button class="theme-btn" onclick="toggleTheme()" title="Cambiar tema">
@@ -1317,7 +1317,7 @@
           <svg class="icon-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="12" r="3"/><line x1="3" x2="9" y1="12" y2="12"/><line x1="15" x2="21" y1="12" y2="12"/>
           </svg>
-          Commit: 3a4138f
+          Commit: b9bd4fa
         </span>
         <span class="hero-chip">
           <svg class="icon-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1328,7 +1328,7 @@
         <span class="hero-chip">Archify v2.17.0</span>
         <span class="hero-chip">Ley N° 29733 (Perú)</span>
         <span class="hero-chip" style="background: rgba(16, 185, 129, 0.25);">
-          <span class="status-dot"></span> Sincronizado: 2026-11-14 21:47 UTC
+          <span class="status-dot"></span> Sincronizado: 2026-11-14 22:00 UTC
         </span>
       </div>
     </div>
@@ -1646,12 +1646,20 @@
             </span>
             <span>Matriz de Controles y Parámetros (24)</span>
           </div>
-          <a href="01-matriz-controles-y-parametros.csv" download class="reader-btn" style="color: var(--kuota-persian-blue); font-weight: 700;">
-            <svg class="icon-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>
-            </svg>
-            <span>Descargar CSV Sanitizado</span>
-          </a>
+          <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+            <a href="01-matriz-controles-y-parametros.xlsx" download="01-matriz-controles-y-parametros.xlsx" class="reader-btn" style="background: var(--kuota-persian-blue); color: #FFFFFF; font-weight: 700; border-color: var(--kuota-persian-blue);">
+              <svg class="icon-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>
+              </svg>
+              <span>Descargar Excel (.xlsx)</span>
+            </a>
+            <a href="01-matriz-controles-y-parametros.csv" download="01-matriz-controles-y-parametros.csv" class="reader-btn" style="color: var(--kuota-persian-blue); font-weight: 700;">
+              <svg class="icon-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>
+              </svg>
+              <span>Descargar CSV (UTF-8 BOM)</span>
+            </a>
+          </div>
         </div>
 
         <div class="search-row">
@@ -1928,12 +1936,12 @@
               </svg>
               <span>Copiar</span>
             </button>
-            <a id="btn-download-doc" href="README.md" download="README.md" class="reader-btn" style="background: var(--kuota-persian-blue); color: #FFFFFF; border-color: var(--kuota-persian-blue);">
+            <button class="reader-btn" onclick="downloadCurrentDoc()" style="background: var(--kuota-persian-blue); color: #FFFFFF; border-color: var(--kuota-persian-blue); cursor: pointer;">
               <svg class="icon-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>
               </svg>
               <span>Descargar .md</span>
-            </a>
+            </button>
           </div>
         </div>
 
@@ -1976,11 +1984,25 @@
           </div>
         </div>
 
-        <a href="01-matriz-controles-y-parametros.csv" download class="doc-tile" style="border-color: rgba(16, 185, 129, 0.4); background: rgba(16, 185, 129, 0.04);">
+        <a href="01-matriz-controles-y-parametros.xlsx" download="01-matriz-controles-y-parametros.xlsx" class="doc-tile" style="border-color: rgba(26, 59, 176, 0.35); background: rgba(26, 59, 176, 0.04);">
           <div>
-            <div style="font-family: var(--font-mono); font-size: 0.72rem; color: var(--green); font-weight: 700;">CSV SANITIZADO</div>
+            <div style="font-family: var(--font-mono); font-size: 0.72rem; color: var(--kuota-persian-blue); font-weight: 700;">MICROSOFT EXCEL (.XLSX)</div>
+            <div style="font-family: var(--font-display); font-size: 1.05rem; font-weight: 700; margin: 0.35rem 0;">01-matriz-controles.xlsx</div>
+            <div style="font-size: 0.85rem; color: var(--text-secondary);">Libro Excel nativo con tipografía corporativa, cabeceras en azul persa, auto-filtro y columnas ajustadas.</div>
+          </div>
+          <div style="font-size: 0.8rem; font-weight: 700; color: var(--kuota-persian-blue); margin-top: 1rem; display: flex; align-items: center; gap: 0.35rem;">
+            <span>Descargar archivo XLSX</span>
+            <svg class="icon-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>
+            </svg>
+          </div>
+        </a>
+
+        <a href="01-matriz-controles-y-parametros.csv" download="01-matriz-controles-y-parametros.csv" class="doc-tile" style="border-color: rgba(16, 185, 129, 0.4); background: rgba(16, 185, 129, 0.04);">
+          <div>
+            <div style="font-family: var(--font-mono); font-size: 0.72rem; color: var(--green); font-weight: 700;">CSV SANITIZADO (UTF-8 BOM)</div>
             <div style="font-family: var(--font-display); font-size: 1.05rem; font-weight: 700; margin: 0.35rem 0;">01-matriz-controles.csv</div>
-            <div style="font-size: 0.85rem; color: var(--text-secondary);">Matriz protegida contra inyección de fórmulas para abrir en Excel o Google Sheets.</div>
+            <div style="font-size: 0.85rem; color: var(--text-secondary);">CSV estándar con comillas estrictas y Byte Order Mark para compatibilidad universal con Excel en español.</div>
           </div>
           <div style="font-size: 0.8rem; font-weight: 700; color: var(--green); margin-top: 1rem; display: flex; align-items: center; gap: 0.35rem;">
             <span>Descargar archivo CSV</span>
@@ -2076,7 +2098,7 @@
         <img src="assets/Kuotalogotiposvg.svg" alt="Kuota" style="height: 24px; width: auto;">
         <div>
           <div style="font-family: var(--font-display); font-weight: 700; color: var(--text);">Kuota &middot; Portal Técnico de Arquitectura y Pagos</div>
-          <div>Monorepo Kuota &middot; Commit <code>3a4138f</code> &middot; Rama <code>fix/proveedor-inicio-conciliacion</code></div>
+          <div>Monorepo Kuota &middot; Commit <code>b9bd4fa</code> &middot; Rama <code>fix/proveedor-inicio-conciliacion</code></div>
         </div>
       </div>
       <div style="display: flex; gap: 1.25rem; align-items: center; flex-wrap: wrap;">
@@ -2084,8 +2106,9 @@
           <span>GitHub</span>
           <svg class="icon-svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg>
         </a>
-        <a href="01-matriz-controles-y-parametros.csv" download style="color: var(--kuota-persian-blue); text-decoration: none; font-weight: 700;">Descargar CSV</a>
-        <a href="docs/auditoria-archify.zip" download style="color: var(--text-secondary); text-decoration: none; font-weight: 600;">Auditoría ZIP</a>
+        <a href="01-matriz-controles-y-parametros.xlsx" download="01-matriz-controles-y-parametros.xlsx" style="color: var(--kuota-persian-blue); text-decoration: none; font-weight: 700;">Excel (.xlsx)</a>
+        <a href="01-matriz-controles-y-parametros.csv" download="01-matriz-controles-y-parametros.csv" style="color: var(--text-secondary); text-decoration: none; font-weight: 600;">CSV (BOM)</a>
+        <a href="auditoria-archify.zip" download="auditoria-archify.zip" style="color: var(--kuota-persian-blue); text-decoration: none; font-weight: 700; background: var(--kuota-lavender); padding: 0.35rem 0.75rem; border-radius: 9999px;">Auditoría ZIP (9.3 MB)</a>
       </div>
     </div>
   </footer>
@@ -2236,12 +2259,6 @@
       if (!doc) return;
 
       const container = document.getElementById('reader-content');
-      const dlBtn = document.getElementById('btn-download-doc');
-
-      if (dlBtn) {
-        dlBtn.href = doc.filename;
-        dlBtn.download = doc.filename;
-      }
 
       if (window.marked) {
         container.innerHTML = marked.parse(doc.content);
@@ -2263,6 +2280,21 @@
       navigator.clipboard.writeText(doc.content).then(() => {
         showToastMsg('¡Copiado el Markdown de ' + doc.filename + '!');
       });
+    }
+
+    function downloadCurrentDoc() {
+      const doc = TECHNICAL_DOCS[activeDoc];
+      if (!doc) return;
+      const blob = new Blob([doc.content], { type: 'text/markdown;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = doc.filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToastMsg('Descargando ' + doc.filename + '...');
     }
 
     function showToastMsg(msg) {

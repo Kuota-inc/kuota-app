@@ -1707,12 +1707,20 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data):
             </span>
             <span>Matriz de Controles y Parámetros (24)</span>
           </div>
-          <a href="01-matriz-controles-y-parametros.csv" download class="reader-btn" style="color: var(--kuota-persian-blue); font-weight: 700;">
-            <svg class="icon-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>
-            </svg>
-            <span>Descargar CSV Sanitizado</span>
-          </a>
+          <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+            <a href="01-matriz-controles-y-parametros.xlsx" download="01-matriz-controles-y-parametros.xlsx" class="reader-btn" style="background: var(--kuota-persian-blue); color: #FFFFFF; font-weight: 700; border-color: var(--kuota-persian-blue);">
+              <svg class="icon-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>
+              </svg>
+              <span>Descargar Excel (.xlsx)</span>
+            </a>
+            <a href="01-matriz-controles-y-parametros.csv" download="01-matriz-controles-y-parametros.csv" class="reader-btn" style="color: var(--kuota-persian-blue); font-weight: 700;">
+              <svg class="icon-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>
+              </svg>
+              <span>Descargar CSV (UTF-8 BOM)</span>
+            </a>
+          </div>
         </div>
 
         <div class="search-row">
@@ -1989,12 +1997,12 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data):
               </svg>
               <span>Copiar</span>
             </button>
-            <a id="btn-download-doc" href="README.md" download="README.md" class="reader-btn" style="background: var(--kuota-persian-blue); color: #FFFFFF; border-color: var(--kuota-persian-blue);">
+            <button class="reader-btn" onclick="downloadCurrentDoc()" style="background: var(--kuota-persian-blue); color: #FFFFFF; border-color: var(--kuota-persian-blue); cursor: pointer;">
               <svg class="icon-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>
               </svg>
               <span>Descargar .md</span>
-            </a>
+            </button>
           </div>
         </div>
 
@@ -2037,11 +2045,25 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data):
           </div>
         </div>
 
-        <a href="01-matriz-controles-y-parametros.csv" download class="doc-tile" style="border-color: rgba(16, 185, 129, 0.4); background: rgba(16, 185, 129, 0.04);">
+        <a href="01-matriz-controles-y-parametros.xlsx" download="01-matriz-controles-y-parametros.xlsx" class="doc-tile" style="border-color: rgba(26, 59, 176, 0.35); background: rgba(26, 59, 176, 0.04);">
           <div>
-            <div style="font-family: var(--font-mono); font-size: 0.72rem; color: var(--green); font-weight: 700;">CSV SANITIZADO</div>
+            <div style="font-family: var(--font-mono); font-size: 0.72rem; color: var(--kuota-persian-blue); font-weight: 700;">MICROSOFT EXCEL (.XLSX)</div>
+            <div style="font-family: var(--font-display); font-size: 1.05rem; font-weight: 700; margin: 0.35rem 0;">01-matriz-controles.xlsx</div>
+            <div style="font-size: 0.85rem; color: var(--text-secondary);">Libro Excel nativo con tipografía corporativa, cabeceras en azul persa, auto-filtro y columnas ajustadas.</div>
+          </div>
+          <div style="font-size: 0.8rem; font-weight: 700; color: var(--kuota-persian-blue); margin-top: 1rem; display: flex; align-items: center; gap: 0.35rem;">
+            <span>Descargar archivo XLSX</span>
+            <svg class="icon-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>
+            </svg>
+          </div>
+        </a>
+
+        <a href="01-matriz-controles-y-parametros.csv" download="01-matriz-controles-y-parametros.csv" class="doc-tile" style="border-color: rgba(16, 185, 129, 0.4); background: rgba(16, 185, 129, 0.04);">
+          <div>
+            <div style="font-family: var(--font-mono); font-size: 0.72rem; color: var(--green); font-weight: 700;">CSV SANITIZADO (UTF-8 BOM)</div>
             <div style="font-family: var(--font-display); font-size: 1.05rem; font-weight: 700; margin: 0.35rem 0;">01-matriz-controles.csv</div>
-            <div style="font-size: 0.85rem; color: var(--text-secondary);">Matriz protegida contra inyección de fórmulas para abrir en Excel o Google Sheets.</div>
+            <div style="font-size: 0.85rem; color: var(--text-secondary);">CSV estándar con comillas estrictas y Byte Order Mark para compatibilidad universal con Excel en español.</div>
           </div>
           <div style="font-size: 0.8rem; font-weight: 700; color: var(--green); margin-top: 1rem; display: flex; align-items: center; gap: 0.35rem;">
             <span>Descargar archivo CSV</span>
@@ -2145,8 +2167,9 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data):
           <span>GitHub</span>
           <svg class="icon-svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg>
         </a>
-        <a href="01-matriz-controles-y-parametros.csv" download style="color: var(--kuota-persian-blue); text-decoration: none; font-weight: 700;">Descargar CSV</a>
-        <a href="docs/auditoria-archify.zip" download style="color: var(--text-secondary); text-decoration: none; font-weight: 600;">Auditoría ZIP</a>
+        <a href="01-matriz-controles-y-parametros.xlsx" download="01-matriz-controles-y-parametros.xlsx" style="color: var(--kuota-persian-blue); text-decoration: none; font-weight: 700;">Excel (.xlsx)</a>
+        <a href="01-matriz-controles-y-parametros.csv" download="01-matriz-controles-y-parametros.csv" style="color: var(--text-secondary); text-decoration: none; font-weight: 600;">CSV (BOM)</a>
+        <a href="auditoria-archify.zip" download="auditoria-archify.zip" style="color: var(--kuota-persian-blue); text-decoration: none; font-weight: 700; background: var(--kuota-lavender); padding: 0.35rem 0.75rem; border-radius: 9999px;">Auditoría ZIP (9.3 MB)</a>
       </div>
     </div>
   </footer>
@@ -2297,12 +2320,6 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data):
       if (!doc) return;
 
       const container = document.getElementById('reader-content');
-      const dlBtn = document.getElementById('btn-download-doc');
-
-      if (dlBtn) {{
-        dlBtn.href = doc.filename;
-        dlBtn.download = doc.filename;
-      }}
 
       if (window.marked) {{
         container.innerHTML = marked.parse(doc.content);
@@ -2326,6 +2343,21 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data):
       }});
     }}
 
+    function downloadCurrentDoc() {{
+      const doc = TECHNICAL_DOCS[activeDoc];
+      if (!doc) return;
+      const blob = new Blob([doc.content], {{ type: 'text/markdown;charset=utf-8' }});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = doc.filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToastMsg('Descargando ' + doc.filename + '...');
+    }}
+
     function showToastMsg(msg) {{
       const toast = document.getElementById('toast');
       const text = document.getElementById('toast-msg');
@@ -2345,16 +2377,108 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data):
 '''
     return html
 
+def generate_excel_and_clean_csv():
+    import csv
+    try:
+        import openpyxl
+        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+        from openpyxl.utils import get_column_letter
+    except ImportError:
+        try:
+            import sys
+            subprocess.check_call([sys.executable, "-m", "pip", "install", "openpyxl"])
+            import openpyxl
+            from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+            from openpyxl.utils import get_column_letter
+        except Exception as e:
+            print(f"Warning: could not install openpyxl: {e}")
+            openpyxl = None
+
+    csv_path = os.path.join('docs', 'auditoria-archify', '01-matriz-controles-y-parametros.csv')
+    if not os.path.exists(csv_path):
+        return
+
+    # 1. Read existing rows
+    rows = []
+    with open(csv_path, 'r', encoding='utf-8-sig', errors='replace') as f:
+        reader = csv.reader(f)
+        for r in reader:
+            if r:
+                rows.append(r)
+
+    # 2. Re-save CSV strictly with utf-8-sig BOM and QUOTE_ALL
+    with open(csv_path, 'w', encoding='utf-8-sig', newline='') as f:
+        writer = csv.writer(f, quoting=csv.QUOTE_ALL)
+        for r in rows:
+            writer.writerow(r)
+    print(f"CSV sanitized with UTF-8 BOM: {csv_path}")
+
+    # 3. Generate native styled Excel (.xlsx)
+    if openpyxl and rows:
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Matriz Controles Kuota"
+        ws.views.sheetView[0].showGridLines = True
+
+        header_fill = PatternFill(start_color="1A3BB0", end_color="1A3BB0", fill_type="solid")
+        header_font = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
+        regular_font = Font(name="Calibri", size=10)
+        border_side = Side(style='thin', color='DCE7FA')
+        cell_border = Border(left=border_side, right=border_side, top=border_side, bottom=border_side)
+        zebra_fill = PatternFill(start_color="F4F7FE", end_color="F4F7FE", fill_type="solid")
+
+        for row_idx, row_data in enumerate(rows, start=1):
+            for col_idx, cell_value in enumerate(row_data, start=1):
+                cell = ws.cell(row=row_idx, column=col_idx, value=cell_value)
+                cell.border = cell_border
+                if row_idx == 1:
+                    cell.fill = header_fill
+                    cell.font = header_font
+                    cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+                else:
+                    cell.font = regular_font
+                    cell.alignment = Alignment(vertical="center", wrap_text=True)
+                    if row_idx % 2 == 0:
+                        cell.fill = zebra_fill
+
+        ws.freeze_panes = "A2"
+        ws.auto_filter.ref = f"A1:{get_column_letter(len(rows[0]))}{len(rows)}"
+
+        for col in ws.columns:
+            max_len = 0
+            col_letter = get_column_letter(col[0].column)
+            for cell in col:
+                val_str = str(cell.value or '')
+                lines = val_str.split('\n')
+                line_max = max(len(l) for l in lines) if lines else 0
+                if line_max > max_len:
+                    max_len = line_max
+            ws.column_dimensions[col_letter].width = min(max(max_len + 3, 12), 48)
+
+        xlsx_path = os.path.join('docs', 'auditoria-archify', '01-matriz-controles-y-parametros.xlsx')
+        wb.save(xlsx_path)
+        print(f"Excel workbook generated: {xlsx_path} (Size: {os.path.getsize(xlsx_path)} bytes)")
+
 def create_zip_archive():
+    import shutil
     source_dir = os.path.join('docs', 'auditoria-archify')
-    zip_path = os.path.join('docs', 'auditoria-archify.zip')
-    with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+    dest_zip_inside = os.path.join(source_dir, 'auditoria-archify.zip')
+    dest_zip_outside = os.path.join('docs', 'auditoria-archify.zip')
+
+    if os.path.exists(dest_zip_inside):
+        os.remove(dest_zip_inside)
+
+    with zipfile.ZipFile(dest_zip_outside, 'w', zipfile.ZIP_DEFLATED) as zipf:
         for root, dirs, files in os.walk(source_dir):
             for file in files:
+                if file.endswith('.zip'):
+                    continue
                 file_path = os.path.join(root, file)
                 arcname = os.path.relpath(file_path, source_dir)
                 zipf.write(file_path, arcname)
-    print(f"Archive updated at: {zip_path} (Size: {os.path.getsize(zip_path)} bytes)")
+
+    shutil.copy2(dest_zip_outside, dest_zip_inside)
+    print(f"Archive updated at: {dest_zip_inside} & {dest_zip_outside} (Size: {os.path.getsize(dest_zip_inside)} bytes)")
 
 def main():
     print("=== Kuota Sync Agent ===")
@@ -2364,6 +2488,8 @@ def main():
     
     docs_data = read_markdown_reports()
     print(f"Loaded {len(docs_data)} technical reports.")
+    
+    generate_excel_and_clean_csv()
     
     html = generate_portal_html(sha, short_sha, branch, now_iso, docs_data)
     
