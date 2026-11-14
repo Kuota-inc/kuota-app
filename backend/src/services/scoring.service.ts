@@ -30,7 +30,7 @@ export async function computeScore(merchantId: string): Promise<ScoreBreakdown> 
     `).all(merchantId),
     db.prepare(`
       SELECT client_id, occurred_at
-      FROM sales WHERE merchant_id = ? AND occurred_at IS NOT NULL
+      FROM sales WHERE merchant_id = ? AND occurred_at IS NOT NULL AND verified = 1
     `).all(merchantId),
     db.prepare(`
       SELECT type, COUNT(*) as cnt
