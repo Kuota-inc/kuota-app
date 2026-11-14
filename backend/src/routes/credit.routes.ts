@@ -24,6 +24,11 @@ export const creditRouter = Router();
  */
 export const INTEREST_RATE = 0.055;
 
+// Tope de tasa efectiva anual publicado por el BCRP (Resolución SBS 504-2021).
+// Si la TEA calculada supera este valor, la compra se rechaza en lugar de crearse.
+// Actualizar cuando el BCRP publique un nuevo tope.
+const BCRP_TEA_CAP_PCT = 114.13;
+
 /**
  * Tasa efectiva anual (TEA) implícita de un cronograma: resuelve la tasa por periodo que iguala el
  * capital financiado con el valor presente de las cuotas (pagos cada 14 días) y la anualiza (365 días).
@@ -215,10 +220,10 @@ creditRouter.post('/purchases', async (req, res) => {
 
     // Idempotency: return existing purchase for this key instead of creating a duplicate.
     const existing = await db.prepare(
-      'SELECT id, receipt_number, down_payment_pct, down_payment_cents, financed_cents FROM credit_purchases WHERE merchant_id = ? AND idempotency_key = ?'
-    ).get(merchant.id, idempotency_key) as { id: string; receipt_number: string; down_payment_pct: number; down_payment_cents: number; financed_cents: number } | undefined;
+      'SELECT id, receipt_number, down_payment_pct, down_payment_cents, financed_cents, tea_pct, tcea_pct FROM credit_purchases WHERE merchant_id = ? AND idempotency_key = ?'
+    ).get(merchant.id, idempotency_key) as { id: string; receipt_number: string; down_payment_pct: number; down_payment_cents: number; financed_cents: number; tea_pct: number | null; tcea_pct: number | null } | undefined;
     if (existing) {
-      return { purchaseId: existing.id, receiptNumber: existing.receipt_number, downPaymentPct: existing.down_payment_pct, downPaymentCents: existing.down_payment_cents, financedCents: existing.financed_cents, idempotent: true };
+      return { purchaseId: existing.id, receiptNumber: existing.receipt_number, downPaymentPct: existing.down_payment_pct, downPaymentCents: existing.down_payment_cents, financedCents: existing.financed_cents, teaPct: existing.tea_pct, tceaPct: existing.tcea_pct, idempotent: true };
     }
 
     // Regla 3.2: solo 1 compra activa a la vez
@@ -261,14 +266,30 @@ creditRouter.post('/purchases', async (req, res) => {
     const principalPerInstallment = Math.round(financedCents / installments);
     const interestPerInstallment = Math.round(totalInterestCents / installments);
 
+    // Calcular el cronograma provisional para obtener la TEA real antes de insertar.
+    const provisionalScheduleAmounts: number[] = [];
+    for (let i = 1; i <= installments; i++) {
+      provisionalScheduleAmounts.push(
+        i === installments ? totalToPayCents - installmentCents * (installments - 1) : installmentCents
+      );
+    }
+    const teaPct = effectiveAnnualRatePct(financedCents, provisionalScheduleAmounts);
+    const tceaPct = teaPct; // sin comisiones ni seguros: TCEA = TEA
+
+    // Tope BCRP: rechazar si la TEA supera el límite legal.
+    if (teaPct !== null && teaPct > BCRP_TEA_CAP_PCT) {
+      res.status(422).json({ error: { code: 'TEA_EXCEEDS_CAP', message: `La tasa efectiva anual (${teaPct.toFixed(1)} %) supera el tope legal de ${BCRP_TEA_CAP_PCT} %. Contacta a soporte.` } });
+      return null;
+    }
+
     const purchaseId = 'pur_' + uuidv4().substring(0, 10);
     const receiptNumber = 'KT-' + Date.now().toString().slice(-6);
 
     await db.prepare(`
       INSERT INTO credit_purchases (id, merchant_id, line_id, provider_id, plan_code, total_cents,
-        down_payment_pct, down_payment_cents, financed_cents, installments_count, receipt_number, status, idempotency_key)
-      VALUES (?, ?, ?, ?, 'KUOTA_3X', ?, ?, ?, ?, ?, ?, 'ACTIVE_ON_TIME', ?)
-    `).run(purchaseId, merchant.id, line.id, provider_id, total_cents, downPaymentPct, downPaymentCents, financedCents, installments, receiptNumber, idempotency_key);
+        down_payment_pct, down_payment_cents, financed_cents, installments_count, receipt_number, status, idempotency_key, tea_pct, tcea_pct)
+      VALUES (?, ?, ?, ?, 'KUOTA_3X', ?, ?, ?, ?, ?, ?, 'ACTIVE_ON_TIME', ?, ?, ?)
+    `).run(purchaseId, merchant.id, line.id, provider_id, total_cents, downPaymentPct, downPaymentCents, financedCents, installments, receiptNumber, idempotency_key, teaPct, tceaPct);
 
     const today = new Date();
     for (let i = 1; i <= installments; i++) {
@@ -293,10 +314,10 @@ creditRouter.post('/purchases', async (req, res) => {
     `).run('sev_' + uuidv4().substring(0, 10), merchant.id, purchaseId);
 
 
-    return { purchaseId, receiptNumber, downPaymentPct, downPaymentCents, financedCents, idempotent: false };
+    return { purchaseId, receiptNumber, downPaymentPct, downPaymentCents, financedCents, teaPct, tceaPct, idempotent: false };
   });
   if (!created) return;
-  const { purchaseId, receiptNumber, downPaymentPct, downPaymentCents, financedCents, idempotent } = created;
+  const { purchaseId, receiptNumber, downPaymentPct, downPaymentCents, financedCents, teaPct, tceaPct, idempotent } = created;
 
   // Cargo Openpay para el enganche (sandbox: mock inmediato).
   // En replay idempotente el cargo ya existe; no volvemos a crearlo.
@@ -340,6 +361,8 @@ creditRouter.post('/purchases', async (req, res) => {
     financed_cents: financedCents,
     installments_count: installments,
     status: 'ACTIVE_ON_TIME',
+    tea_pct: teaPct,
+    tcea_pct: tceaPct,
     openpay: { charge_id: openpayChargeId, down_payment_status: openpayChargeId ? 'pending_confirmation' : 'pending' },
     message: `¡Compra creada! Cuota inicial S/ ${(downPaymentCents / 100).toFixed(2)} procesada. Tu mercadería está en camino.`
   });
