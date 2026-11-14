@@ -1,0 +1,230 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "Kuota - Riel de Pagos de Principio a Fin y Webhook Ingestion",
+    "quality_profile": "showcase",
+    "output": "docs/auditoria-archify/v4-riel-pagos-webhook.html",
+    "viewBox": [1080, 580],
+    "column_fit": "spread",
+    "views": [
+      {
+        "id": "coupon-creation",
+        "label": "Creacion de Link y Cupon 360Pay",
+        "focus": ["merchant", "api", "pay360", "db"],
+        "note": "Generacion del link de cobro, emision del cupon QR en 360Pay y persistencia de intencion."
+      },
+      {
+        "id": "webhook-validation",
+        "label": "Validacion de Webhook y Deduplicacion",
+        "focus": ["payer", "pay360", "api", "db"],
+        "note": "Ingesta del webhook con firma HMAC-SHA256, verificacion de timestamp (300s) y filtro de event_id."
+      },
+      {
+        "id": "ledger-and-settlement",
+        "label": "Contabilidad Doble Partida y Estados",
+        "focus": ["api", "ledger", "db", "merchant"],
+        "note": "Registro inmutable en partida doble, comision Kuota (1% + IGV) y actualizacion a Por Confirmar."
+      }
+    ]
+  },
+  "participants": [
+    {
+      "id": "merchant",
+      "type": "external",
+      "label": "Comercio",
+      "sublabel": "App Proveedor"
+    },
+    {
+      "id": "payer",
+      "type": "external",
+      "label": "Cliente",
+      "sublabel": "Yape / Plin / BCP"
+    },
+    {
+      "id": "api",
+      "type": "backend",
+      "label": "Express API",
+      "sublabel": "paymentLink / webhook",
+      "brand": "node-js"
+    },
+    {
+      "id": "pay360",
+      "type": "external",
+      "label": "360Pay",
+      "sublabel": "Pasarela Cobro"
+    },
+    {
+      "id": "ledger",
+      "type": "backend",
+      "label": "Motor Ledger",
+      "sublabel": "Partida Doble / Audit"
+    },
+    {
+      "id": "db",
+      "type": "database",
+      "label": "PG Vault",
+      "sublabel": "Schema: payments",
+      "brand": "postgresql"
+    }
+  ],
+  "segments": [
+    {
+      "from": 160,
+      "to": 295,
+      "label": "Fase 1: Creacion de Intencion y Cupon 360Pay"
+    },
+    {
+      "from": 305,
+      "to": 415,
+      "label": "Fase 2: Ejecucion del Pago y Webhook HMAC"
+    },
+    {
+      "from": 425,
+      "to": 505,
+      "label": "Fase 3: Partida Doble y Validacion Anti-Replay"
+    }
+  ],
+  "messages": [
+    {
+      "id": "msg-create-link",
+      "from": "merchant",
+      "to": "api",
+      "y": 170,
+      "label": "POST /payment-links (monto S/, concepto)",
+      "variant": "emphasis"
+    },
+    {
+      "id": "msg-req-coupon",
+      "from": "api",
+      "to": "pay360",
+      "y": 198,
+      "label": "POST /coupons (amount, exp 48h)",
+      "variant": "default"
+    },
+    {
+      "id": "msg-coupon-res",
+      "from": "pay360",
+      "to": "api",
+      "y": 226,
+      "label": "201 Created (coupon_code, qr_data)",
+      "variant": "return"
+    },
+    {
+      "id": "msg-save-link",
+      "from": "api",
+      "to": "db",
+      "y": 254,
+      "label": "INSERT payment_links (status: active)",
+      "variant": "security"
+    },
+    {
+      "id": "msg-link-url",
+      "from": "api",
+      "to": "merchant",
+      "y": 282,
+      "label": "200 OK: URL de Cobro + QR",
+      "variant": "return"
+    },
+    {
+      "id": "msg-payer-pay",
+      "from": "payer",
+      "to": "pay360",
+      "y": 317,
+      "label": "Paga cupon via Yape/Plin (S/ 50.00)",
+      "variant": "emphasis"
+    },
+    {
+      "id": "msg-webhook-post",
+      "from": "pay360",
+      "to": "api",
+      "y": 345,
+      "label": "POST /webhooks/pay360 (HMAC + Ts)",
+      "variant": "security"
+    },
+    {
+      "id": "msg-verify-hmac",
+      "from": "api",
+      "to": "ledger",
+      "y": 373,
+      "label": "Valida HMAC-SHA256 (skew <= 300s)",
+      "variant": "security"
+    },
+    {
+      "id": "msg-dedup-event",
+      "from": "api",
+      "to": "db",
+      "y": 401,
+      "label": "INSERT webhook_events (event_id dedup)",
+      "variant": "security"
+    },
+    {
+      "id": "msg-record-ledger",
+      "from": "api",
+      "to": "ledger",
+      "y": 436,
+      "label": "Asientos partida doble (1% fee + IGV)",
+      "variant": "emphasis"
+    },
+    {
+      "id": "msg-save-ledger",
+      "from": "ledger",
+      "to": "db",
+      "y": 464,
+      "label": "INSERT ledger_entries + HMAC audit chain",
+      "variant": "security"
+    },
+    {
+      "id": "msg-notify-merchant",
+      "from": "api",
+      "to": "merchant",
+      "y": 492,
+      "label": "Notificacion: Pago recibido (Por confirmar)",
+      "variant": "return"
+    }
+  ],
+  "activations": [
+    {
+      "participant": "merchant",
+      "from": 170,
+      "to": 285,
+      "type": "external"
+    },
+    {
+      "participant": "api",
+      "from": 170,
+      "to": 282,
+      "type": "backend"
+    },
+    {
+      "participant": "api",
+      "from": 345,
+      "to": 405,
+      "type": "backend"
+    },
+    {
+      "participant": "ledger",
+      "from": 436,
+      "to": 468,
+      "type": "backend"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "Ingesta de Webhook y Deduplicacion",
+      "items": [
+        "Firma HMAC-SHA256 calculada sobre el raw body para evitar manipulacion del payload",
+        "Ventana temporal maxima de 300 segundos y deduplicacion persistente via payments.webhook_events"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Contabilidad Inmutable y Estados",
+      "items": [
+        "El balance se registra en 4 cuentas: customer_receivable, merchant_payable, revenue e IGV",
+        "La venta se visualiza como 'Por confirmar' mientras aguarda la liquidacion bancaria efectiva"
+      ]
+    }
+  ]
+}

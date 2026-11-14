@@ -1,0 +1,293 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Kuota - Arquitectura Actual y Limites de Confianza",
+    "quality_profile": "showcase",
+    "output": "docs/auditoria-archify/v1-arquitectura-actual.html",
+    "repository": {
+      "url": "https://github.com/Kuota-inc/kuota-app",
+      "revision": "d7bac8b329d817bd6cc39f4fae0e751bda319c5d",
+      "link_mode": "local-only",
+      "provider": "github"
+    },
+    "viewBox": [1260, 560],
+    "views": [
+      {
+        "id": "trust-edge",
+        "label": "Entrada y Limite No Confiable",
+        "focus": ["mobile_app", "web_browser", "api_gateway"],
+        "note": "Trafico cliente que ingresa desde dispositivos no confiables hacia el backend Express."
+      },
+      {
+        "id": "app-services",
+        "label": "Servicios de Aplicacion y Seguridad",
+        "focus": ["api_gateway", "auth_guard", "ledger_service", "pg_core", "pg_payments"],
+        "note": "Capa de logica de negocio, autenticacion por roles y persistencia dual PostgreSQL."
+      },
+      {
+        "id": "external-integrations",
+        "label": "Pasarelas y Terceros",
+        "focus": ["api_gateway", "pay360_api", "didit_api", "play_integrity"],
+        "note": "Integraciones externas con pasarela de cobros, proveedor de KYC y atestacion."
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "play_integrity",
+      "type": "external",
+      "label": "Play Integrity",
+      "sublabel": "Google Attestation",
+      "tag": "Hardware Check",
+      "pos": [40, 100],
+      "size": [140, 60],
+      "sources": [
+        { "path": "backend/src/security/playIntegrity.ts", "line": 1, "label": "Play Integrity" }
+      ]
+    },
+    {
+      "id": "didit_api",
+      "type": "external",
+      "label": "Didit Identity API",
+      "sublabel": "KYC Biometrico / OCR",
+      "tag": "Proveedor KYC",
+      "pos": [300, 100],
+      "size": [140, 60],
+      "sources": [
+        { "path": "backend/src/integrations/didit.ts", "line": 1, "label": "Didit Client" }
+      ]
+    },
+    {
+      "id": "pg_core",
+      "type": "database",
+      "label": "PG Core",
+      "sublabel": "Schema: public",
+      "brand": "postgresql",
+      "tag": "Comercios / Sesiones",
+      "pos": [560, 100],
+      "size": [140, 60],
+      "sources": [
+        { "path": "backend/src/db/client.ts", "line": 1, "label": "Database Client" }
+      ]
+    },
+    {
+      "id": "mailer_service",
+      "type": "external",
+      "label": "Mailer Service",
+      "sublabel": "Notificaciones Email",
+      "tag": "SMTP / API",
+      "pos": [820, 100],
+      "size": [140, 60],
+      "sources": [
+        { "path": "backend/src/services/mailer.ts", "line": 1, "label": "Mailer Service" }
+      ]
+    },
+    {
+      "id": "mobile_app",
+      "type": "frontend",
+      "label": "Kuota Mobile App",
+      "sublabel": "React 19 / Capacitor",
+      "brand": "react",
+      "tag": "pe.kuota.app",
+      "pos": [40, 260],
+      "size": [140, 60],
+      "sources": [
+        { "path": "package.json", "line": 1, "label": "App Frontend" }
+      ]
+    },
+    {
+      "id": "api_gateway",
+      "type": "backend",
+      "label": "Express 5 Backend",
+      "sublabel": "Node.js ESM :3000",
+      "brand": "node-js",
+      "tag": "Monolito Modular",
+      "pos": [300, 260],
+      "size": [140, 60],
+      "sources": [
+        { "path": "backend/src/server.ts", "line": 1, "label": "Server Entry" }
+      ]
+    },
+    {
+      "id": "auth_guard",
+      "type": "security",
+      "label": "Auth & Risk Guard",
+      "sublabel": "JWT / Risk / Limits",
+      "tag": "Filtros Seguridad",
+      "pos": [560, 260],
+      "size": [140, 60],
+      "sources": [
+        { "path": "backend/src/security/guards.ts", "line": 1, "label": "Security Guards" }
+      ]
+    },
+    {
+      "id": "ledger_service",
+      "type": "backend",
+      "label": "Ledger & Settlement",
+      "sublabel": "Doble Partida / Concil",
+      "tag": "payments schema",
+      "pos": [820, 260],
+      "size": [140, 60],
+      "sources": [
+        { "path": "backend/src/security/links.ts", "line": 1, "label": "Payment Links" }
+      ]
+    },
+    {
+      "id": "pay360_api",
+      "type": "external",
+      "label": "360Pay Gateway",
+      "sublabel": "QR / Webhooks HMAC",
+      "tag": "Pasarela Cobro",
+      "pos": [1080, 260],
+      "size": [140, 60],
+      "sources": [
+        { "path": "backend/src/integrations/pay360.ts", "line": 1, "label": "Pay360 Client" }
+      ]
+    },
+    {
+      "id": "web_browser",
+      "type": "frontend",
+      "label": "Web Pay Portal",
+      "sublabel": "Landing / Cobro Web",
+      "pos": [40, 420],
+      "size": [140, 60],
+      "sources": [
+        { "path": "backend/src/routes/payPage.routes.ts", "line": 1, "label": "Pay Page Route" }
+      ]
+    },
+    {
+      "id": "pg_payments",
+      "type": "database",
+      "label": "PG Payments",
+      "sublabel": "Schema: payments (Vault)",
+      "brand": "postgresql",
+      "tag": "Ledger / HMAC Audit",
+      "pos": [820, 420],
+      "size": [140, 60],
+      "sources": [
+        { "path": "backend/src/db/client.ts", "line": 240, "label": "Payments DB Pool" }
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "Plataforma Backend Kuota",
+      "wraps": ["api_gateway", "auth_guard", "ledger_service", "pg_core", "pg_payments"]
+    },
+    {
+      "kind": "security-group",
+      "label": "Boveda de Pagos y Auditoria",
+      "wraps": ["ledger_service", "pg_payments"]
+    }
+  ],
+  "connections": [
+    {
+      "id": "mobile-to-integrity",
+      "from": "mobile_app",
+      "to": "play_integrity",
+      "label": "Atestacion",
+      "variant": "security",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "labelDy": -66
+    },
+    {
+      "id": "mobile-to-api",
+      "from": "mobile_app",
+      "to": "api_gateway",
+      "label": "HTTPS REST / JWT",
+      "variant": "emphasis"
+    },
+    {
+      "id": "web-to-api",
+      "from": "web_browser",
+      "to": "api_gateway"
+    },
+    {
+      "id": "api-to-didit",
+      "from": "api_gateway",
+      "to": "didit_api",
+      "label": "Sesion KYC",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "labelDy": -66
+    },
+    {
+      "id": "api-to-auth",
+      "from": "api_gateway",
+      "to": "auth_guard",
+      "label": "Filtros Seguridad",
+      "variant": "security"
+    },
+    {
+      "id": "auth-to-core",
+      "from": "auth_guard",
+      "to": "pg_core",
+      "label": "SQL Core",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "labelDy": -66
+    },
+    {
+      "id": "auth-to-ledger",
+      "from": "auth_guard",
+      "to": "ledger_service",
+      "label": "Contexto Auth"
+    },
+    {
+      "id": "ledger-to-mailer",
+      "from": "ledger_service",
+      "to": "mailer_service",
+      "label": "Notificaciones",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "labelDy": -66
+    },
+    {
+      "id": "ledger-to-vault",
+      "from": "ledger_service",
+      "to": "pg_payments",
+      "label": "SQL Vault Pool",
+      "variant": "security",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 66
+    },
+    {
+      "id": "ledger-to-pay360",
+      "from": "ledger_service",
+      "to": "pay360_api",
+      "label": "Webhook / QR",
+      "variant": "emphasis"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "amber",
+      "title": "Frontera de Confianza No Confiable",
+      "items": [
+        "El cliente movil y web interactuan con Express 5 mediante Bearer tokens y endpoints publicos",
+        "Google Play Integrity opera con politica fail-open si falta PLAY_INTEGRITY_API_KEY en produccion"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Aislamiento de Persistencia",
+      "items": [
+        "paymentsDb recurre a DATABASE_URL si PAYMENTS_DATABASE_URL no esta provista en el entorno",
+        "El esquema payments almacena ledger, webhook_events, rate limits y auditoria HMAC"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Integraciones Externas",
+      "items": [
+        "360Pay valida webhooks entrantes con firma HMAC-SHA256 y ventana temporal de 300 segundos",
+        "Didit cuenta con limite diario en tabla didit_session_log para evitar agotamiento de presupuesto"
+      ]
+    }
+  ]
+}

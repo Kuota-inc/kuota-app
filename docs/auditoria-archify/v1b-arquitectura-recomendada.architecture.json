@@ -1,0 +1,268 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Kuota - Arquitectura Recomendada y Controles Objetivo",
+    "quality_profile": "showcase",
+    "output": "docs/auditoria-archify/v1b-arquitectura-recomendada.html",
+    "viewBox": [1260, 560],
+    "views": [
+      {
+        "id": "perimeter-defense",
+        "label": "Defensa de Perimetro y WAF",
+        "focus": ["mobile_app", "web_browser", "edge_waf", "api_gateway"],
+        "note": "Perimetro con WAF Cloudflare, filtrado de bots, DDoS y rate limiting perimetral."
+      },
+      {
+        "id": "vault-isolation",
+        "label": "Aislamiento de Boveda y Criptografia",
+        "focus": ["kms_service", "auth_guard", "ledger_service", "pg_payments", "worm_s3"],
+        "note": "Cifrado por sobres con KMS, usuarios de base de datos de minimo privilegio y WORM inmutable."
+      },
+      {
+        "id": "distributed-state",
+        "label": "Estado Distribuido y Bloqueos",
+        "focus": ["api_gateway", "redis_cluster", "ledger_service"],
+        "note": "Redis distribuido para evitar colisiones de idempotencia entre instancias y locks concurrentes."
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "redis_cluster",
+      "type": "database",
+      "label": "Redis Cluster",
+      "sublabel": "Distributed Locks",
+      "tag": "Rate Limit & Idem",
+      "pos": [560, 100],
+      "size": [140, 60]
+    },
+    {
+      "id": "kms_service",
+      "type": "security",
+      "label": "Cloud KMS",
+      "sublabel": "Envelope Encryption",
+      "tag": "DEK / KEK HSM",
+      "pos": [820, 100],
+      "size": [140, 60]
+    },
+    {
+      "id": "pg_core",
+      "type": "database",
+      "label": "PG Core",
+      "sublabel": "User: kuota_core",
+      "brand": "postgresql",
+      "tag": "Least Privilege DB",
+      "pos": [1080, 100],
+      "size": [140, 60]
+    },
+    {
+      "id": "mobile_app",
+      "type": "frontend",
+      "label": "Kuota Mobile App",
+      "sublabel": "Hardware KeyStore",
+      "brand": "react",
+      "tag": "Play Integrity Hard",
+      "pos": [40, 260],
+      "size": [140, 60]
+    },
+    {
+      "id": "edge_waf",
+      "type": "cloud",
+      "label": "Cloudflare WAF",
+      "sublabel": "DDoS / Bot Filter",
+      "tag": "mTLS / WAF Edge",
+      "pos": [300, 260],
+      "size": [140, 60]
+    },
+    {
+      "id": "api_gateway",
+      "type": "backend",
+      "label": "Express 5 Backend",
+      "sublabel": "Node.js ESM :3000",
+      "brand": "node-js",
+      "tag": "Stateless Cluster",
+      "pos": [560, 260],
+      "size": [140, 60]
+    },
+    {
+      "id": "auth_guard",
+      "type": "security",
+      "label": "Auth & Risk Guard",
+      "sublabel": "Fail-Closed Attest",
+      "tag": "Strict Step-Up",
+      "pos": [820, 260],
+      "size": [140, 60]
+    },
+    {
+      "id": "pay360_api",
+      "type": "external",
+      "label": "360Pay Gateway",
+      "sublabel": "QR / Webhooks HMAC",
+      "tag": "Pasarela Cobro",
+      "pos": [1080, 260],
+      "size": [140, 60]
+    },
+    {
+      "id": "web_browser",
+      "type": "frontend",
+      "label": "Web Pay Portal",
+      "sublabel": "Landing / Cobro Web",
+      "pos": [40, 420],
+      "size": [140, 60]
+    },
+    {
+      "id": "worm_s3",
+      "type": "cloud",
+      "label": "S3 Object Lock",
+      "sublabel": "WORM Compliance",
+      "tag": "Immutable Anchors",
+      "pos": [560, 420],
+      "size": [140, 60]
+    },
+    {
+      "id": "ledger_service",
+      "type": "backend",
+      "label": "Ledger & Settlement",
+      "sublabel": "User: kuota_payments",
+      "tag": "Isolated DB User",
+      "pos": [820, 420],
+      "size": [140, 60]
+    },
+    {
+      "id": "pg_payments",
+      "type": "database",
+      "label": "PG Payments Vault",
+      "sublabel": "Column-Encrypted",
+      "brand": "postgresql",
+      "tag": "Schema payments",
+      "pos": [1080, 420],
+      "size": [140, 60]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "VPC Perimetro Seguro Kuota",
+      "wraps": ["api_gateway", "redis_cluster", "auth_guard", "kms_service", "ledger_service", "pg_core", "pg_payments", "worm_s3"]
+    },
+    {
+      "kind": "security-group",
+      "label": "Boveda Aislada de Pagos",
+      "wraps": ["ledger_service", "pg_payments"]
+    }
+  ],
+  "connections": [
+    {
+      "id": "mobile-to-waf",
+      "from": "mobile_app",
+      "to": "edge_waf",
+      "label": "HTTPS / Token",
+      "variant": "emphasis"
+    },
+    {
+      "id": "web-to-waf",
+      "from": "web_browser",
+      "to": "edge_waf"
+    },
+    {
+      "id": "waf-to-api",
+      "from": "edge_waf",
+      "to": "api_gateway",
+      "label": "Trafico Filtrado",
+      "variant": "security"
+    },
+    {
+      "id": "api-to-redis",
+      "from": "api_gateway",
+      "to": "redis_cluster",
+      "label": "Locks / Idem",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "labelDy": -66
+    },
+    {
+      "id": "api-to-auth",
+      "from": "api_gateway",
+      "to": "auth_guard",
+      "label": "Filtros Seguridad",
+      "variant": "security"
+    },
+    {
+      "id": "auth-to-kms",
+      "from": "auth_guard",
+      "to": "kms_service",
+      "label": "Cifrado KMS",
+      "variant": "security",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "labelDy": -66
+    },
+    {
+      "id": "auth-to-core",
+      "from": "auth_guard",
+      "to": "pg_core",
+      "label": "User: kuota_core",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "id": "auth-to-ledger",
+      "from": "auth_guard",
+      "to": "ledger_service",
+      "label": "Contexto Auth",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 66
+    },
+    {
+      "id": "ledger-to-vault",
+      "from": "ledger_service",
+      "to": "pg_payments",
+      "label": "User: payments",
+      "variant": "security"
+    },
+    {
+      "id": "ledger-to-worm",
+      "from": "ledger_service",
+      "to": "worm_s3",
+      "label": "Anchoring WORM",
+      "variant": "dashed"
+    },
+    {
+      "id": "ledger-to-pay360",
+      "from": "ledger_service",
+      "to": "pay360_api",
+      "label": "Webhooks HMAC",
+      "variant": "emphasis",
+      "fromSide": "top",
+      "toSide": "left"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "Mitigacion Perimetral y Estado Distribuido",
+      "items": [
+        "Cloudflare WAF gestiona proteccion DDoS, filtrado de bots y terminacion TLS",
+        "Redis Cluster resuelve la idempotencia multi-instancia y rate limiting distribuido"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Segregacion Estricta de Persistencia",
+      "items": [
+        "Usuarios PostgreSQL separados (kuota_core vs kuota_payments) sin fallback compartido",
+        "Columnas financieras y PII (DNI, RUC, CCI) cifradas por sobres con Cloud KMS"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "Atestacion e Inmutabilidad Forense",
+      "items": [
+        "Play Integrity opera en modo fail-closed, bloqueando dispositivos rooteados o clonados",
+        "Anclaje de auditoria HMAC exportado periodicamente a buckets S3 con Object Lock (WORM)"
+      ]
+    }
+  ]
+}

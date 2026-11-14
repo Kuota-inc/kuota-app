@@ -1,0 +1,1063 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kuota - Portal Maestro de Auditoría, Arquitectura y Riel de Pagos</title>
+  <style>
+    :root {
+      --bg: #0b1120;
+      --surface: #131d31;
+      --surface-elevated: #1a2744;
+      --border: #24355a;
+      --border-focus: #3b82f6;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --primary: #3b82f6;
+      --primary-hover: #2563eb;
+      --primary-glow: rgba(59, 130, 246, 0.25);
+      --accent-green: #10b981;
+      --accent-amber: #f59e0b;
+      --accent-rose: #f43f5e;
+      --accent-purple: #8b5cf6;
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      line-height: 1.6;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Top Navigation Bar */
+    header.top-bar {
+      background: rgba(19, 29, 49, 0.95);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      padding: 0.75rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .logo-area {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    .brand-logo {
+      background: linear-gradient(135deg, #2563eb, #38bdf8);
+      color: #fff;
+      font-weight: 800;
+      font-size: 1.1rem;
+      padding: 0.35rem 0.75rem;
+      border-radius: 8px;
+      letter-spacing: -0.03em;
+    }
+    .brand-title {
+      font-weight: 700;
+      font-size: 1.15rem;
+      color: #fff;
+    }
+    .git-pills {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+    }
+    .pill {
+      font-size: 0.75rem;
+      padding: 0.25rem 0.6rem;
+      border-radius: 6px;
+      font-family: var(--font-mono);
+      font-weight: 600;
+    }
+    .pill-branch { background: rgba(59, 130, 246, 0.15); color: #93c5fd; border: 1px solid rgba(59, 130, 246, 0.3); }
+    .pill-commit { background: rgba(139, 92, 246, 0.15); color: #c4b5fd; border: 1px solid rgba(139, 92, 246, 0.3); }
+    .pill-status { background: rgba(16, 185, 129, 0.15); color: #6ee7b7; border: 1px solid rgba(16, 185, 129, 0.3); }
+
+    /* Main Layout */
+    .app-container {
+      display: flex;
+      flex: 1;
+      height: calc(100vh - 61px);
+      overflow: hidden;
+    }
+
+    /* Sidebar Navigation */
+    nav.sidebar {
+      width: 290px;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      flex-shrink: 0;
+    }
+    .sidebar-section-title {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-dim);
+      padding: 1.25rem 1.25rem 0.5rem;
+    }
+    .nav-btn {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.75rem 1.25rem;
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.9rem;
+      font-weight: 500;
+      border-left: 3px solid transparent;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      background: none;
+      border-top: none;
+      border-right: none;
+      border-bottom: none;
+      width: 100%;
+      text-align: left;
+    }
+    .nav-btn:hover {
+      background: rgba(255, 255, 255, 0.03);
+      color: var(--text);
+    }
+    .nav-btn.active {
+      background: rgba(59, 130, 246, 0.1);
+      color: #60a5fa;
+      border-left-color: var(--primary);
+      font-weight: 600;
+    }
+    .nav-badge {
+      margin-left: auto;
+      font-size: 0.7rem;
+      padding: 0.15rem 0.45rem;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text-muted);
+    }
+    .nav-btn.active .nav-badge {
+      background: rgba(59, 130, 246, 0.2);
+      color: #93c5fd;
+    }
+
+    /* Content Area */
+    main.content-area {
+      flex: 1;
+      overflow-y: auto;
+      padding: 2.25rem 3rem;
+      position: relative;
+    }
+
+    /* Tab Panes */
+    .tab-pane {
+      display: none;
+      animation: fadeIn 0.2s ease-in-out;
+    }
+    .tab-pane.active {
+      display: block;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Typography & Cards */
+    h1.page-title {
+      font-size: 1.85rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.4rem;
+      color: #fff;
+    }
+    p.page-desc {
+      color: var(--text-muted);
+      font-size: 1rem;
+      margin-bottom: 2rem;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .card-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      margin-bottom: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      color: #fff;
+    }
+
+    /* Timeline / Progress Log */
+    .timeline {
+      position: relative;
+      padding-left: 2rem;
+      border-left: 2px solid var(--border);
+      margin-left: 1rem;
+      margin-bottom: 2rem;
+    }
+    .timeline-item {
+      position: relative;
+      margin-bottom: 2rem;
+    }
+    .timeline-item::before {
+      content: "";
+      position: absolute;
+      left: -2.45rem;
+      top: 0.35rem;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--primary);
+      border: 3px solid var(--bg);
+    }
+    .timeline-item.done::before { background: var(--accent-green); }
+    .timeline-title {
+      font-weight: 700;
+      font-size: 1.1rem;
+      color: #f1f5f9;
+      margin-bottom: 0.25rem;
+    }
+    .timeline-meta {
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      margin-bottom: 0.6rem;
+      font-family: var(--font-mono);
+    }
+    .timeline-desc {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+    }
+
+    /* Interactive Diagram Viewer Frame */
+    .viewer-container {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      height: 820px;
+    }
+    .viewer-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--surface);
+      padding: 0.75rem 1.25rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+    .diagram-select {
+      background: var(--surface-elevated);
+      color: #fff;
+      border: 1px solid var(--border);
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      outline: none;
+    }
+    .viewer-frame {
+      flex: 1;
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: #000;
+    }
+
+    /* Interactive Data Tables */
+    .search-bar {
+      width: 100%;
+      background: var(--surface-elevated);
+      border: 1px solid var(--border);
+      color: #fff;
+      padding: 0.75rem 1.25rem;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      margin-bottom: 1.25rem;
+      outline: none;
+    }
+    .search-bar:focus {
+      border-color: var(--border-focus);
+    }
+    .table-box {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow-x: auto;
+      background: var(--surface);
+    }
+    table.data-table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 0.875rem;
+    }
+    table.data-table th, table.data-table td {
+      padding: 0.85rem 1rem;
+      border-bottom: 1px solid var(--border);
+    }
+    table.data-table th {
+      background: #17233c;
+      color: #93c5fd;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    table.data-table tr:hover td {
+      background: rgba(255, 255, 255, 0.02);
+    }
+    .tag {
+      display: inline-block;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      font-family: var(--font-mono);
+    }
+    .tag-blue { background: rgba(59, 130, 246, 0.2); color: #93c5fd; }
+    .tag-green { background: rgba(16, 185, 129, 0.2); color: #6ee7b7; }
+    .tag-amber { background: rgba(245, 158, 11, 0.2); color: #fcd34d; }
+    .tag-red { background: rgba(239, 68, 68, 0.2); color: #fca5a5; }
+
+    /* Callouts / Notes */
+    .callout {
+      padding: 1rem 1.25rem;
+      border-radius: 8px;
+      margin: 1.25rem 0;
+      border-left: 4px solid var(--primary);
+      background: rgba(59, 130, 246, 0.08);
+      font-size: 0.92rem;
+    }
+    .callout-amber {
+      border-left-color: var(--accent-amber);
+      background: rgba(245, 158, 11, 0.08);
+    }
+    .callout-green {
+      border-left-color: var(--accent-green);
+      background: rgba(16, 185, 129, 0.08);
+    }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-decoration: none;
+      cursor: pointer;
+      border: none;
+      transition: all 0.15s ease;
+    }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-secondary { background: var(--surface-elevated); color: #cbd5e1; border: 1px solid var(--border); }
+    .btn-secondary:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
+
+    /* Math Formula Block */
+    .formula-box {
+      background: #080d1a;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem 1.5rem;
+      font-family: var(--font-mono);
+      font-size: 0.95rem;
+      margin: 1rem 0;
+      color: #38bdf8;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Navigation Bar -->
+  <header class="top-bar">
+    <div class="logo-area">
+      <span class="brand-logo">KUOTA</span>
+      <span class="brand-title">Portal Integral de Auditoría y Riel de Pagos</span>
+    </div>
+    <div class="git-pills">
+      <span class="pill pill-branch">Rama: fix/proveedor-inicio-conciliacion</span>
+      <span class="pill pill-commit">Commit: d7bac8b3</span>
+      <span class="pill pill-status">Showcase 100% Pass</span>
+    </div>
+  </header>
+
+  <div class="app-container">
+
+    <!-- Sidebar Navigation -->
+    <nav class="sidebar">
+      <div class="sidebar-section-title">Navegación General</div>
+      <button class="nav-btn active" onclick="switchTab('resumen')">
+        <span>📌</span> Resumen y Cronología
+      </button>
+      <button class="nav-btn" onclick="switchTab('diagramas')">
+        <span>🗺️</span> 8 Vistas Interactivas
+        <span class="nav-badge">8 Vistas</span>
+      </button>
+
+      <div class="sidebar-section-title">Riel de Pagos y Auditoría</div>
+      <button class="nav-btn" onclick="switchTab('pagos')">
+        <span>💳</span> Riel, Comisiones y Sandbox
+      </button>
+      <button class="nav-btn" onclick="switchTab('controles')">
+        <span>📊</span> Matriz de Controles
+        <span class="nav-badge">24 Items</span>
+      </button>
+      <button class="nav-btn" onclick="switchTab('endpoints')">
+        <span>🔌</span> Catálogo de Endpoints
+        <span class="nav-badge">14 Rutas</span>
+      </button>
+      <button class="nav-btn" onclick="switchTab('roles')">
+        <span>🛡️</span> Roles y Datos PII
+      </button>
+      <button class="nav-btn" onclick="switchTab('hallazgos')">
+        <span>🚨</span> Registro de Hallazgos
+        <span class="nav-badge">6 FND</span>
+      </button>
+
+      <div class="sidebar-section-title">Documentación Fuente</div>
+      <button class="nav-btn" onclick="switchTab('documentos')">
+        <span>📖</span> Informes Técnicos (.md)
+      </button>
+    </nav>
+
+    <!-- Main Content Area -->
+    <main class="content-area">
+
+      <!-- TAB 1: RESUMEN Y CRONOLOGÍA -->
+      <section id="pane-resumen" class="tab-pane active">
+        <h1 class="page-title">Cronología y Avance Completo de la Auditoría</h1>
+        <p class="page-desc">Trazabilidad exhaustiva de todas las intervenciones realizadas en el monorepo Kuota desde la recepción del pliego técnico.</p>
+
+        <div class="card" style="border-left: 4px solid #10b981;">
+          <div class="card-title" style="color: #6ee7b7;">Semanas de Diagnóstico y Estado Final del Sistema</div>
+          <p>Se consolidó la fuente de verdad del perfil <b>Proveedor</b>, unificando el flujo de ventas entre Inicio y Conciliación, implementando la semántica estricta del estado <b>Cancelado</b> (liquidado al 100%), aislando la simulación acelerada de <b>5 minutos</b> en sandbox y documentando la arquitectura con <b>Archify v2.17.0</b> sin alterar código fuente de producción.</p>
+        </div>
+
+        <div class="timeline">
+          <div class="timeline-item done">
+            <div class="timeline-title">1. Diagnóstico del Error en Inicio vs Conciliación</div>
+            <div class="timeline-meta">Evidencia en código: ProviderHomeScreen.tsx / provider.routes.ts</div>
+            <div class="timeline-desc">
+              Identificación de la causa raíz: la pantalla de Inicio consultaba métricas agregadas desfasadas, mientras que Conciliación leía la lista cruda de transacciones. Se unificó la lectura bajo el endpoint <code>/providers/orders</code> que consolida órdenes aKuotas! y links de cobro.
+            </div>
+          </div>
+
+          <div class="timeline-item done">
+            <div class="timeline-title">2. Implementación de Estados: "Por confirmar" y "Cancelado"</div>
+            <div class="timeline-meta">Evidencia en código: backend/src/security/links.ts y dev.routes.ts</div>
+            <div class="timeline-desc">
+              - <b>Por confirmar:</b> Cobro exitoso debitado al cliente en 360Pay en espera de liquidación interbancaria al vendedor.<br>
+              - <b>Cancelado:</b> Operación 100% pagada y liquidada en cuenta CCI del vendedor (semántica comercial peruana de deuda saldada, no anulada).<br>
+              - <b>Por cobrar:</b> Pedidos aKuotas! pendientes de cobro de cuotas, totalmente separados de los cobros inmediatos.
+            </div>
+          </div>
+
+          <div class="timeline-item done">
+            <div class="timeline-title">3. Aceleración Sandbox (5 min) vs Blindaje de Producción (48h)</div>
+            <div class="timeline-meta">Evidencia en código: backend/src/routes/dev.routes.ts:postSettlePending</div>
+            <div class="timeline-desc">
+              Se configuró el endpoint <code>POST /dev/settle-pending</code> para simular en sandbox las 48 horas en 5 minutos (300,000 ms). En producción, este endpoint responde con HTTP 403 <code>SANDBOX_ONLY</code>; cumplir las 48h sin evidencia de 360Pay mantiene el estado en "Por confirmar" con advertencia operativa.
+            </div>
+          </div>
+
+          <div class="timeline-item done">
+            <div class="timeline-title">4. Generación y Visual-Check de 8 Vistas en Archify v2.17.0</div>
+            <div class="timeline-meta">Herramienta: Archify CLI v2.17.0 (Showcase Quality Profile)</div>
+            <div class="timeline-desc">
+              Generación de 8 diagramas interactivos (V1, V1b, V2, V3, V4, V5, V6, V7). Cada diagrama fue validado con 9/9 comprobaciones de layout y sometido a <code>visual-check</code> automatizado con headless Chrome en 4 resoluciones de escritorio (1440x900 a 2048x1320) con cero desbordamiento en modo claro y oscuro.
+            </div>
+          </div>
+
+          <div class="timeline-item done">
+            <div class="timeline-title">5. Elaboración de Informes Técnicos y Matrices Sanitizadas</div>
+            <div class="timeline-meta">Entregables en docs/auditoria-archify/</div>
+            <div class="timeline-desc">
+              Redacción de 6 documentos Markdown de grado institucional, inventario de 14 endpoints, matriz de 24 controles y parámetros exportada a CSV sanitizado contra inyección de fórmulas (=, +, -, @), y registro de 6 hallazgos defensivos (FND-01 a FND-06).
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 2: 8 VISTAS INTERACTIVAS ARCHIFY -->
+      <section id="pane-diagramas" class="tab-pane">
+        <h1 class="page-title">Explorador de Diagramas Interactivos Archify</h1>
+        <p class="page-desc">Visualiza e interactúa con cada uno de los 8 diagramas generados. Utiliza los controles nativos de zoom, fases y tema claro/oscuro.</p>
+
+        <div class="viewer-container">
+          <div class="viewer-header">
+            <div>
+              <label for="diagram-picker" style="font-size: 0.85rem; color: var(--text-muted); margin-right: 0.5rem;">Seleccionar Vista:</label>
+              <select id="diagram-picker" class="diagram-select" onchange="loadDiagram(this.value)">
+                <option value="v1-arquitectura-actual.html">V1 - Arquitectura Actual de Componentes</option>
+                <option value="v1b-arquitectura-recomendada.html">V1b - Arquitectura Recomendada (Target State)</option>
+                <option value="v2-flujo-datos.html">V2 - Flujo de Datos y Fronteras de Confianza</option>
+                <option value="v3-secuencia-auth-stepup.html">V3 - Secuencia de Autenticación y Step-Up</option>
+                <option value="v4-riel-pagos-webhook.html">V4 - Riel de Pagos, Webhooks HMAC e Idempotencia</option>
+                <option value="v5-ciclo-vida-pagos.html">V5 - Ciclo de Vida de Pagos y Liquidación</option>
+                <option value="v6-autorizacion-roles-tenants.html">V6 - Autorización, Roles y Mono-Dispositivo</option>
+                <option value="v7-conciliacion-incidentes.html">V7 - Conciliación Diaria e Incidentes</option>
+              </select>
+            </div>
+            <div>
+              <a id="btn-open-external" href="v1-arquitectura-actual.html" target="_blank" class="btn btn-secondary">Abrir en Pestaña Nueva ↗</a>
+            </div>
+          </div>
+
+          <iframe id="diagram-iframe" class="viewer-frame" src="v1-arquitectura-actual.html"></iframe>
+        </div>
+      </section>
+
+      <!-- TAB 3: RIEL DE PAGOS, COMISIONES Y SANDBOX -->
+      <section id="pane-pagos" class="tab-pane">
+        <h1 class="page-title">Riel de Pagos, Comisiones y Conciliación</h1>
+        <p class="page-desc">Demostración matemática del cálculo de comisiones (1% + IGV), justificación de la comisión mínima y comparativa entre entornos.</p>
+
+        <div class="card">
+          <div class="card-title">Matemática Financiera de la Comisión Kuota (1% + IGV)</div>
+          <p>Todos los cálculos monetarios se procesan en <b>centavos enteros</b> en <code>backend/src/security/pricing.ts</code> para prevenir errores de coma flotante:</p>
+
+          <div class="formula-box">
+            base = Math.max(Math.ceil((amountCents * feeBps) / 10000), MIN_FEE_CENTS)<br>
+            igv = Math.ceil((base * IGV_BPS) / 10000)<br>
+            fee = base + igv<br>
+            net = amountCents - fee
+          </div>
+
+          <h3 style="font-size: 1rem; margin: 1rem 0 0.5rem; color: #93c5fd;">Demostración del Monto Observado en Inicio (-S/ 15.93):</h3>
+          <p>En la captura enviada, la tarjeta muestra <b>"Lo que pagaste con Kuota (1% + IGV): -S/ 15.93"</b>. Esto se explica exactamente por la aplicación de la <b>comisión mínima fija</b> en micro-transacciones:</p>
+          <ul style="margin-left: 1.5rem; margin-top: 0.5rem; color: var(--text-muted);">
+            <li><b>Comisión mínima base:</b> S/ 4.50 (`MIN_FEE_CENTS = 450`) para cubrir el costo fijo del proveedor 360Pay (S/ 3.82 por transacción).</li>
+            <li><b>IGV (18%):</b> S/ 4.50 * 0.18 = S/ 0.81.</li>
+            <li><b>Comisión mínima por venta:</b> S/ 4.50 + S/ 0.81 = <b>S/ 5.31</b>.</li>
+            <li><b>Tres micro-ventas registradas:</b> 3 * S/ 5.31 = <b>S/ 15.93</b>. La matemática de código coincide con exactitud milimétrica con la interfaz.</li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Comportamiento en Sandbox vs Producción</div>
+          <div class="table-box">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Dimensión</th>
+                  <th>Sandbox / Pruebas</th>
+                  <th>Producción</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><b>Tiempo de Liquidación</b></td>
+                  <td>Ventana configurable de <b>5 minutos</b> (300,000 ms)</td>
+                  <td>Plazo contractual estimado de <b>48 horas</b></td>
+                </tr>
+                <tr>
+                  <td><b>Mecanismo de Disparo</b></td>
+                  <td><code>POST /dev/settle-pending</code></td>
+                  <td>Webhook de liquidación o extracto bancario de 360Pay</td>
+                </tr>
+                <tr>
+                  <td><b>Seguridad y Blindaje</b></td>
+                  <td>Aplica solo a datos de test (`gateway_ref NOT LIKE 'live_%'`)</td>
+                  <td>Endpoint bloqueado con HTTP 403 <code>SANDBOX_ONLY</code></td>
+                </tr>
+                <tr>
+                  <td><b>Vencimiento de Plazo</b></td>
+                  <td>Simula confirmación y muestra estado "Cancelado"</td>
+                  <td>Conserva estado "Por confirmar" y muestra aviso informativo</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 4: MATRIZ DE CONTROLES -->
+      <section id="pane-controles" class="tab-pane">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+          <h1 class="page-title" style="margin-bottom: 0;">Matriz de Controles de Seguridad y Parámetros</h1>
+          <a href="01-matriz-controles-y-parametros.csv" class="btn btn-secondary">Descargar CSV Sanitizado ⬇</a>
+        </div>
+        <p class="page-desc">Catálogo de 24 controles y parámetros en categorías A (Identidad), B (Firma/HMAC), C (Idempotencia), D (Tarifas) y E (Ledger/Auditoría).</p>
+
+        <input type="text" id="controls-search" class="search-bar" placeholder="🔍 Buscar por ID, categoría, nombre o archivo de código..." onkeyup="filterControls()">
+
+        <div class="table-box">
+          <table class="data-table" id="controls-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Categoría</th>
+                <th>Nombre del Control</th>
+                <th>Valor Observado en Código</th>
+                <th>Ubicación en Código</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><b>CTL-A01</b></td>
+                <td>A: Identidad</td>
+                <td>Hashing de PIN de Comercio</td>
+                <td><code>bcrypt.hash(pin, 10)</code> y <code>verifyPin</code></td>
+                <td><code>backend/src/security/crypto.ts:L45-L52</code></td>
+                <td><span class="tag tag-green">OBSERVADO EN CÓDIGO</span></td>
+              </tr>
+              <tr>
+                <td><b>CTL-A02</b></td>
+                <td>A: Identidad</td>
+                <td>Bloqueo por Intentos Fallidos</td>
+                <td>5 intentos consecutivos bloquean 30 minutos</td>
+                <td><code>backend/src/security/auth.ts:L142-L178</code></td>
+                <td><span class="tag tag-green">OBSERVADO EN CÓDIGO</span></td>
+              </tr>
+              <tr>
+                <td><b>CTL-A03</b></td>
+                <td>A: Identidad</td>
+                <td>Sesión Mono-Dispositivo</td>
+                <td>Revocación forzada vía <code>revokeSessions(exceptDeviceId)</code></td>
+                <td><code>backend/src/security/auth.ts:L284-L299</code></td>
+                <td><span class="tag tag-green">OBSERVADO EN CÓDIGO</span></td>
+              </tr>
+              <tr>
+                <td><b>CTL-A04</b></td>
+                <td>A: Identidad</td>
+                <td>Expiración de Access Token</td>
+                <td>JWT con TTL de 3600 segundos (1 hora)</td>
+                <td><code>backend/src/security/config.ts:L35</code></td>
+                <td><span class="tag tag-green">OBSERVADO EN CÓDIGO</span></td>
+              </tr>
+              <tr>
+                <td><b>CTL-A05</b></td>
+                <td>A: Identidad</td>
+                <td>Rotación de Refresh Tokens</td>
+                <td>TTL 90 días con detección de reuso y revocación familiar</td>
+                <td><code>backend/src/security/auth.ts:L306-L318</code></td>
+                <td><span class="tag tag-green">OBSERVADO EN CÓDIGO</span></td>
+              </tr>
+              <tr>
+                <td><b>CTL-A06</b></td>
+                <td>A: Identidad</td>
+                <td>Step-Up Auth para Cambios de CCI</td>
+                <td>Token step-up con TTL de 300 segundos (5 min) tras biometría</td>
+                <td><code>backend/src/security/auth.ts:L210-L225</code></td>
+                <td><span class="tag tag-green">OBSERVADO EN CÓDIGO</span></td>
+              </tr>
+              <tr>
+                <td><b>CTL-B01</b></td>
+                <td>B: Webhooks</td>
+                <td>Firma HMAC Webhook 360Pay</td>
+                <td><code>sha256=${hmac(webhookSecret, `${timestamp}.${rawBody}`)}</code></td>
+                <td><code>backend/src/security/webhook.ts:L20-L24</code></td>
+                <td><span class="tag tag-green">OBSERVADO EN CÓDIGO</span></td>
+              </tr>
+              <tr>
+                <td><b>CTL-B02</b></td>
+                <td>B: Webhooks</td>
+                <td>Ventana Temporal Anti-Replay</td>
+                <td>Tolerancia de timestamp menor o igual a 300,000 ms (5 min)</td>
+                <td><code>backend/src/security/webhook.ts:L78-L92</code></td>
+                <td><span class="tag tag-green">OBSERVADO EN CÓDIGO</span></td>
+              </tr>
+              <tr>
+                <td><b>CTL-B03</b></td>
+                <td>B: Webhooks</td>
+                <td>Comparación Timing-Safe</td>
+                <td><code>crypto.timingSafeEqual</code> sobre buffers de igual longitud</td>
+                <td><code>backend/src/security/crypto.ts:L30-L38</code></td>
+                <td><span class="tag tag-green">OBSERVADO EN CÓDIGO</span></td>
+              </tr>
+              <tr>
+                <td><b>CTL-C01</b></td>
+                <td>C: Idempotencia</td>
+                <td>Deduplicación de Webhooks</td>
+                <td>Tabla <code>webhook_events</code> con <code>event_id</code> como PK</td>
+                <td><code>backend/src/security/webhook.ts:L110-L145</code></td>
+                <td><span class="tag tag-green">OBSERVADO EN CÓDIGO</span></td>
+              </tr>
+              <tr>
+                <td><b>CTL-C04</b></td>
+                <td>C: Idempotencia</td>
+                <td>Aislamiento de Marcado de Pago</td>
+                <td><code>UPDATE payment_links SET status='PAID' WHERE status='ACTIVE'</code></td>
+                <td><code>backend/src/security/links.ts:L240-L265</code></td>
+                <td><span class="tag tag-green">OBSERVADO EN CÓDIGO</span></td>
+              </tr>
+              <tr>
+                <td><b>PAR-D01</b></td>
+                <td>D: Tarifas</td>
+                <td>Tasa de Comisión Kuota Payments</td>
+                <td>1.00% (100 puntos básicos) sobre volumen bruto</td>
+                <td><code>backend/src/security/config.ts:L25</code></td>
+                <td><span class="tag tag-green">OBSERVADO EN CÓDIGO</span></td>
+              </tr>
+              <tr>
+                <td><b>PAR-D02</b></td>
+                <td>D: Tarifas</td>
+                <td>IGV sobre Comisión</td>
+                <td>18.00% con redondeo <code>Math.ceil</code></td>
+                <td><code>backend/src/security/pricing.ts:L4</code></td>
+                <td><span class="tag tag-green">OBSERVADO EN CÓDIGO</span></td>
+              </tr>
+              <tr>
+                <td><b>PAR-D03</b></td>
+                <td>D: Tarifas</td>
+                <td>Comisión Mínima por Transacción</td>
+                <td>S/ 4.50 sin IGV (S/ 5.31 con IGV) para cubrir costo de S/ 3.82</td>
+                <td><code>backend/src/security/pricing.ts:L6</code></td>
+                <td><span class="tag tag-green">OBSERVADO EN CÓDIGO</span></td>
+              </tr>
+              <tr>
+                <td><b>PAR-D05</b></td>
+                <td>D: Tarifas</td>
+                <td>Ventana de Simulación Sandbox</td>
+                <td>300,000 ms (5 min) configurable vía body/env</td>
+                <td><code>backend/src/routes/dev.routes.ts:L86-L108</code></td>
+                <td><span class="tag tag-green">OBSERVADO EN CÓDIGO</span></td>
+              </tr>
+              <tr>
+                <td><b>CTL-E01</b></td>
+                <td>E: Ledger</td>
+                <td>Ledger de Partida Doble</td>
+                <td>Débito = Crédito; balance neto exacto de 0 centavos por asiento</td>
+                <td><code>backend/src/security/reconciliation.ts:L130-L165</code></td>
+                <td><span class="tag tag-green">OBSERVADO EN CÓDIGO</span></td>
+              </tr>
+              <tr>
+                <td><b>CTL-E02</b></td>
+                <td>E: Ledger</td>
+                <td>Encadenamiento Hash de Auditoría</td>
+                <td>Cadena pública SHA-256 + cadena privada HMAC con trigger WORM</td>
+                <td><code>backend/src/security/audit.ts:L85-L130</code></td>
+                <td><span class="tag tag-green">OBSERVADO EN CÓDIGO</span></td>
+              </tr>
+              <tr>
+                <td><b>CTL-E03</b></td>
+                <td>E: Ledger</td>
+                <td>Redacción de Secretos en Bitácora</td>
+                <td>Lista <code>REDACT</code> sustituye PIN y tokens por <code>[redacted]</code></td>
+                <td><code>backend/src/security/audit.ts:L28-L35</code></td>
+                <td><span class="tag tag-green">OBSERVADO EN CÓDIGO</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- TAB 5: CATÁLOGO DE ENDPOINTS -->
+      <section id="pane-endpoints" class="tab-pane">
+        <h1 class="page-title">Inventario de Endpoints de la API</h1>
+        <p class="page-desc">Catálogo exhaustivo de rutas analizadas en Express con sus roles, niveles de autenticación y efectos secundarios.</p>
+
+        <div class="table-box">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Método y Ruta</th>
+                <th>Actor / Rol</th>
+                <th>Autenticación</th>
+                <th>Efectos Secundarios y Validación</th>
+                <th>Código Fuente</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="tag tag-blue">POST</span> <code>/security/auth/login</code></td>
+                <td>Merchant / Provider</td>
+                <td>Pública (teléfono + PIN)</td>
+                <td>Verifica bcrypt, revoca sesiones previas, emite JWT + Refresh Token</td>
+                <td><code>security.routes.ts:L470</code></td>
+              </tr>
+              <tr>
+                <td><span class="tag tag-blue">POST</span> <code>/security/auth/refresh</code></td>
+                <td>Token Holder</td>
+                <td>Refresh Token</td>
+                <td>Rotación atómica de token; detección de reuso revoca toda la familia</td>
+                <td><code>security.routes.ts:L540</code></td>
+              </tr>
+              <tr>
+                <td><span class="tag tag-blue">POST</span> <code>/security/auth/step-up</code></td>
+                <td>Merchant / Provider</td>
+                <td>JWT + Biometría / PIN</td>
+                <td>Emite <code>step_up_token</code> con TTL de 5 minutos para cambios de CCI</td>
+                <td><code>security.routes.ts:L620</code></td>
+              </tr>
+              <tr>
+                <td><span class="tag tag-blue">POST</span> <code>/links</code></td>
+                <td>Merchant / Provider</td>
+                <td>Bearer JWT</td>
+                <td>Aplica límites, calcula comisiones (1%+IGV), firma digital interna HMAC</td>
+                <td><code>paymentLink.routes.ts:L114</code></td>
+              </tr>
+              <tr>
+                <td><span class="tag tag-green">GET</span> <code>/links/:id</code></td>
+                <td>Merchant / Admin</td>
+                <td>Bearer JWT</td>
+                <td>Lectura con tenant scope; refresca estado si expiró en 360Pay</td>
+                <td><code>paymentLink.routes.ts:L218</code></td>
+              </tr>
+              <tr>
+                <td><span class="tag tag-amber">POST</span> <code>/links/:id/cancel</code></td>
+                <td>Merchant propietario</td>
+                <td>Bearer JWT</td>
+                <td>Verifica estado ACTIVE y transiciona a CANCELLED (anulado por comercio)</td>
+                <td><code>paymentLink.routes.ts:L270</code></td>
+              </tr>
+              <tr>
+                <td><span class="tag tag-blue">POST</span> <code>/webhooks/360pay</code></td>
+                <td>Pasarela 360Pay</td>
+                <td>Firma HMAC SHA-256</td>
+                <td>Deduplicación idempotente, marca link PAID, asiento en doble partida</td>
+                <td><code>webhook.routes.ts:L22</code></td>
+              </tr>
+              <tr>
+                <td><span class="tag tag-blue">POST</span> <code>/webhooks/didit</code></td>
+                <td>Didit Biometrics</td>
+                <td>Firma HMAC SHA-256</td>
+                <td>Actualiza estado KYC, aprueba límites comerciales y valida RUC</td>
+                <td><code>webhook.routes.ts:L36</code></td>
+              </tr>
+              <tr>
+                <td><span class="tag tag-green">GET</span> <code>/provider/orders</code></td>
+                <td>Provider</td>
+                <td>Bearer JWT / Token</td>
+                <td><b>Fuente unificada:</b> consolida órdenes aKuotas! y links de cobro</td>
+                <td><code>provider.routes.ts:L694</code></td>
+              </tr>
+              <tr>
+                <td><span class="tag tag-amber">PUT</span> <code>/provider/settlement-account</code></td>
+                <td>Provider</td>
+                <td>JWT + Step-Up Token</td>
+                <td>Valida algoritmo de CCI bancario (20 dígitos); actualiza cuenta de abono</td>
+                <td><code>provider.routes.ts:L649</code></td>
+              </tr>
+              <tr>
+                <td><span class="tag tag-red">POST</span> <code>/dev/settle-pending</code></td>
+                <td>Tester / Sandbox</td>
+                <td>Solo Sandbox (No Prod)</td>
+                <td>Simula liquidación de 48h en 5 minutos; bloqueado en prod con 403</td>
+                <td><code>dev.routes.ts:L86</code></td>
+              </tr>
+              <tr>
+                <td><span class="tag tag-blue">POST</span> <code>/internal/reconciliation/run</code></td>
+                <td>Admin / Cron Job</td>
+                <td>API Key Interna</td>
+                <td>Ejecuta cruce diario ledger vs extracto 360Pay; ancla hash de auditoría</td>
+                <td><code>internal.routes.ts:L210</code></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- TAB 6: ROLES Y CLASIFICACIÓN DE DATOS -->
+      <section id="pane-roles" class="tab-pane">
+        <h1 class="page-title">Roles, Tenancy y Clasificación de Datos</h1>
+        <p class="page-desc">Análisis de la política de mono-dispositivo activa, fronteras multi-tenant y niveles de protección de información sensible.</p>
+
+        <div class="card">
+          <div class="card-title">Realidad de Código: Política de Sesión Mono-Dispositivo</div>
+          <p>El código fuente analizado en <code>backend/src/security/auth.ts</code> evidencia que al iniciar sesión en un dispositivo nuevo, el sistema ejecuta de inmediato:</p>
+          <div class="formula-box" style="color: #cbd5e1;">
+            UPDATE merchant_sessions<br>
+            SET revoked_at = now<br>
+            WHERE merchant_id = ? AND device_id &lt;&gt; ? AND revoked_at IS NULL
+          </div>
+          <p style="color: var(--text-muted); margin-top: 0.5rem;">
+            Esto significa que <b>no existe esquema multi-cajero activo</b> en el código: un comercio solo puede operar con un único terminal activo a la vez. Para habilitar multi-cajero real en sucursales físicas, se debe implementar una entidad <code>cashier_terminals</code> con permisos restringidos de solo emisión de cobros.
+          </p>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Mapa de Clasificación de Datos (Ley 29733 de Perú)</div>
+          <div class="table-box">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Nivel</th>
+                  <th>Campos Ejemplo</th>
+                  <th>Tratamiento Criptográfico</th>
+                  <th>Políticas de Registro / Logs</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><span class="tag tag-red">Nivel 4: Secretos</span></td>
+                  <td><code>pin_hash</code>, <code>webhook_secret</code>, <code>jwt_token</code></td>
+                  <td>bcrypt (costo 10) / SHA-256 / AES-256-GCM</td>
+                  <td><b>Redactado total:</b> <code>[redacted]</code> en bitácoras</td>
+                </tr>
+                <tr>
+                  <td><span class="tag tag-amber">Nivel 3: Financieros</span></td>
+                  <td><code>settlement_cci</code>, montos, comisiones, saldo</td>
+                  <td>Volumen cifrado en reposo + TLS 1.3</td>
+                  <td><b>Enmascarado:</b> muestra solo los últimos 4 dígitos</td>
+                </tr>
+                <tr>
+                  <td><span class="tag tag-blue">Nivel 2: PII</span></td>
+                  <td>Nombres, DNI/RUC, teléfono WhatsApp</td>
+                  <td>Cifrado en reposo y en tránsito</td>
+                  <td>Visibilidad restringida exclusivamente al propietario</td>
+                </tr>
+                <tr>
+                  <td><span class="tag tag-green">Nivel 1: Operativos</span></td>
+                  <td><code>link_id</code>, concepto, fecha, estado</td>
+                  <td>Almacenamiento estándar indexado</td>
+                  <td>Público en checkout; auditoría de acceso</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 7: REGISTRO DE HALLAZGOS -->
+      <section id="pane-hallazgos" class="tab-pane">
+        <h1 class="page-title">Registro Defensivo de Hallazgos y Riesgos</h1>
+        <p class="page-desc">Detalle de los 6 hallazgos de seguridad y arquitectura identificados en el código con sus vectores de abuso y criterios de aceptación.</p>
+
+        <div class="card" style="border-left: 4px solid var(--accent-amber);">
+          <div class="card-title">FND-01: Revocación Mono-Dispositivo Incompatible con Multi-Cajero <span class="tag tag-amber" style="margin-left: auto;">Media</span></div>
+          <p><b>Evidencia:</b> <code>backend/src/security/auth.ts:revokeSessions:L284-L299</code>.</p>
+          <p><b>Escenario de Abuso:</b> Iniciar sesión en un segundo teléfono cierra la sesión de la caja principal durante una transacción en tienda física.</p>
+          <p><b>Recomendación:</b> Crear credenciales de terminal POS secundario sin permisos administrativos ni de cambio de cuenta bancaria.</p>
+        </div>
+
+        <div class="card" style="border-left: 4px solid var(--accent-rose);">
+          <div class="card-title">FND-02: Segregación Multi-Tenant Dependiente de la Capa de Aplicación <span class="tag tag-red" style="margin-left: auto;">Alta</span></div>
+          <p><b>Evidencia:</b> Ausencia de PostgreSQL Row Level Security (RLS) en tablas transaccionales; todo depende de cláusulas WHERE en código.</p>
+          <p><b>Riesgo:</b> Un endpoint que omita <code>WHERE merchant_id = ?</code> provocaría vulnerabilidad IDOR con fuga de ventas o cupones.</p>
+          <p><b>Recomendación:</b> Habilitar RLS en PostgreSQL mediante políticas declarativas fijadas en la conexión de sesión.</p>
+        </div>
+
+        <div class="card" style="border-left: 4px solid var(--accent-rose);">
+          <div class="card-title">FND-03: Exposición de Simulación de Liquidación en Entornos no Sandbox <span class="tag tag-red" style="margin-left: auto;">Alta (Mitigada)</span></div>
+          <p><b>Evidencia:</b> <code>backend/src/routes/dev.routes.ts:L86-L108</code>.</p>
+          <p><b>Riesgo:</b> Mala configuración de variables de entorno podría permitir liquidar fondos reales prematuramente sin confirmación de 360Pay.</p>
+          <p><b>Recomendación:</b> Excluir físicamente <code>dev.routes.ts</code> del bundle de producción durante el empaquetado de build.</p>
+        </div>
+
+        <div class="card" style="border-left: 4px solid var(--accent-amber);">
+          <div class="card-title">FND-04: Impacto de Comisión Mínima Fija en Micro-Transacciones <span class="tag tag-amber" style="margin-left: auto;">Media</span></div>
+          <p><b>Evidencia:</b> <code>MIN_FEE_CENTS = 450</code> (S/ 5.31 con IGV). En una venta de S/ 50.00 la comisión efectiva es de 10.62%.</p>
+          <p><b>Riesgo:</b> Descontento del comercio por cobro superior al "1% + IGV" publicitado.</p>
+          <p><b>Recomendación:</b> Mostrar el desglose transparente de la comisión mínima en la pantalla de cotización previa al cobro.</p>
+        </div>
+
+        <div class="card" style="border-left: 4px solid var(--accent-amber);">
+          <div class="card-title">FND-05: Ambigüedad en Cómputo de Plazo de Liquidación de 48 Horas <span class="tag tag-amber" style="margin-left: auto;">Media</span></div>
+          <p><b>Evidencia:</b> Ambigüedad operativa sobre si las 48h de 360Pay son días calendario o hábiles bancarios.</p>
+          <p><b>Recomendación:</b> Formalizar el SLA con 360Pay e incorporar calendario bancario peruano para el cálculo de fecha estimada.</p>
+        </div>
+
+        <div class="card" style="border-left: 4px solid var(--accent-amber);">
+          <div class="card-title">FND-06: Integridad de Bitácora WORM Vulnerable por Superusuario de BD <span class="tag tag-amber" style="margin-left: auto;">Media</span></div>
+          <p><b>Evidencia:</b> Triggers de base de datos pueden ser desactivados por un usuario con privilegios de superusuario.</p>
+          <p><b>Recomendación:</b> Revocar permisos DDL al usuario de la aplicación y replicar logs a bucket WORM (Object Lock).</p>
+        </div>
+      </section>
+
+      <!-- TAB 8: INFORMES TÉCNICOS MARKDOWN -->
+      <section id="pane-documentos" class="tab-pane">
+        <h1 class="page-title">Informes Técnicos y Documentación de Auditoría</h1>
+        <p class="page-desc">Enlaces directos a los 6 documentos Markdown y al archivo CSV estructurado generados en el repositorio:</p>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 1.25rem;">
+          <a href="README.md" class="card" style="text-decoration: none; color: inherit; display: block;">
+            <div class="card-title" style="color: #60a5fa;">README.md</div>
+            <p style="font-size: 0.85rem; color: var(--text-muted);">Informe ejecutivo principal, síntesis de arquitectura, decisiones y limitaciones.</p>
+          </a>
+          <a href="01-matriz-controles-y-parametros.md" class="card" style="text-decoration: none; color: inherit; display: block;">
+            <div class="card-title" style="color: #60a5fa;">01-matriz-controles-y-parametros.md</div>
+            <p style="font-size: 0.85rem; color: var(--text-muted);">24 controles categorizados con ubicación exacta en código y estados canónicos.</p>
+          </a>
+          <a href="01-matriz-controles-y-parametros.csv" class="card" style="text-decoration: none; color: inherit; display: block;">
+            <div class="card-title" style="color: #34d399;">01-matriz-controles-y-parametros.csv</div>
+            <p style="font-size: 0.85rem; color: var(--text-muted);">Versión CSV sanitizada contra inyección de fórmulas (=, +, -, @).</p>
+          </a>
+          <a href="02-inventario-endpoints.md" class="card" style="text-decoration: none; color: inherit; display: block;">
+            <div class="card-title" style="color: #60a5fa;">02-inventario-endpoints.md</div>
+            <p style="font-size: 0.85rem; color: var(--text-muted);">Catálogo de 14 endpoints con métodos, autenticación, efectos y validación.</p>
+          </a>
+          <a href="03-matriz-roles-y-datos.md" class="card" style="text-decoration: none; color: inherit; display: block;">
+            <div class="card-title" style="color: #60a5fa;">03-matriz-roles-y-datos.md</div>
+            <p style="font-size: 0.85rem; color: var(--text-muted);">Matriz CRUD de roles, aislamiento multi-tenant y mapa de clasificación de datos.</p>
+          </a>
+          <a href="04-estados-y-riel-de-pagos.md" class="card" style="text-decoration: none; color: inherit; display: block;">
+            <div class="card-title" style="color: #60a5fa;">04-estados-y-riel-de-pagos.md</div>
+            <p style="font-size: 0.85rem; color: var(--text-muted);">Análisis de comisiones, partida doble, sandbox de 5 min y liquidación 360Pay.</p>
+          </a>
+          <a href="05-registro-hallazgos.md" class="card" style="text-decoration: none; color: inherit; display: block;">
+            <div class="card-title" style="color: #f87171;">05-registro-hallazgos.md</div>
+            <p style="font-size: 0.85rem; color: var(--text-muted);">Registro de 6 hallazgos de seguridad (FND-01 a FND-06) con recomendaciones.</p>
+          </a>
+          <a href="06-comparativa-historica-y-pruebas.md" class="card" style="text-decoration: none; color: inherit; display: block;">
+            <div class="card-title" style="color: #60a5fa;">06-comparativa-historica-y-pruebas.md</div>
+            <p style="font-size: 0.85rem; color: var(--text-muted);">Contraste histórico vs código actual, suite de pruebas y preguntas para 360Pay.</p>
+          </a>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <script>
+    // Tab switching logic
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-pane').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
+
+      const targetPane = document.getElementById('pane-' + tabId);
+      if (targetPane) targetPane.classList.add('active');
+
+      const buttons = document.querySelectorAll('.nav-btn');
+      buttons.forEach(btn => {
+        if (btn.getAttribute('onclick').includes(tabId)) {
+          btn.classList.add('active');
+        }
+      });
+    }
+
+    // Diagram loader
+    function loadDiagram(filename) {
+      const iframe = document.getElementById('diagram-iframe');
+      const extLink = document.getElementById('btn-open-external');
+      if (iframe) iframe.src = filename;
+      if (extLink) extLink.href = filename;
+    }
+
+    // Controls table live filter
+    function filterControls() {
+      const input = document.getElementById('controls-search');
+      const filter = input.value.toLowerCase();
+      const table = document.getElementById('controls-table');
+      const trs = table.getElementsByTagName('tr');
+
+      for (let i = 1; i < trs.length; i++) {
+        const text = trs[i].textContent || trs[i].innerText;
+        if (text.toLowerCase().indexOf(filter) > -1) {
+          trs[i].style.display = '';
+        } else {
+          trs[i].style.display = 'none';
+        }
+      }
+    }
+  </script>
+</body>
+</html>

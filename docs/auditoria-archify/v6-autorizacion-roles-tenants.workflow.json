@@ -1,0 +1,189 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "Kuota - Autorizacion, Roles y Control de Sesiones",
+    "output": "docs/auditoria-archify/v6-autorizacion-roles-tenants.html",
+    "animation": "trace",
+    "visual_preset": "signal-flow",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "login-and-revocation",
+        "label": "Login y Revocacion Mono-Dispositivo",
+        "focus": ["req_login", "verify_creds", "revoke_peers", "issue_tokens"],
+        "note": "El codigo real revoca sesiones concurrentes con revokeSessions(exceptDeviceId), limitando a un unico terminal activo."
+      },
+      {
+        "id": "tenant-access-flow",
+        "label": "Acceso a Recursos y Aislamiento Tenant",
+        "focus": ["api_call", "jwt_validate", "tenant_scope"],
+        "note": "Las peticiones protegidas filtran explicitamente por proveedor_id en cada consulta de base de datos."
+      }
+    ]
+  },
+  "lanes": [
+    {
+      "id": "client",
+      "label": "Terminal Proveedor (App Movil)"
+    },
+    {
+      "id": "auth",
+      "label": "Servicio Auth y Sesiones"
+    },
+    {
+      "id": "data",
+      "label": "Capa de Datos (Multi-Tenant)"
+    }
+  ],
+  "phases": [
+    {
+      "id": "phase_auth",
+      "label": "Autenticacion y Credenciales",
+      "fromCol": 0,
+      "toCol": 1
+    },
+    {
+      "id": "phase_session",
+      "label": "Control Mono-Terminal",
+      "fromCol": 2,
+      "toCol": 3,
+      "variant": "emphasis"
+    },
+    {
+      "id": "phase_tenant",
+      "label": "Aislamiento Tenant",
+      "fromCol": 4,
+      "toCol": 5,
+      "variant": "dashed"
+    }
+  ],
+  "mainPath": ["req_login", "verify_creds", "revoke_peers", "issue_tokens", "api_call", "jwt_validate", "tenant_scope"],
+  "nodes": [
+    {
+      "id": "req_login",
+      "lane": "client",
+      "col": 0,
+      "type": "frontend",
+      "label": "Login Request",
+      "sublabel": "credenciales + id",
+      "width": 132
+    },
+    {
+      "id": "verify_creds",
+      "lane": "auth",
+      "col": 1,
+      "type": "security",
+      "label": "Validar Creds",
+      "sublabel": "bcrypt + status",
+      "width": 132
+    },
+    {
+      "id": "revoke_peers",
+      "lane": "auth",
+      "col": 2,
+      "type": "backend",
+      "label": "Revocar Sesiones",
+      "sublabel": "exceptDeviceId",
+      "tag": "mono-device",
+      "width": 132
+    },
+    {
+      "id": "issue_tokens",
+      "lane": "auth",
+      "col": 3,
+      "type": "security",
+      "label": "Emitir Tokens",
+      "sublabel": "JWT claims",
+      "width": 132
+    },
+    {
+      "id": "api_call",
+      "lane": "client",
+      "col": 4,
+      "type": "frontend",
+      "label": "Request Protegida",
+      "sublabel": "Bearer token",
+      "width": 132
+    },
+    {
+      "id": "jwt_validate",
+      "lane": "auth",
+      "col": 4,
+      "type": "backend",
+      "label": "Validar JWT",
+      "sublabel": "firma HMAC",
+      "width": 132
+    },
+    {
+      "id": "tenant_scope",
+      "lane": "data",
+      "col": 5,
+      "type": "database",
+      "label": "Filtro Tenant",
+      "sublabel": "WHERE proveedor_id",
+      "tag": "aislamiento",
+      "width": 132
+    }
+  ],
+  "edges": [
+    {
+      "id": "e_login_auth",
+      "from": "req_login",
+      "to": "verify_creds",
+      "label": "POST /auth/login",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e_auth_revoke",
+      "from": "verify_creds",
+      "to": "revoke_peers",
+      "label": "revocacion",
+      "variant": "security"
+    },
+    {
+      "id": "e_revoke_issue",
+      "from": "revoke_peers",
+      "to": "issue_tokens",
+      "label": "sesion unica",
+      "variant": "default"
+    },
+    {
+      "id": "e_issue_client",
+      "from": "issue_tokens",
+      "to": "api_call",
+      "label": "token JWT",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e_client_val",
+      "from": "api_call",
+      "to": "jwt_validate",
+      "label": "autentica",
+      "variant": "default"
+    },
+    {
+      "id": "e_val_data",
+      "from": "jwt_validate",
+      "to": "tenant_scope",
+      "label": "filtro tenant",
+      "variant": "emphasis"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "amber",
+      "title": "Requisito vs Codigo Real",
+      "items": [
+        "El documento preveia multi-cajero con roles segregados; el codigo real impone mono-dispositivo estricto (revokeSessions)"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "Aislamiento Multi-Tenant",
+      "items": [
+        "Segregacion garantizada por filtro WHERE proveedor_id en queries; sin RLS a nivel de base de datos"
+      ]
+    }
+  ]
+}
