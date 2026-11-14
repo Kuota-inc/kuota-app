@@ -6,6 +6,9 @@ import { createOpenpayCharge } from '../integrations/openpay.js';
 import { computeScore, persistScore } from '../services/scoring.service.js';
 import { config } from '../security/config.js';
 import { verifyIntegrityToken } from '../security/playIntegrity.js';
+import { checkPin } from '../security/auth.js';
+import { audit } from '../security/audit.js';
+import { clientIp, headerString } from '../security/http.js';
 
 // Pagar una cuota o liquidar una compra solo marca la deuda como pagada: no mueve dinero. Con dinero real eso regalaría
 // crédito (pedir, "pagar" sin pagar y volver a pedir), así que solo se permite en modo simulado, hasta que el pago lo confirme el banco.
@@ -169,12 +172,25 @@ creditRouter.post('/simulations', async (req, res) => {
 // P2P aKuotas: crear nueva compra al crédito
 creditRouter.post('/purchases', async (req, res) => {
   const merchant = await getMerchantProfile(req);
-  const { provider_id, total_cents, installments = 3, integrity_token, integrity_nonce } = req.body ?? {};
+  const { provider_id, total_cents, installments = 3, integrity_token, integrity_nonce, pin, idempotency_key } = req.body ?? {};
+
+  // Idempotency key: required, opaque string ≤ 64 chars from the client.
+  if (typeof idempotency_key !== 'string' || idempotency_key.length < 1 || idempotency_key.length > 64) {
+    return res.status(422).json({ error: { code: 'IDEMPOTENCY_KEY_REQUIRED', message: 'Se requiere una clave de idempotencia para crear una compra.' } });
+  }
 
   // Verificar integridad del APK antes de crear una compra.
   const integrity = await verifyIntegrityToken(integrity_token, integrity_nonce ?? '');
   if (!integrity.ok) {
     return res.status(403).json({ error: { code: 'INTEGRITY_FAILED', message: 'No se pudo verificar la integridad del dispositivo.', reason: integrity.reason } });
+  }
+
+  // Step-up PIN: confirmar identidad del comerciante antes de comprometer crédito.
+  const ip = clientIp(req);
+  const deviceId = headerString(req, 'x-device-id') || undefined;
+  const pinCheck = await checkPin(merchant.id, pin, { ip, deviceId, purpose: 'PURCHASE_STEP_UP' });
+  if (!pinCheck.ok) {
+    return res.status(pinCheck.status).json({ error: { code: pinCheck.code, message: pinCheck.message, ...pinCheck.extra } });
   }
 
   if (typeof provider_id !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/.test(provider_id)) {
@@ -196,6 +212,15 @@ creditRouter.post('/purchases', async (req, res) => {
 
   const created = await db.tx(async () => {
     await db.lock('purchase:' + merchant.id);
+
+    // Idempotency: return existing purchase for this key instead of creating a duplicate.
+    const existing = await db.prepare(
+      'SELECT id, receipt_number, down_payment_pct, down_payment_cents, financed_cents FROM credit_purchases WHERE merchant_id = ? AND idempotency_key = ?'
+    ).get(merchant.id, idempotency_key) as { id: string; receipt_number: string; down_payment_pct: number; down_payment_cents: number; financed_cents: number } | undefined;
+    if (existing) {
+      return { purchaseId: existing.id, receiptNumber: existing.receipt_number, downPaymentPct: existing.down_payment_pct, downPaymentCents: existing.down_payment_cents, financedCents: existing.financed_cents, idempotent: true };
+    }
+
     // Regla 3.2: solo 1 compra activa a la vez
     const activePurchase = await db.prepare(`
       SELECT id FROM credit_purchases WHERE merchant_id = ? AND status IN ('ACTIVE_ON_TIME', 'ACTIVE_OVERDUE')
@@ -241,9 +266,9 @@ creditRouter.post('/purchases', async (req, res) => {
 
     await db.prepare(`
       INSERT INTO credit_purchases (id, merchant_id, line_id, provider_id, plan_code, total_cents,
-        down_payment_pct, down_payment_cents, financed_cents, installments_count, receipt_number, status)
-      VALUES (?, ?, ?, ?, 'KUOTA_3X', ?, ?, ?, ?, ?, ?, 'ACTIVE_ON_TIME')
-    `).run(purchaseId, merchant.id, line.id, provider_id, total_cents, downPaymentPct, downPaymentCents, financedCents, installments, receiptNumber);
+        down_payment_pct, down_payment_cents, financed_cents, installments_count, receipt_number, status, idempotency_key)
+      VALUES (?, ?, ?, ?, 'KUOTA_3X', ?, ?, ?, ?, ?, ?, 'ACTIVE_ON_TIME', ?)
+    `).run(purchaseId, merchant.id, line.id, provider_id, total_cents, downPaymentPct, downPaymentCents, financedCents, installments, receiptNumber, idempotency_key);
 
     const today = new Date();
     for (let i = 1; i <= installments; i++) {
@@ -268,29 +293,42 @@ creditRouter.post('/purchases', async (req, res) => {
     `).run('sev_' + uuidv4().substring(0, 10), merchant.id, purchaseId);
 
 
-    return { purchaseId, receiptNumber, downPaymentPct, downPaymentCents, financedCents };
+    return { purchaseId, receiptNumber, downPaymentPct, downPaymentCents, financedCents, idempotent: false };
   });
   if (!created) return;
-  const { purchaseId, receiptNumber, downPaymentPct, downPaymentCents, financedCents } = created;
+  const { purchaseId, receiptNumber, downPaymentPct, downPaymentCents, financedCents, idempotent } = created;
 
   // Cargo Openpay para el enganche (sandbox: mock inmediato).
+  // En replay idempotente el cargo ya existe; no volvemos a crearlo.
   let openpayChargeId: string | null = null;
-  try {
-    const charge = await createOpenpayCharge({
-      amountCents: downPaymentCents,
-      description: `Kuota enganche ${receiptNumber}`,
-      orderId: purchaseId
-    });
-    openpayChargeId = charge.id;
-    if (charge.status === 'completed') {
-      await db.prepare("UPDATE credit_purchases SET openpay_charge_id = ?, down_payment_status = 'CONFIRMED' WHERE id = ?")
-        .run(charge.id, purchaseId);
-    } else {
-      await db.prepare("UPDATE credit_purchases SET openpay_charge_id = ? WHERE id = ?")
-        .run(charge.id, purchaseId);
+  if (!idempotent) {
+    try {
+      const charge = await createOpenpayCharge({
+        amountCents: downPaymentCents,
+        description: `Kuota enganche ${receiptNumber}`,
+        orderId: purchaseId
+      });
+      openpayChargeId = charge.id;
+      if (charge.status === 'completed') {
+        await db.prepare("UPDATE credit_purchases SET openpay_charge_id = ?, down_payment_status = 'CONFIRMED' WHERE id = ?")
+          .run(charge.id, purchaseId);
+      } else {
+        await db.prepare("UPDATE credit_purchases SET openpay_charge_id = ? WHERE id = ?")
+          .run(charge.id, purchaseId);
+      }
+    } catch (err) {
+      // No bloquear la compra si Openpay falla: el webhook confirmará el pago luego.
+      await audit({
+        actorType: 'SYSTEM',
+        actorId: merchant.id,
+        action: 'OPENPAY_CHARGE_FAILED',
+        target: purchaseId,
+        result: 'FAILED',
+        ip,
+        deviceId: deviceId ?? null,
+        details: { receipt_number: receiptNumber, error: err instanceof Error ? err.message : String(err) }
+      });
     }
-  } catch {
-    // No bloquear la compra si Openpay falla: el webhook confirmará luego.
   }
 
   res.status(201).json({
