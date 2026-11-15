@@ -1,16 +1,42 @@
 {
-  "updated_at": "2026-11-15 16:03 UTC",
+  "updated_at": "2026-11-15 16:10 UTC",
   "branch": "fix/proveedor-inicio-conciliacion",
-  "latest_sha": "27fda3e1d49128cfd107321616f15ba3b92277b3",
-  "latest_short_sha": "27fda3e",
+  "latest_sha": "41435879378a28905741a8c02a66f3ee9a1feb3d",
+  "latest_short_sha": "4143587",
   "events": [
+    {
+      "sha": "41435879378a28905741a8c02a66f3ee9a1feb3d",
+      "short_sha": "4143587",
+      "author": "Kuota",
+      "subject": "feat(portal): add master backend architecture documentation, conversational AI guardrails and Gemini free-tier serverless function",
+      "timestamp": 1794758698,
+      "rel_time": "Hace 5 min",
+      "date": "Sun Nov 15 11:04:58 2026 -0500",
+      "is_agent": false,
+      "tag": "Feature",
+      "badge_class": "feat",
+      "url": "https://github.com/Kuota-inc/kuota-app/commit/41435879378a28905741a8c02a66f3ee9a1feb3d"
+    },
+    {
+      "sha": "4abae38709cebe4689c132a813eb092790163eb6",
+      "short_sha": "4abae38",
+      "author": "kuota-portal-agent[bot]",
+      "subject": "chore(agent): sync portal with commit 27fda3e [skip ci]",
+      "timestamp": 1794757259,
+      "rel_time": "Hace 29 min",
+      "date": "Sun Nov 15 15:40:59 2026 +0000",
+      "is_agent": true,
+      "tag": "Agente Kuota",
+      "badge_class": "agent",
+      "url": "https://github.com/Kuota-inc/kuota-app/commit/4abae38709cebe4689c132a813eb092790163eb6"
+    },
     {
       "sha": "27fda3e1d49128cfd107321616f15ba3b92277b3",
       "short_sha": "27fda3e",
       "author": "Kuota",
       "subject": "feat(portal): implement interactive Kuota auditor assistant, real-time CI/CD auto-polling and commit search",
       "timestamp": 1794757039,
-      "rel_time": "Hace 26 min",
+      "rel_time": "Hace 33 min",
       "date": "Sun Nov 15 10:37:19 2026 -0500",
       "is_agent": false,
       "tag": "Feature",
@@ -23,7 +49,7 @@
       "author": "kuota-portal-agent[bot]",
       "subject": "chore(agent): sync portal with commit 16bda62 [skip ci]",
       "timestamp": 1794719067,
-      "rel_time": "Hace 10 h",
+      "rel_time": "Hace 11 h",
       "date": "Sun Nov 15 05:04:27 2026 +0000",
       "is_agent": true,
       "tag": "Agente Kuota",
@@ -218,7 +244,7 @@
       "author": "Kuota",
       "subject": "feat(portal): elevate Apple Design UI, add interactive fee simulator and macOS Sequoia window chrome",
       "timestamp": 1794690334,
-      "rel_time": "Hace 18 h",
+      "rel_time": "Hace 19 h",
       "date": "Sat Nov 14 16:05:34 2026 -0500",
       "is_agent": false,
       "tag": "Feature",
@@ -237,32 +263,6 @@
       "tag": "Commit",
       "badge_class": "commit",
       "url": "https://github.com/Kuota-inc/kuota-app/commit/757ff3a14c99efb04551b284649a02eb490d3881"
-    },
-    {
-      "sha": "ee6881f553caf6122a8ca3a53a9dc2d411dc4d4e",
-      "short_sha": "ee6881f",
-      "author": "Kuota",
-      "subject": "docs: agregar portal maestro interactivo, diagramas Archify y documentacion de auditoria",
-      "timestamp": 1794689097,
-      "rel_time": "Hace 19 h",
-      "date": "Sat Nov 14 15:44:57 2026 -0500",
-      "is_agent": false,
-      "tag": "Commit",
-      "badge_class": "commit",
-      "url": "https://github.com/Kuota-inc/kuota-app/commit/ee6881f553caf6122a8ca3a53a9dc2d411dc4d4e"
-    },
-    {
-      "sha": "d7bac8b329d817bd6cc39f4fae0e751bda319c5d",
-      "short_sha": "d7bac8b",
-      "author": "Kuota",
-      "subject": "fix(proveedor): unificar Inicio y Conciliacion, estados Por confirmar/Cancelado y ventana sandbox 5m",
-      "timestamp": 1794685016,
-      "rel_time": "Hace 20 h",
-      "date": "Sat Nov 14 14:36:56 2026 -0500",
-      "is_agent": false,
-      "tag": "Fix",
-      "badge_class": "fix",
-      "url": "https://github.com/Kuota-inc/kuota-app/commit/d7bac8b329d817bd6cc39f4fae0e751bda319c5d"
     }
   ]
 }
