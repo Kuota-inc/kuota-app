@@ -1471,34 +1471,53 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
       50% {{ transform: scale(1.14); }}
     }}
 
-    /* Popover / Cajón de Actividad Flotante */
+    /* Overlay Backdrop para aislar el Centro de Actividad y enfocar la vista */
+    .activity-backdrop {{
+      position: fixed;
+      inset: 0;
+      background: rgba(11, 20, 38, 0.38);
+      backdrop-filter: blur(6px) saturate(140%);
+      -webkit-backdrop-filter: blur(6px) saturate(140%);
+      z-index: 9998;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+    }}
+
+    .activity-backdrop.open {{
+      opacity: 1;
+      pointer-events: auto;
+    }}
+
+    /* Popover / Cajón de Actividad Flotante (Apple Design System 2026) */
     .activity-drawer {{
       position: fixed;
       bottom: 5.5rem;
       right: 1.5rem;
-      width: 410px;
+      width: 430px;
       max-width: calc(100vw - 2rem);
-      max-height: 590px;
-      background: rgba(255, 255, 255, 0.94);
+      height: 600px;
+      max-height: calc(100vh - 7rem);
+      background: rgba(255, 255, 255, 0.98);
       backdrop-filter: blur(32px) saturate(190%);
       -webkit-backdrop-filter: blur(32px) saturate(190%);
-      border: 1px solid rgba(175, 197, 246, 0.38);
+      border: 1px solid rgba(175, 197, 246, 0.45);
       border-radius: 24px;
-      box-shadow: 0 24px 60px rgba(11, 37, 69, 0.22), 0 0 0 1px rgba(255, 255, 255, 0.4) inset;
+      box-shadow: 0 24px 60px rgba(11, 37, 69, 0.22), 0 0 0 1px rgba(255, 255, 255, 0.8) inset;
       z-index: 9999;
       display: flex;
       flex-direction: column;
       overflow: hidden;
-      transform: scale(0.92) translateY(20px);
+      transform: scale(0.94) translateY(24px);
       opacity: 0;
       pointer-events: none;
-      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      transition: all 0.32s cubic-bezier(0.16, 1, 0.3, 1);
     }}
 
     html[data-theme="kuota-dark"] .activity-drawer {{
-      background: rgba(18, 24, 38, 0.94);
+      background: rgba(18, 24, 38, 0.98);
       border-color: rgba(255, 255, 255, 0.12);
-      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.08) inset;
     }}
 
     .activity-drawer.open {{
@@ -1507,19 +1526,31 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
       pointer-events: auto;
     }}
 
+    .drawer-mobile-handle {{
+      display: none;
+      width: 38px;
+      height: 5px;
+      border-radius: 9999px;
+      background: rgba(100, 116, 139, 0.3);
+      margin: 0.65rem auto 0;
+      flex-shrink: 0;
+    }}
+
     .drawer-header {{
-      padding: 1.15rem 1.25rem 0.85rem;
+      padding: 1.1rem 1.25rem 0.85rem;
       border-bottom: 1px solid var(--border);
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 0.75rem;
+      flex-shrink: 0;
+      background: var(--surface);
     }}
 
     .drawer-title-box {{
       display: flex;
       align-items: center;
-      gap: 0.65rem;
+      gap: 0.75rem;
     }}
 
     .drawer-title {{
@@ -1530,35 +1561,47 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
       display: flex;
       align-items: center;
       gap: 0.4rem;
+      line-height: 1.25;
     }}
 
     .drawer-close-btn {{
-      width: 28px;
-      height: 28px;
+      width: 30px;
+      height: 30px;
       border-radius: 9999px;
       border: 1px solid var(--border);
-      background: transparent;
+      background: var(--bg-hover, rgba(0,0,0,0.04));
       color: var(--text-secondary);
       display: flex;
       align-items: center;
       justify-content: center;
       cursor: pointer;
-      transition: all 0.2s;
+      font-size: 1.2rem;
+      line-height: 1;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      outline: none;
+      flex-shrink: 0;
     }}
 
     .drawer-close-btn:hover {{
-      background: var(--bg-hover);
+      background: var(--border);
       color: var(--text);
+      transform: scale(1.08);
+    }}
+
+    .drawer-close-btn:active {{
+      transform: scale(0.92);
     }}
 
     .drawer-live-strip {{
-      padding: 0.65rem 1.25rem;
-      background: rgba(26, 59, 176, 0.04);
+      padding: 0.55rem 1.25rem;
+      background: rgba(26, 59, 176, 0.03);
       border-bottom: 1px solid var(--border);
       display: flex;
       align-items: center;
       justify-content: space-between;
-      font-size: 0.76rem;
+      gap: 0.75rem;
+      flex-shrink: 0;
+      font-size: 0.74rem;
     }}
 
     html[data-theme="kuota-dark"] .drawer-live-strip {{
@@ -1568,10 +1611,11 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
     .live-indicator {{
       display: inline-flex;
       align-items: center;
-      gap: 0.4rem;
+      gap: 0.45rem;
       color: #10B981;
       font-weight: 700;
-      font-size: 0.76rem;
+      white-space: nowrap;
+      flex-shrink: 0;
     }}
 
     .live-dot {{
@@ -1581,63 +1625,139 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
       background: #10B981;
       box-shadow: 0 0 8px #10B981;
       display: inline-block;
+      animation: pulse-badge 2s infinite ease-in-out;
+    }}
+
+    .branch-pill {{
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.2rem 0.6rem;
+      border-radius: 9999px;
+      background: rgba(26, 59, 176, 0.08);
+      color: var(--kuota-persian-blue);
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      font-weight: 600;
+      max-width: 175px;
+      overflow: hidden;
+      white-space: nowrap;
+      border: 1px solid rgba(26, 59, 176, 0.15);
+      flex-shrink: 0;
+    }}
+
+    html[data-theme="kuota-dark"] .branch-pill {{
+      background: rgba(175, 197, 246, 0.1);
+      color: var(--kuota-periwinkle);
+      border-color: rgba(175, 197, 246, 0.2);
+    }}
+
+    .branch-text {{
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }}
 
     .drawer-filter-row {{
-      padding: 0.5rem 1.25rem;
-      display: flex;
-      gap: 0.4rem;
+      padding: 0.65rem 1.15rem;
+      background: var(--surface);
       border-bottom: 1px solid var(--border);
-      overflow-x: auto;
-      scrollbar-width: none;
+      flex-shrink: 0;
     }}
 
-    .drawer-filter-btn {{
-      font-size: 0.72rem;
-      font-weight: 600;
-      padding: 0.25rem 0.65rem;
-      border-radius: 9999px;
-      border: 1px solid var(--border);
+    .segmented-control {{
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      background: rgba(0, 0, 0, 0.05);
+      padding: 3px;
+      border-radius: 12px;
+      gap: 3px;
+    }}
+
+    html[data-theme="kuota-dark"] .segmented-control {{
+      background: rgba(255, 255, 255, 0.07);
+    }}
+
+    .segmented-btn {{
+      border: none;
       background: transparent;
+      padding: 0.45rem 0.25rem;
+      font-size: 0.73rem;
+      font-weight: 600;
       color: var(--text-secondary);
+      border-radius: 9px;
       cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.25rem;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
       white-space: nowrap;
-      transition: all 0.2s;
+      user-select: none;
+      outline: none;
     }}
 
-    .drawer-filter-btn.active {{
-      background: var(--kuota-persian-blue);
+    .segmented-btn:hover {{
+      color: var(--text);
+    }}
+
+    .segmented-btn.active {{
+      background: #FFFFFF;
+      color: var(--kuota-persian-blue);
+      font-weight: 700;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), 0 0 1px rgba(0, 0, 0, 0.12);
+    }}
+
+    html[data-theme="kuota-dark"] .segmented-btn.active {{
+      background: rgba(255, 255, 255, 0.16);
       color: #FFFFFF;
-      border-color: var(--kuota-persian-blue);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
     }}
 
     .drawer-feed {{
-      flex: 1;
+      flex: 1 1 auto;
+      min-height: 0;
       overflow-y: auto;
-      padding: 0.85rem 1.15rem;
+      padding: 0.85rem 1.15rem 1.25rem;
       display: flex;
       flex-direction: column;
       gap: 0.75rem;
+      overscroll-behavior: contain;
       scrollbar-width: thin;
-      max-height: 380px;
+      scrollbar-color: rgba(100, 116, 139, 0.25) transparent;
+    }}
+
+    .drawer-feed::-webkit-scrollbar {{
+      width: 5px;
+    }}
+
+    .drawer-feed::-webkit-scrollbar-track {{
+      background: transparent;
+    }}
+
+    .drawer-feed::-webkit-scrollbar-thumb {{
+      background: rgba(100, 116, 139, 0.22);
+      border-radius: 9999px;
+    }}
+
+    .drawer-feed::-webkit-scrollbar-thumb:hover {{
+      background: rgba(100, 116, 139, 0.4);
     }}
 
     .feed-card {{
-      padding: 0.75rem 0.85rem;
-      border-radius: 14px;
+      padding: 0.85rem 0.95rem;
+      border-radius: 16px;
       border: 1px solid var(--border);
-      background: rgba(255, 255, 255, 0.6);
-      transition: all 0.2s;
+      background: var(--surface);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
       position: relative;
-    }}
-
-    html[data-theme="kuota-dark"] .feed-card {{
-      background: rgba(255, 255, 255, 0.03);
     }}
 
     .feed-card:hover {{
       border-color: var(--kuota-periwinkle);
-      transform: translateY(-1px);
+      box-shadow: 0 4px 14px rgba(26, 59, 176, 0.08);
+      transform: translateY(-1.5px);
     }}
 
     .feed-card-header {{
@@ -1645,17 +1765,18 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
       align-items: center;
       justify-content: space-between;
       gap: 0.5rem;
-      margin-bottom: 0.35rem;
+      margin-bottom: 0.45rem;
     }}
 
     .feed-badge {{
-      font-size: 0.65rem;
+      font-size: 0.68rem;
       font-weight: 700;
-      padding: 0.15rem 0.5rem;
+      padding: 0.18rem 0.55rem;
       border-radius: 9999px;
       display: inline-flex;
       align-items: center;
-      gap: 0.25rem;
+      gap: 0.3rem;
+      letter-spacing: -0.01em;
     }}
 
     .feed-badge.agent {{
@@ -1698,19 +1819,45 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
     }}
 
     .feed-msg {{
-      font-size: 0.82rem;
+      font-size: 0.83rem;
       font-weight: 600;
       color: var(--text);
-      line-height: 1.35;
-      margin-bottom: 0.4rem;
+      line-height: 1.4;
+      margin-bottom: 0.5rem;
+      word-break: break-word;
     }}
 
     .feed-meta {{
       display: flex;
       align-items: center;
       justify-content: space-between;
+      gap: 0.5rem;
       font-size: 0.72rem;
       color: var(--text-secondary);
+      border-top: 1px dashed rgba(175, 197, 246, 0.35);
+      padding-top: 0.45rem;
+      margin-top: 0.2rem;
+    }}
+
+    html[data-theme="kuota-dark"] .feed-meta {{
+      border-top-color: rgba(255, 255, 255, 0.08);
+    }}
+
+    .commit-sha-badge {{
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      font-weight: 700;
+      background: rgba(26, 59, 176, 0.06);
+      color: var(--kuota-persian-blue);
+      padding: 0.15rem 0.4rem;
+      border-radius: 6px;
+      border: 1px solid rgba(26, 59, 176, 0.15);
+    }}
+
+    html[data-theme="kuota-dark"] .commit-sha-badge {{
+      background: rgba(175, 197, 246, 0.12);
+      color: var(--kuota-periwinkle);
+      border-color: rgba(175, 197, 246, 0.25);
     }}
 
     .feed-link {{
@@ -1719,7 +1866,13 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
       font-weight: 700;
       display: inline-flex;
       align-items: center;
-      gap: 0.2rem;
+      gap: 0.25rem;
+      transition: all 0.2s;
+    }}
+
+    .feed-link:hover {{
+      text-decoration: underline;
+      transform: translateX(1px);
     }}
 
     html[data-theme="kuota-dark"] .feed-link {{
@@ -1727,13 +1880,39 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
     }}
 
     .drawer-footer {{
-      padding: 0.75rem 1.25rem;
+      padding: 0.85rem 1.25rem;
       border-top: 1px solid var(--border);
       display: flex;
       align-items: center;
       justify-content: space-between;
-      background: rgba(26, 59, 176, 0.02);
-      font-size: 0.75rem;
+      background: var(--surface);
+      font-size: 0.76rem;
+      flex-shrink: 0;
+    }}
+
+    @media (max-width: 640px) {{
+      .activity-drawer {{
+        bottom: 0;
+        right: 0;
+        left: 0;
+        width: 100%;
+        max-width: 100%;
+        height: 85vh;
+        max-height: 85vh;
+        border-radius: 28px 28px 0 0;
+        border-bottom: none;
+        transform: translateY(100%);
+      }}
+      .activity-drawer.open {{
+        transform: translateY(0);
+      }}
+      .drawer-mobile-handle {{
+        display: block;
+      }}
+      .activity-bell-wrapper {{
+        bottom: 1.25rem;
+        right: 1.25rem;
+      }}
     }}
   </style>
 </head>
@@ -2599,18 +2778,22 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
     </button>
   </div>
 
-  <!-- Cajón / Popover Flotante de Actividad -->
+  <!-- Overlay Backdrop para aislar el Centro de Actividad y enfocar la vista -->
+  <div id="activity-drawer-backdrop" class="activity-backdrop" onclick="toggleActivityDrawer()"></div>
+
+  <!-- Cajón / Popover Flotante de Actividad (Apple Design System 2026) -->
   <div id="activity-drawer" class="activity-drawer" role="dialog" aria-modal="true" aria-labelledby="activity-drawer-title">
+    <div class="drawer-mobile-handle"></div>
     <div class="drawer-header">
       <div class="drawer-title-box">
-        <span class="icon-badge" style="width: 28px; height: 28px; min-width: 28px;">
-          <svg class="icon-svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <span class="icon-badge" style="width: 32px; height: 32px; min-width: 32px; background: rgba(26, 59, 176, 0.08); color: var(--kuota-persian-blue); border: 1px solid rgba(26, 59, 176, 0.15); border-radius: 10px;">
+          <svg class="icon-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M12 2v4"/><path d="m4.93 4.93 2.83 2.83"/><path d="M2 12h4"/><path d="m4.93 19.07 2.83-2.83"/><path d="M12 22v-4"/><path d="m19.07 19.07-2.83-2.83"/><path d="M22 12h-4"/><path d="m19.07 4.93-2.83 2.83"/>
           </svg>
         </span>
         <div>
-          <div id="activity-drawer-title" class="drawer-title">Actividad del Repositorio</div>
-          <div style="font-size: 0.72rem; color: var(--text-tertiary);">Sincronización Autónoma CI/CD &bull; Kuota</div>
+          <div id="activity-drawer-title" class="drawer-title">Centro de Actividad CI/CD</div>
+          <div style="font-size: 0.72rem; color: var(--text-tertiary);">Agentes Autónomos &bull; Repositorio Kuota</div>
         </div>
       </div>
       <button class="drawer-close-btn" onclick="toggleActivityDrawer()" aria-label="Cerrar">&times;</button>
@@ -2621,16 +2804,29 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
         <span class="live-dot"></span>
         <span>Agente Activo &bull; Vercel Live</span>
       </div>
-      <div style="color: var(--text-secondary); font-family: var(--font-mono); font-size: 0.7rem;">
-        Rama: <span style="font-weight: 700; color: var(--kuota-persian-blue);">{branch}</span>
+      <div class="branch-pill" title="Rama: {branch}">
+        <svg class="icon-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 0 1 2 2v7"/><line x1="6" x2="6" y1="9" x2="21"/>
+        </svg>
+        <span class="branch-text">{branch}</span>
       </div>
     </div>
 
     <div class="drawer-filter-row">
-      <button class="drawer-filter-btn active" onclick="filterActivity('all', this)">Todos</button>
-      <button class="drawer-filter-btn" onclick="filterActivity('agent', this)">🤖 Agente Bot</button>
-      <button class="drawer-filter-btn" onclick="filterActivity('feat', this)">✨ Features</button>
-      <button class="drawer-filter-btn" onclick="filterActivity('fix', this)">🛠️ Fixes</button>
+      <div class="segmented-control">
+        <button class="segmented-btn active" onclick="filterActivity('all', this)">
+          <span>Todos</span>
+        </button>
+        <button class="segmented-btn" onclick="filterActivity('agent', this)">
+          <span>🤖 Agente</span>
+        </button>
+        <button class="segmented-btn" onclick="filterActivity('feat', this)">
+          <span>✨ Feat</span>
+        </button>
+        <button class="segmented-btn" onclick="filterActivity('fix', this)">
+          <span>🛠️ Fix</span>
+        </button>
+      </div>
     </div>
 
     <div id="activity-feed-list" class="drawer-feed">
@@ -2638,12 +2834,15 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
     </div>
 
     <div class="drawer-footer">
-      <a href="https://github.com/Kuota-inc/kuota-app/commits/{branch}" target="_blank" class="feed-link" style="font-size: 0.75rem;">
-        <span>Ver historial en GitHub</span>
+      <a href="https://github.com/Kuota-inc/kuota-app/commits/{branch}" target="_blank" class="feed-link" style="font-size: 0.76rem;">
+        <svg class="icon-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/>
+        </svg>
+        <span>Ver en GitHub</span>
         <svg class="icon-svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg>
       </a>
-      <button onclick="refreshActivityFeed()" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 0.75rem; font-weight: 600; display: inline-flex; align-items: center; gap: 0.25rem;">
-        <svg class="icon-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+      <button id="btn-feed-refresh" onclick="refreshActivityFeed()" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 0.76rem; font-weight: 600; display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.25rem 0.5rem; border-radius: 8px; transition: all 0.2s;">
+        <svg id="icon-feed-refresh" class="icon-svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
         <span>Refrescar</span>
       </button>
     </div>
@@ -2904,12 +3103,15 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
       }}
     }}
 
-    // Control del Centro de Notificaciones y Actividad del Agente
+    // Control del Centro de Notificaciones y Actividad del Agente (Apple HIG)
     function toggleActivityDrawer() {{
       const drawer = document.getElementById('activity-drawer');
+      const backdrop = document.getElementById('activity-drawer-backdrop');
       const badge = document.getElementById('bell-badge-count');
       if (!drawer) return;
       const isOpen = drawer.classList.toggle('open');
+      if (backdrop) backdrop.classList.toggle('open', isOpen);
+      document.body.classList.toggle('drawer-open', isOpen);
       if (isOpen) {{
         renderActivityFeed();
         if (RECENT_ACTIVITY && RECENT_ACTIVITY.length > 0) {{
@@ -2923,25 +3125,31 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
 
     document.addEventListener('click', function(e) {{
       const drawer = document.getElementById('activity-drawer');
+      const backdrop = document.getElementById('activity-drawer-backdrop');
       const bell = document.getElementById('btn-activity-bell');
       if (!drawer || !bell) return;
       if (drawer.classList.contains('open') && !drawer.contains(e.target) && !bell.contains(e.target)) {{
         drawer.classList.remove('open');
+        if (backdrop) backdrop.classList.remove('open');
+        document.body.classList.remove('drawer-open');
       }}
     }});
 
     document.addEventListener('keydown', function(e) {{
       if (e.key === 'Escape') {{
         const drawer = document.getElementById('activity-drawer');
+        const backdrop = document.getElementById('activity-drawer-backdrop');
         if (drawer && drawer.classList.contains('open')) {{
           drawer.classList.remove('open');
+          if (backdrop) backdrop.classList.remove('open');
+          document.body.classList.remove('drawer-open');
         }}
       }}
     }});
 
     function filterActivity(filterType, btn) {{
       currentActivityFilter = filterType;
-      document.querySelectorAll('.drawer-filter-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.segmented-btn').forEach(b => b.classList.remove('active'));
       if (btn) btn.classList.add('active');
       renderActivityFeed();
     }}
@@ -2960,7 +3168,7 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
       }}
 
       if (!filtered || filtered.length === 0) {{
-        container.innerHTML = '<div style="text-align: center; padding: 2.5rem 1rem; color: var(--text-tertiary); font-size: 0.82rem;">No hay eventos en este filtro.</div>';
+        container.innerHTML = '<div style="text-align: center; padding: 3rem 1rem; color: var(--text-tertiary); font-size: 0.82rem;"><div style="font-size: 1.6rem; margin-bottom: 0.5rem; opacity: 0.6;">📦</div>No hay eventos registrados bajo esta categoría.</div>';
         return;
       }}
 
@@ -2968,8 +3176,8 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
       filtered.forEach(item => {{
         const isAgent = item.is_agent;
         const iconSvg = isAgent 
-          ? '<svg class="icon-svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>'
-          : '<svg class="icon-svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><line x1="3" y1="12" x2="9" y2="12"/><line x1="15" y1="12" x2="21" y2="12"/></svg>';
+          ? '<svg class="icon-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>'
+          : '<svg class="icon-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><line x1="3" y1="12" x2="9" y2="12"/><line x1="15" y1="12" x2="21" y2="12"/></svg>';
 
         html += `
           <div class="feed-card">
@@ -2982,12 +3190,13 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
             </div>
             <div class="feed-msg">${{escapeHtml(item.subject)}}</div>
             <div class="feed-meta">
-              <span style="font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-secondary);">
-                ${{escapeHtml(item.author)}} &middot; <code>${{item.short_sha}}</code>
+              <span style="font-size: 0.72rem; color: var(--text-secondary); display: inline-flex; align-items: center; gap: 0.35rem;">
+                <span style="font-weight: 500;">${{escapeHtml(item.author)}}</span>
+                <span class="commit-sha-badge">${{item.short_sha}}</span>
               </span>
               <a href="${{item.url}}" target="_blank" class="feed-link" title="Ver commit en GitHub">
                 <span>Ver commit</span>
-                <svg class="icon-svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg>
+                <svg class="icon-svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg>
               </a>
             </div>
           </div>
@@ -3031,9 +3240,12 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
     }}
 
     function refreshActivityFeed() {{
+      const icon = document.getElementById('icon-feed-refresh');
+      if (icon) icon.style.animation = 'spin 0.8s linear infinite';
       fetch('activity-feed.json?t=' + Date.now())
         .then(res => res.json())
         .then(data => {{
+          if (icon) icon.style.animation = '';
           if (data && data.events) {{
             RECENT_ACTIVITY.length = 0;
             data.events.forEach(ev => RECENT_ACTIVITY.push(ev));
@@ -3043,6 +3255,7 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
           }}
         }})
         .catch(() => {{
+          if (icon) icon.style.animation = '';
           renderActivityFeed();
           showToastMsg('Feed en sincronía.');
         }});
