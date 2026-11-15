@@ -40,7 +40,8 @@ def read_markdown_reports():
         ('roles', '03-matriz-roles-y-datos.md', 'Roles, Sesiones y Clasificación de Datos', 'Privacidad & Ley 29733'),
         ('pagos', '04-estados-y-riel-de-pagos.md', 'Riel de Pagos, Comisiones y Liquidación', 'Finanzas & Sandbox'),
         ('hallazgos', '05-registro-hallazgos.md', 'Registro de 6 Hallazgos Técnicos', 'Seguridad & Mitigaciones'),
-        ('comparativa', '06-comparativa-historica-y-pruebas.md', 'Comparativa Histórica y Banco de Pruebas', 'Pruebas E2E')
+        ('comparativa', '06-comparativa-historica-y-pruebas.md', 'Comparativa Histórica y Banco de Pruebas', 'Pruebas E2E'),
+        ('backend', '07-arquitectura-backend-logica-completa.md', 'Arquitectura Integral y Lógica Profunda del Backend', 'Backend & Core')
     ]
     docs_data = {}
     base_dir = os.path.join('docs', 'auditoria-archify')
@@ -1903,6 +1904,160 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
       box-shadow: 0 0 0 2px rgba(26, 59, 176, 0.12);
     }}
 
+    /* Bot Status Strip & AI Settings */
+    .bot-status-strip {{
+      padding: 0.4rem 1.15rem;
+      background: rgba(26, 59, 176, 0.04);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      font-size: 0.72rem;
+      flex-shrink: 0;
+    }}
+
+    html[data-theme="kuota-dark"] .bot-status-strip {{
+      background: rgba(255, 255, 255, 0.03);
+    }}
+
+    .bot-ai-pill {{
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }}
+
+    .bot-status-action {{
+      border: none;
+      background: transparent;
+      color: var(--kuota-persian-blue);
+      font-size: 0.72rem;
+      font-weight: 700;
+      cursor: pointer;
+      padding: 0.15rem 0.35rem;
+      border-radius: 6px;
+      transition: all 0.2s;
+      flex-shrink: 0;
+    }}
+
+    .bot-status-action:hover {{
+      text-decoration: underline;
+    }}
+
+    html[data-theme="kuota-dark"] .bot-status-action {{
+      color: var(--kuota-periwinkle);
+    }}
+
+    /* Modal de Configuración de IA (Apple HIG 2026) */
+    .modal-backdrop {{
+      position: fixed;
+      inset: 0;
+      background: rgba(11, 37, 69, 0.45);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      z-index: 10001;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+    }}
+
+    .modal-backdrop.open {{
+      opacity: 1;
+      pointer-events: auto;
+    }}
+
+    .settings-modal {{
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0.95);
+      width: 440px;
+      max-width: calc(100vw - 2rem);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      box-shadow: 0 24px 60px rgba(11, 37, 69, 0.25);
+      z-index: 10002;
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      overflow: hidden;
+    }}
+
+    .settings-modal.open {{
+      transform: translate(-50%, -50%) scale(1);
+      opacity: 1;
+      pointer-events: auto;
+    }}
+
+    .modal-header {{
+      padding: 1.1rem 1.25rem 0.9rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+    }}
+
+    .modal-body {{
+      padding: 1.15rem 1.25rem 1.25rem;
+    }}
+
+    .settings-input {{
+      width: 100%;
+      padding: 0.6rem 0.85rem;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--bg, #FFFFFF);
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      outline: none;
+      box-sizing: border-box;
+      transition: all 0.2s;
+    }}
+
+    .settings-input:focus {{
+      border-color: var(--kuota-persian-blue);
+      box-shadow: 0 0 0 3px rgba(26, 59, 176, 0.12);
+    }}
+
+    .settings-btn {{
+      padding: 0.45rem 0.9rem;
+      border-radius: 9px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+      outline: none;
+    }}
+
+    .settings-btn.primary {{
+      background: var(--kuota-persian-blue);
+      color: #FFFFFF;
+      border: none;
+    }}
+
+    .settings-btn.primary:hover {{
+      background: #0B2545;
+    }}
+
+    .settings-btn.secondary {{
+      background: transparent;
+      color: var(--text-secondary);
+      border: 1px solid var(--border);
+    }}
+
+    .settings-btn.secondary:hover {{
+      background: rgba(0, 0, 0, 0.05);
+      color: var(--text);
+    }}
+
     .drawer-mobile-handle {{
       display: none;
       width: 38px;
@@ -3039,6 +3194,7 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
             <button class="doc-btn" onclick="showDoc('pagos', this)">04-riel-de-pagos.md</button>
             <button class="doc-btn" onclick="showDoc('hallazgos', this)">05-registro-hallazgos.md</button>
             <button class="doc-btn" onclick="showDoc('comparativa', this)">06-comparativa-historica.md</button>
+            <button class="doc-btn" onclick="showDoc('backend', this)" style="color: var(--kuota-persian-blue); font-weight: 700;">07-arquitectura-backend.md</button>
           </div>
           
           <div class="reader-actions">
@@ -3069,6 +3225,23 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
       </div>
 
       <div class="docs-catalog">
+        <div class="doc-tile" onclick="openDocTile('backend')" style="border-color: rgba(26, 59, 176, 0.4); background: rgba(26, 59, 176, 0.03); grid-column: 1 / -1;">
+          <div>
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;">
+              <div style="font-family: var(--font-mono); font-size: 0.72rem; color: var(--kuota-persian-blue); font-weight: 700;">DOCUMENTO MAESTRO DE INGENIERÍA</div>
+              <span class="feed-badge feat" style="font-size: 0.68rem;">10 Módulos Exhaustivos</span>
+            </div>
+            <div style="font-family: var(--font-display); font-size: 1.15rem; font-weight: 800; margin: 0.35rem 0; color: var(--kuota-persian-blue);">07-arquitectura-backend-logica-completa.md</div>
+            <div style="font-size: 0.86rem; color: var(--text-secondary); line-height: 1.5;">Topología monolítica modular en Express/TS, arranque fail-safe con assertProductionEnv, blindaje perimetral HTTP, sesión mono-dispositivo (CTL-A03), motor de comisiones (1% + IGV, piso S/ 4.50), riel de pagos, liquidación ST-01..ST-04, doble partida contable (ledger neto 0), webhooks HMAC timingSafeEqual y diccionario SQL.</div>
+          </div>
+          <div style="font-size: 0.8rem; font-weight: 700; color: var(--kuota-persian-blue); margin-top: 1rem; display: flex; align-items: center; gap: 0.35rem;">
+            <span>Abrir documento maestro en lector</span>
+            <svg class="icon-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/>
+            </svg>
+          </div>
+        </div>
+
         <div class="doc-tile" onclick="openDocTile('readme')">
           <div>
             <div style="font-family: var(--font-mono); font-size: 0.72rem; color: var(--kuota-persian-blue); font-weight: 700;">INFORME PRINCIPAL</div>
@@ -3253,7 +3426,15 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
           <div style="font-size: 0.72rem; color: var(--text-tertiary);">Asistente Técnico &bull; Sincronización CI/CD</div>
         </div>
       </div>
-      <button class="drawer-close-btn" onclick="toggleActivityDrawer()" aria-label="Cerrar">&times;</button>
+      <div style="display: flex; align-items: center; gap: 0.35rem;">
+        <button class="drawer-close-btn" onclick="openAiSettingsModal()" title="Configuración de IA (Gemini Gratis)" aria-label="Configurar IA" style="font-size: 0.9rem;">
+          <svg class="icon-svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
+            <circle cx="12" cy="12" r="3"/>
+          </svg>
+        </button>
+        <button class="drawer-close-btn" onclick="toggleActivityDrawer()" aria-label="Cerrar">&times;</button>
+      </div>
     </div>
 
     <!-- Navegación Dual-Mode Apple: Asistente Kuota vs Historial CI/CD -->
@@ -3276,11 +3457,20 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
 
     <!-- VISTA 1: ASISTENTE TÉCNICO INTERACTIVO -->
     <div id="drawer-view-assistant" class="drawer-view-pane active">
+      <div class="bot-status-strip">
+        <span class="bot-ai-pill">
+          <span class="live-dot" style="width:6px; height:6px;"></span>
+          <span id="bot-ai-status-label">IA: Motor Experto de Backend (Guardrails Activos)</span>
+        </span>
+        <button class="bot-status-action" onclick="openAiSettingsModal()">IA Gratis</button>
+      </div>
+
       <div id="bot-chat-history" class="bot-chat-history">
         <!-- Generado interactivamente -->
       </div>
 
       <div class="bot-quick-prompts">
+        <button class="quick-prompt-btn" onclick="askQuickPrompt('backend')">🏗️ Lógica del Backend</button>
         <button class="quick-prompt-btn" onclick="askQuickPrompt('comisiones')">🪙 Comisiones (1% y Piso)</button>
         <button class="quick-prompt-btn" onclick="askQuickPrompt('sandbox')">⏱️ Sandbox 5 min</button>
         <button class="quick-prompt-btn" onclick="askQuickPrompt('estados')">⚖️ Por Confirmar vs Cancelado</button>
@@ -3364,7 +3554,41 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
         </button>
       </div>
     </div>
-  </div>\n\n  <!-- Scripts de Interacción -->
+  </div>\n\n  <!-- Modal de Configuración de IA (Google Gemini Free Tier) -->
+  <div id="ai-settings-modal-backdrop" class="modal-backdrop" onclick="closeAiSettingsModal()"></div>
+  <div id="ai-settings-modal" class="settings-modal" role="dialog" aria-modal="true" aria-labelledby="ai-modal-title">
+    <div class="modal-header">
+      <div style="display: flex; align-items: center; gap: 0.5rem;">
+        <span class="kuota-mini-k" style="width:24px; height:24px;">K</span>
+        <div>
+          <div id="ai-modal-title" style="font-weight: 700; font-size: 0.95rem; color: var(--text);">Modelo de Inteligencia Artificial</div>
+          <div style="font-size: 0.72rem; color: var(--text-tertiary);">Google Gemini 2.5 Flash &bull; Free Tier</div>
+        </div>
+      </div>
+      <button class="drawer-close-btn" onclick="closeAiSettingsModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size: 0.78rem; color: var(--text-secondary); line-height: 1.5; margin-bottom: 0.85rem;">
+        El asistente opera por defecto con el <b>motor experto local con guardrails estrictos</b>. Si deseas conectar el modelo de IA generativa de Google gratis, puedes ingresar tu API Key de <b>Google AI Studio</b> (100% gratuita, sin tarjeta). Se almacena exclusivamente en tu navegador (localStorage).
+      </p>
+      <div style="margin-bottom: 0.75rem;">
+        <label for="input-gemini-key" style="display: block; font-size: 0.72rem; font-weight: 700; color: var(--text); margin-bottom: 0.35rem;">API Key de Gemini (Opcional):</label>
+        <input type="password" id="input-gemini-key" class="settings-input" placeholder="AIzaSy..." autocomplete="off">
+      </div>
+      <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; margin-top: 1rem; flex-wrap: wrap;">
+        <a href="https://aistudio.google.com/app/apikey" target="_blank" class="feed-link" style="font-size: 0.73rem;">
+          <span>Obtener Key gratis en Google AI Studio</span>
+          <svg class="icon-svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg>
+        </a>
+        <div style="display: flex; gap: 0.4rem;">
+          <button class="settings-btn secondary" onclick="clearAiKey()">Restablecer</button>
+          <button class="settings-btn primary" onclick="saveAiKey()">Guardar Key</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts de Interacción -->
   <script>
     const TECHNICAL_DOCS = {docs_json};
     const RECENT_ACTIVITY = {activity_json};
@@ -3692,21 +3916,22 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
       }}
     }});
 
-    // Asistente Técnico Kuota: Chat Interactivo & Base de Conocimiento
+    // Asistente Técnico Kuota: Chat Interactivo, Guardrails & Modelo de IA
     function initBotChatIfEmpty() {{
       const container = document.getElementById('bot-chat-history');
       if (!container || BOT_CONVERSATION.length > 0) return;
 
       const welcomeMsg = {{
         sender: 'bot',
-        text: 'Hola, soy el **Asistente Técnico de Kuota**. Estoy sincronizado con la arquitectura, el riel de pagos, los 24 controles normativos y el estado del repositorio.\\n\\nPuedes consultarme sobre comisiones (1% y piso S/ 4.50), la ventana sandbox de 5 min, mono-dispositivo, webhooks HMAC o tocar cualquiera de las consultas rápidas a continuación.',
+        text: '¡Hola! 👋 Soy el **Asistente Técnico y Auditor de Backend de Kuota**.\\n\\nEstoy conectado directamente con el código fuente del monorepo (`backend/src/`). He sido calibrado para resolver dudas de ingeniería sobre el pipeline de middlewares, el riel de pagos (1% + IGV y piso S/ 4.50), los 24 controles normativos, la liquidación en sandbox de 5 min y la conciliación.\\n\\nPuedes consultarme en lenguaje natural o pulsar cualquiera de los accesos rápidos a continuación.',
         action: {{
-          label: 'Ver Matriz de 24 Controles',
-          onclick: "switchMainTab('seguridad')"
+          label: 'Ver Documentación Completa del Backend (10 Módulos)',
+          onclick: "openDocTile('backend')"
         }}
       }};
       BOT_CONVERSATION.push(welcomeMsg);
       renderBotChat();
+      updateAiStatusLabel();
     }}
 
     function renderBotChat() {{
@@ -3768,7 +3993,7 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
       }}
     }}
 
-    function sendUserBotMessage() {{
+    async function sendUserBotMessage() {{
       const input = document.getElementById('bot-input-field');
       if (!input) return;
       const text = input.value.trim();
@@ -3780,20 +4005,60 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
 
       showBotTypingIndicator();
 
-      setTimeout(() => {{
-        removeBotTypingIndicator();
-        const response = generateBotResponse(text);
-        BOT_CONVERSATION.push({{
-          sender: 'bot',
-          text: response.text,
-          action: response.action || null
+      const savedKey = localStorage.getItem('kuota_gemini_api_key') || '';
+      let aiReplied = false;
+
+      // Intentar invocar el endpoint Serverless /api/chat con Gemini Free Tier
+      try {{
+        const payload = {{
+          message: text,
+          messages: BOT_CONVERSATION.slice(-6),
+          apiKey: savedKey
+        }};
+
+        const res = await fetch('/api/chat', {{
+          method: 'POST',
+          headers: {{ 'Content-Type': 'application/json' }},
+          body: JSON.stringify(payload)
         }});
-        renderBotChat();
-      }}, 350);
+
+        if (res.ok) {{
+          const data = await res.json();
+          if (data && data.success && data.reply) {{
+            removeBotTypingIndicator();
+            BOT_CONVERSATION.push({{
+              sender: 'bot',
+              text: data.reply,
+              action: {{
+                label: 'Ver Documentación del Backend',
+                onclick: "openDocTile('backend')"
+              }}
+            }});
+            renderBotChat();
+            aiReplied = true;
+          }}
+        }}
+      }} catch (e) {{
+        // Si hay timeout o error de red, cae suavemente al motor local
+      }}
+
+      if (!aiReplied) {{
+        setTimeout(() => {{
+          removeBotTypingIndicator();
+          const response = generateBotResponse(text);
+          BOT_CONVERSATION.push({{
+            sender: 'bot',
+            text: response.text,
+            action: response.action || null
+          }});
+          renderBotChat();
+        }}, 320);
+      }}
     }}
 
     function askQuickPrompt(topic) {{
       const prompts = {{
+        backend: '¿Cómo está estructurada la arquitectura y la lógica profunda del backend?',
         comisiones: '¿Cómo se calculan las comisiones de Kuota y el piso mínimo?',
         sandbox: '¿Cómo funciona la ventana sandbox de 5 minutos y qué endpoint se usa?',
         estados: '¿Cuál es la diferencia entre los estados Por confirmar y Cancelado?',
@@ -3847,18 +4112,69 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
       if (el) el.remove();
     }}
 
+    // Motor Conversacional Local con Guardrails Estrictos y Calibración Forense
     function generateBotResponse(query, explicitTopic) {{
-      const q = (query || '').toLowerCase();
+      const q = (query || '').toLowerCase().trim();
 
-      // 1. Comisiones y Tarifas
+      // 1. Saludos iniciales ("hola", "buenos días", "hey", etc.)
+      if (/^[¡¿]?\\s*(hola|buenas?(\\s+(d[ií]as|tardes|noches))?|hey|saludos|que\\s+tal|qu[eé]\\s+tal|hi|hello)\\b/i.test(q) || q.includes("hola")) {{
+        return {{
+          text: '¡Hola! 👋 Soy el **Asistente Técnico y Auditor de Backend de Kuota**.\\n\\nEstoy conectado con la arquitectura y el código real del monorepo (`backend/src/`). Puedo asistirte en profundidad en:\\n\\n• **Lógica del Backend:** Pipeline de middlewares Express, `assertProductionEnv` y persistencia.\\n• **Riel de Pagos & Comisiones:** Tasa del 1.00% + IGV (18%) con piso mínimo de S/ 4.50 (costo fijo 360Pay S/ 3.82).\\n• **Ventana Sandbox 5m:** Endpoint `POST /dev/settle-pending` (bloqueado con HTTP 403 en producción).\\n• **Conciliación Proveedor:** Diferencia entre **Por Confirmar (ST-02)** y **Cancelado (ST-03)**.\\n• **Seguridad & Webhooks:** Sesión mono-dispositivo (CTL-A03) y validación de firmas HMAC SHA-256.\\n\\n¿Qué módulo o flujo técnico deseas consultar?',
+          action: {{
+            label: 'Ver Arquitectura Integral del Backend',
+            onclick: "openDocTile('backend')"
+          }}
+        }};
+      }}
+
+      // 2. Cortesía y agradecimientos
+      if (/^[¡¿]?\\s*(gracias|muchas gracias|excelente|perfecto|genial|ok|vale|buen[ií]simo|entendido|de acuerdo)\\b/i.test(q) || q.includes("gracias")) {{
+        return {{
+          text: '¡De nada! Es un placer apoyarte con la ingeniería y auditoría técnica de Kuota. Si necesitas revisar algún endpoint, control normativo o conciliación interbancaria, estoy a tu disposición.',
+          action: {{
+            label: 'Ver Catálogo de Endpoints',
+            onclick: "switchMainTab('seguridad')"
+          }}
+        }};
+      }}
+
+      // 3. Identidad y función
+      if (/^[¡¿]?\\s*(qui[eé]n eres|qu[eé] haces|cu[aá]l es tu funci[oó]n|pres[eé]ntate|para qu[eé] sirves|qu[eé] puedes hacer)/i.test(q) || q.includes("quien eres") || q.includes("quién eres")) {{
+        return {{
+          text: 'Soy el **Asistente Técnico Oficial del Backend de Kuota**. Fui calibrado directamente con la arquitectura del monorepo (`backend/src/`), los 24 controles normativos de seguridad (Ley N° 29733 / PCI-DSS) y el riel de pagos. Mi función es resolver consultas técnicas precisas, explicar la lógica interna del sistema y garantizar la transparencia del desarrollo.',
+          action: {{
+            label: 'Explorar Arquitectura Backend (10 Módulos)',
+            onclick: "openDocTile('backend')"
+          }}
+        }};
+      }}
+
+      // 4. Lógica de Backend & Arquitectura Integral (MÓDULO MAESTRO 07)
+      if (explicitTopic === 'backend' || /backend|arquitectura|monolito|pipeline|express|assertproductionenv|rawbody|middleware/i.test(q)) {{
+        return {{
+          text: '**Arquitectura Integral y Lógica Profunda del Backend Kuota:**\\n\\n' +
+                '• **Topología:** Monolito modular en **Node.js 22 LTS + TypeScript 5 (ESM)** estructurado en `routes/`, `security/`, `db/`, `integrations/` y `services/`.\\n' +
+                '• **Arranque Fail-Safe:** `assertProductionEnv()` aborta el proceso si falta alguno de los secretos críticos (`DIDIT_WEBHOOK_SECRET`, `KUOTA_PLAY_INTEGRITY_KEY`, `KUOTA_CORS_ORIGINS`).\\n' +
+                '• **Perímetro de Seguridad:** `trust proxy 1`, CSP `default-src none`, HSTS de 1 año (`max-age=31536000`), Rate Limiter (600 req/min por IP) y gate de versión mínima del APK (HTTP 426).\\n' +
+                '• **Preservación rawBody:** El body parser retiene el buffer exacto para validar firmas HMAC de webhooks sin desalineación.\\n' +
+                '• **Persistencia & Ledger:** Transacciones ACID en PostgreSQL/PGLite con motor contable de doble partida (balance 0) y hash chaining WORM con SHA-256 + HMAC.\\n\\n' +
+                'Hemos elaborado una guía maestra de 10 módulos con todos los detalles y diagramas.',
+          action: {{
+            label: 'Abrir Guía Maestra de Backend (10 Módulos)',
+            onclick: "openDocTile('backend')"
+          }}
+        }};
+      }}
+
+      // 5. Comisiones y Tarifas
       if (explicitTopic === 'comisiones' || /comisi[oó]n|tarifa|\\bpiso\\b|4\\.50|\\bigv\\b|1%|costo|ahorro|\\bpos\\b/i.test(q)) {{
         return {{
           text: '**Riel de Comisiones Kuota:**\\n\\n' +
                 '• **Tasa Base:** 1.00% (100 bps) sobre el volumen bruto transaccionado.\\n' +
-                '• **Piso Mínimo Transaccional:** S/ 4.50 sin IGV (S/ 5.31 con IGV). Aplica cuando el 1% es menor a S/ 4.50 (tickets hasta S/ 450.00) para salvaguardar el costo de procesamiento de pasarela.\\n' +
+                '• **Piso Mínimo Transaccional:** S/ 4.50 sin IGV (S/ 5.31 con IGV). Aplica cuando el 1% es menor a S/ 4.50 (tickets hasta S/ 450.00) para salvaguardar el **costo unitario fijo de 360Pay de S/ 3.82 netos por transacción**.\\n' +
                 '• **IGV:** 18% con redondeo hacia arriba (`Math.ceil`) sobre la comisión base.\\n' +
-                '• **Ubicación en Código:** `backend/src/services/pricing.ts` y `config.ts:feeBps`.\\n\\n' +
-                'Fórmula: `Math.max(monto * 0.01, 4.50) + IGV`. Ahorras hasta 65% respecto al 3.5% del POS tradicional.',
+                '• **Ubicación en Código:** `backend/src/security/pricing.ts` y `config.ts:feeBps`.\\n\\n' +
+                'Fórmula: `Math.max(monto * 0.01, 4.50) + IGV`. Ahorras hasta 66% respecto al 3.5% del POS tradicional.',
           action: {{
             label: 'Abrir Simulador Interactivo de Tarifas',
             onclick: "switchMainTab('pagos')"
@@ -3866,7 +4182,7 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
         }};
       }}
 
-      // 2. Sandbox 5 minutos
+      // 6. Sandbox 5 minutos
       if (explicitTopic === 'sandbox' || /sandbox|5\\s*min|settle-pending|simula|post\\s*\\/dev/i.test(q)) {{
         return {{
           text: '**Ventana de Liquidación Sandbox (5 Minutos):**\\n\\n' +
@@ -3881,7 +4197,7 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
         }};
       }}
 
-      // 3. Por Confirmar vs Cancelado
+      // 7. Por Confirmar vs Cancelado
       if (explicitTopic === 'estados' || /por\\s*confirmar|cancelad|st-02|st-03|unificaci[oó]n|inicio.*concilia/i.test(q)) {{
         return {{
           text: '**Diferencia entre Estados en Kuota:**\\n\\n' +
@@ -3895,7 +4211,7 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
         }};
       }}
 
-      // 4. Sesión Mono-Dispositivo
+      // 8. Sesión Mono-Dispositivo
       if (explicitTopic === 'sesion' || /mono|sesi[oó]n|dispositivo|jwt|ctl-a03|multidispositivo/i.test(q)) {{
         return {{
           text: '**Control de Sesión Mono-Dispositivo (CTL-A03):**\\n\\n' +
@@ -3909,7 +4225,7 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
         }};
       }}
 
-      // 5. Webhooks HMAC
+      // 9. Webhooks HMAC
       if (explicitTopic === 'webhooks' || /webhook|hmac|360pay|didit|firma|timingSafeEqual|anti-replay/i.test(q)) {{
         return {{
           text: '**Seguridad de Webhooks en Kuota:**\\n\\n' +
@@ -3924,7 +4240,7 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
         }};
       }}
 
-      // 6. Matriz de 24 Controles
+      // 10. Matriz de 24 Controles
       if (explicitTopic === 'controles' || /24\\s*control|matriz|seguridad|cumplimiento|auditor/i.test(q)) {{
         return {{
           text: '**Matriz de 24 Controles de Seguridad Kuota:**\\n\\n' +
@@ -3941,7 +4257,7 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
         }};
       }}
 
-      // 7. Catálogo de 14 Endpoints
+      // 11. Catálogo de 14 Endpoints
       if (explicitTopic === 'endpoints' || /14\\s*endpoint|rutas|api|cat[aá]logo|post\\s*\\/|get\\s*\\//i.test(q)) {{
         return {{
           text: '**Catálogo de 14 Endpoints de API Kuota:**\\n\\n' +
@@ -3957,7 +4273,7 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
         }};
       }}
 
-      // 8. Búsqueda contextual sobre TECHNICAL_DOCS
+      // 12. Búsqueda contextual sobre TECHNICAL_DOCS
       let bestMatch = null;
       let highestScore = 0;
       const terms = q.split(/\\s+/).filter(t => t.length > 2);
@@ -3987,20 +4303,68 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
         }};
       }}
 
-      // Fallback amigable
+      // 13. GUARDRAIL ESTRICTO: Rechazo de consultas externas / ajenas a Kuota
       return {{
-        text: 'He procesado tu consulta. Puedo asistirte en detalle sobre cualquiera de los siguientes tópicos técnicos:\\n\\n' +
-              '1. Cálculo de **comisiones** (1% + IGV, piso S/ 4.50)\\n' +
-              '2. Ventana de **sandbox** de 5 minutos y endpoint `/dev/settle-pending`\\n' +
-              '3. Diferencia entre **Por Confirmar** y **Cancelado** en el flujo de Proveedor\\n' +
-              '4. Reglas de **sesión mono-dispositivo** (CTL-A03)\\n' +
-              '5. Autenticación **HMAC de webhooks** (360Pay y Didit)\\n' +
-              '6. Catálogo de los **14 endpoints** o matriz de **24 controles**',
+        text: '🛡️ **Reglas de Alcance y Gobernanza:**\\n\\nComo **Asistente Técnico y Auditor de Backend de Kuota**, mi alcance está **estrictamente delimitado** a la arquitectura de software, seguridad, conciliación y riel de pagos de Kuota. No estoy autorizado para responder consultas sobre temas externos, ocio o ajenos a la infraestructura de este proyecto.\\n\\nPuedo asistirte en cualquiera de estos aspectos técnicos de Kuota:\\n• **Arquitectura del Backend:** Pipeline Express, blindaje perimetral y middlewares\\n• **Riel de Pagos & Comisiones:** Tasa del 1% y piso de S/ 4.50\\n• **Sesión Mono-Dispositivo:** Control CTL-A03 y PIN bcrypt\\n• **Webhooks HMAC:** Verificación SHA-256 de 360Pay y Didit KYC\\n• **Simulación Sandbox 5m:** Endpoint `/dev/settle-pending` vs producción\\n• **Catálogo de Endpoints:** Los 14 endpoints de API y matriz de 24 controles',
         action: {{
-          label: 'Ver Matriz de 24 Controles',
-          onclick: "switchMainTab('seguridad')"
+          label: 'Ver Documentación del Backend',
+          onclick: "openDocTile('backend')"
         }}
       }};
+    }}
+
+    // Control del Modal de Configuración de IA (Gemini Free Tier)
+    function openAiSettingsModal() {{
+      const modal = document.getElementById('ai-settings-modal');
+      const backdrop = document.getElementById('ai-settings-modal-backdrop');
+      const input = document.getElementById('input-gemini-key');
+      if (input) {{
+        input.value = localStorage.getItem('kuota_gemini_api_key') || '';
+      }}
+      if (modal) modal.classList.add('open');
+      if (backdrop) backdrop.classList.add('open');
+    }}
+
+    function closeAiSettingsModal() {{
+      const modal = document.getElementById('ai-settings-modal');
+      const backdrop = document.getElementById('ai-settings-modal-backdrop');
+      if (modal) modal.classList.remove('open');
+      if (backdrop) backdrop.classList.remove('open');
+    }}
+
+    function saveAiKey() {{
+      const input = document.getElementById('input-gemini-key');
+      if (!input) return;
+      const key = input.value.trim();
+      if (key) {{
+        localStorage.setItem('kuota_gemini_api_key', key);
+        showToastMsg('¡API Key de Gemini guardada con éxito!');
+      }} else {{
+        localStorage.removeItem('kuota_gemini_api_key');
+        showToastMsg('Configuración restablecida al motor local.');
+      }}
+      closeAiSettingsModal();
+      updateAiStatusLabel();
+    }}
+
+    function clearAiKey() {{
+      const input = document.getElementById('input-gemini-key');
+      if (input) input.value = '';
+      localStorage.removeItem('kuota_gemini_api_key');
+      closeAiSettingsModal();
+      updateAiStatusLabel();
+      showToastMsg('Clave eliminada. Motor local activo.');
+    }}
+
+    function updateAiStatusLabel() {{
+      const label = document.getElementById('bot-ai-status-label');
+      if (!label) return;
+      const key = localStorage.getItem('kuota_gemini_api_key');
+      if (key) {{
+        label.textContent = 'IA Activa: Google Gemini 2.5 Flash (Conectado)';
+      }} else {{
+        label.textContent = 'IA: Motor Experto de Backend (Guardrails Activos)';
+      }}
     }}
 
     // Historial CI/CD: Filtros, Búsqueda y Renderizado
