@@ -1526,6 +1526,383 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
       pointer-events: auto;
     }}
 
+    /* Navegación Dual-Mode Apple 2026: Asistente Kuota vs Historial CI/CD */
+    .drawer-mode-nav-wrap {{
+      padding: 0.5rem 1.15rem 0.65rem;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }}
+
+    .drawer-mode-nav {{
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      background: rgba(0, 0, 0, 0.05);
+      padding: 3px;
+      border-radius: 12px;
+      gap: 3px;
+    }}
+
+    html[data-theme="kuota-dark"] .drawer-mode-nav {{
+      background: rgba(255, 255, 255, 0.07);
+    }}
+
+    .drawer-mode-btn {{
+      border: none;
+      background: transparent;
+      padding: 0.45rem 0.4rem;
+      font-size: 0.74rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      border-radius: 9px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.35rem;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      white-space: nowrap;
+      user-select: none;
+      outline: none;
+    }}
+
+    .drawer-mode-btn:hover {{
+      color: var(--text);
+    }}
+
+    .drawer-mode-btn.active {{
+      background: #FFFFFF;
+      color: var(--kuota-persian-blue);
+      font-weight: 700;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), 0 0 1px rgba(0, 0, 0, 0.12);
+    }}
+
+    html[data-theme="kuota-dark"] .drawer-mode-btn.active {{
+      background: rgba(255, 255, 255, 0.16);
+      color: #FFFFFF;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+    }}
+
+    .drawer-view-pane {{
+      display: none;
+      flex-direction: column;
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow: hidden;
+    }}
+
+    .drawer-view-pane.active {{
+      display: flex;
+    }}
+
+    /* Panel del Asistente Técnico Kuota */
+    .bot-chat-history {{
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      padding: 0.95rem 1.15rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.85rem;
+      overscroll-behavior: contain;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(100, 116, 139, 0.25) transparent;
+    }}
+
+    .bot-chat-history::-webkit-scrollbar {{
+      width: 5px;
+    }}
+    .bot-chat-history::-webkit-scrollbar-track {{
+      background: transparent;
+    }}
+    .bot-chat-history::-webkit-scrollbar-thumb {{
+      background: rgba(100, 116, 139, 0.22);
+      border-radius: 9999px;
+    }}
+
+    .bot-msg-row {{
+      display: flex;
+      gap: 0.55rem;
+      align-items: flex-start;
+      max-width: 95%;
+      animation: fadeInMsg 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }}
+
+    @keyframes fadeInMsg {{
+      from {{ opacity: 0; transform: translateY(6px); }}
+      to {{ opacity: 1; transform: translateY(0); }}
+    }}
+
+    .bot-msg-row.bot {{
+      align-self: flex-start;
+    }}
+
+    .bot-msg-row.user {{
+      align-self: flex-end;
+      flex-direction: row-reverse;
+    }}
+
+    .bot-msg-avatar {{
+      flex-shrink: 0;
+      margin-top: 2px;
+    }}
+
+    .bot-bubble {{
+      padding: 0.75rem 0.9rem;
+      border-radius: 16px;
+      font-size: 0.8rem;
+      line-height: 1.45;
+      word-break: break-word;
+    }}
+
+    .bot-msg-row.bot .bot-bubble {{
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.03);
+      border-top-left-radius: 4px;
+    }}
+
+    html[data-theme="kuota-dark"] .bot-msg-row.bot .bot-bubble {{
+      background: rgba(255, 255, 255, 0.04);
+      border-color: rgba(255, 255, 255, 0.1);
+    }}
+
+    .bot-msg-row.user .bot-bubble {{
+      background: linear-gradient(135deg, #1A3BB0 0%, #0B2545 100%);
+      color: #FFFFFF;
+      border-top-right-radius: 4px;
+      box-shadow: 0 2px 8px rgba(26, 59, 176, 0.25);
+    }}
+
+    .bot-bubble p {{
+      margin: 0 0 0.45rem;
+    }}
+    .bot-bubble p:last-child {{
+      margin-bottom: 0;
+    }}
+
+    .bot-bubble code {{
+      font-family: var(--font-mono);
+      font-size: 0.74rem;
+      background: rgba(26, 59, 176, 0.08);
+      color: var(--kuota-persian-blue);
+      padding: 0.1rem 0.35rem;
+      border-radius: 4px;
+    }}
+
+    .bot-msg-row.user .bot-bubble code {{
+      background: rgba(255, 255, 255, 0.2);
+      color: #FFFFFF;
+    }}
+
+    html[data-theme="kuota-dark"] .bot-msg-row.bot .bot-bubble code {{
+      background: rgba(175, 197, 246, 0.12);
+      color: var(--kuota-periwinkle);
+    }}
+
+    .bot-action-btn {{
+      margin-top: 0.45rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--kuota-persian-blue);
+      background: rgba(26, 59, 176, 0.08);
+      border: 1px solid rgba(26, 59, 176, 0.2);
+      padding: 0.28rem 0.6rem;
+      border-radius: 7px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }}
+
+    .bot-action-btn:hover {{
+      background: var(--kuota-persian-blue);
+      color: #FFFFFF;
+      transform: translateY(-1px);
+    }}
+
+    html[data-theme="kuota-dark"] .bot-action-btn {{
+      background: rgba(175, 197, 246, 0.12);
+      border-color: rgba(175, 197, 246, 0.25);
+      color: var(--kuota-periwinkle);
+    }}
+
+    html[data-theme="kuota-dark"] .bot-action-btn:hover {{
+      background: var(--kuota-periwinkle);
+      color: #0B2545;
+    }}
+
+    .bot-quick-prompts {{
+      padding: 0.45rem 1rem 0.65rem;
+      display: flex;
+      gap: 0.4rem;
+      overflow-x: auto;
+      flex-shrink: 0;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      scrollbar-width: none;
+    }}
+
+    .bot-quick-prompts::-webkit-scrollbar {{
+      display: none;
+    }}
+
+    .quick-prompt-btn {{
+      flex-shrink: 0;
+      font-size: 0.71rem;
+      font-weight: 600;
+      padding: 0.28rem 0.65rem;
+      border-radius: 9999px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+      outline: none;
+    }}
+
+    .quick-prompt-btn:hover {{
+      border-color: var(--kuota-persian-blue);
+      color: var(--kuota-persian-blue);
+      background: rgba(26, 59, 176, 0.05);
+      transform: translateY(-1px);
+    }}
+
+    html[data-theme="kuota-dark"] .quick-prompt-btn:hover {{
+      border-color: var(--kuota-periwinkle);
+      color: var(--kuota-periwinkle);
+      background: rgba(175, 197, 246, 0.1);
+    }}
+
+    .bot-input-bar {{
+      padding: 0.65rem 1rem 0.85rem;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-shrink: 0;
+    }}
+
+    .bot-input-field {{
+      flex: 1;
+      border: 1px solid var(--border);
+      background: var(--bg, #FFFFFF);
+      color: var(--text);
+      font-size: 0.78rem;
+      padding: 0.55rem 0.85rem;
+      border-radius: 9999px;
+      outline: none;
+      transition: all 0.2s;
+      font-family: inherit;
+    }}
+
+    html[data-theme="kuota-dark"] .bot-input-field {{
+      background: rgba(255, 255, 255, 0.06);
+    }}
+
+    .bot-input-field:focus {{
+      border-color: var(--kuota-persian-blue);
+      box-shadow: 0 0 0 3px rgba(26, 59, 176, 0.12);
+    }}
+
+    .bot-send-btn {{
+      width: 34px;
+      height: 34px;
+      border-radius: 9999px;
+      border: none;
+      background: var(--kuota-persian-blue);
+      color: #FFFFFF;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: all 0.2s;
+      outline: none;
+    }}
+
+    .bot-send-btn:hover {{
+      background: #0B2545;
+      transform: scale(1.06);
+    }}
+
+    .bot-send-btn:active {{
+      transform: scale(0.92);
+    }}
+
+    .typing-dots {{
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      padding: 4px 6px;
+    }}
+
+    .typing-dots span {{
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--kuota-persian-blue);
+      animation: bounceDot 1.4s infinite ease-in-out both;
+    }}
+
+    .typing-dots span:nth-child(1) {{ animation-delay: -0.32s; }}
+    .typing-dots span:nth-child(2) {{ animation-delay: -0.16s; }}
+
+    @keyframes bounceDot {{
+      0%, 80%, 100% {{ transform: scale(0); }}
+      40% {{ transform: scale(1); }}
+    }}
+
+    /* Buscador en tiempo real de Commits dentro de Historial CI/CD */
+    .drawer-search-wrap {{
+      padding: 0.45rem 1.15rem;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }}
+
+    .drawer-search-box {{
+      position: relative;
+      display: flex;
+      align-items: center;
+    }}
+
+    .drawer-search-icon {{
+      position: absolute;
+      left: 0.65rem;
+      color: var(--text-tertiary);
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+    }}
+
+    .feed-search-input {{
+      width: 100%;
+      padding: 0.4rem 0.65rem 0.4rem 2rem;
+      border: 1px solid var(--border);
+      border-radius: 9999px;
+      background: rgba(0, 0, 0, 0.03);
+      color: var(--text);
+      font-size: 0.74rem;
+      outline: none;
+      transition: all 0.2s;
+      font-family: inherit;
+    }}
+
+    html[data-theme="kuota-dark"] .feed-search-input {{
+      background: rgba(255, 255, 255, 0.06);
+    }}
+
+    .feed-search-input:focus {{
+      border-color: var(--kuota-persian-blue);
+      background: var(--bg, #FFFFFF);
+      box-shadow: 0 0 0 2px rgba(26, 59, 176, 0.12);
+    }}
+
     .drawer-mobile-handle {{
       display: none;
       width: 38px;
@@ -2856,7 +3233,7 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
         <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/>
         <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>
       </svg>
-      <span id="bell-badge-count" class="bell-badge">3</span>
+      <span id="bell-badge-count" class="bell-badge" style="display:none;">0</span>
     </button>
   </div>
 
@@ -2872,67 +3249,122 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
           <img src="assets/Group Logokuotasvg.svg" alt="Kuota" class="drawer-brand-img">
         </div>
         <div>
-          <div id="activity-drawer-title" class="drawer-title">Actividad de Kuota</div>
-          <div style="font-size: 0.72rem; color: var(--text-tertiary);">Sincronización CI/CD &bull; Monorepo</div>
+          <div id="activity-drawer-title" class="drawer-title">Centro de Control Kuota</div>
+          <div style="font-size: 0.72rem; color: var(--text-tertiary);">Asistente Técnico &bull; Sincronización CI/CD</div>
         </div>
       </div>
       <button class="drawer-close-btn" onclick="toggleActivityDrawer()" aria-label="Cerrar">&times;</button>
     </div>
 
-    <div class="drawer-live-strip">
-      <div class="live-indicator">
-        <span class="live-dot"></span>
-        <span>Pipeline CI/CD &bull; Vercel Live</span>
-      </div>
-      <div class="branch-pill" title="Rama: {branch}">
-        <svg class="icon-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 0 1 2 2v7"/><line x1="6" x2="6" y1="9" x2="21"/>
-        </svg>
-        <span class="branch-text">{branch}</span>
-      </div>
-    </div>
-
-    <div class="drawer-filter-row">
-      <div class="segmented-control">
-        <button class="segmented-btn active" onclick="filterActivity('all', this)">
-          <svg class="icon-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="7" height="7" x="3" y="3" rx="1.5"/><rect width="7" height="7" x="14" y="3" rx="1.5"/><rect width="7" height="7" x="14" y="14" rx="1.5"/><rect width="7" height="7" x="3" y="14" rx="1.5"/></svg>
-          <span>Todos</span>
+    <!-- Navegación Dual-Mode Apple: Asistente Kuota vs Historial CI/CD -->
+    <div class="drawer-mode-nav-wrap">
+      <div class="drawer-mode-nav">
+        <button id="btn-mode-assistant" class="drawer-mode-btn active" onclick="switchDrawerMode('assistant')">
+          <svg class="icon-svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+          </svg>
+          <span>Asistente Kuota</span>
         </button>
-        <button class="segmented-btn" onclick="filterActivity('agent', this)">
-          <svg class="icon-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="12" r="3"/><path d="M6 9v9"/><path d="M6 12h9"/></svg>
-          <span>Agente</span>
-        </button>
-        <button class="segmented-btn" onclick="filterActivity('feat', this)">
-          <svg class="icon-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
-          <span>Features</span>
-        </button>
-        <button class="segmented-btn" onclick="filterActivity('fix', this)">
-          <svg class="icon-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
-          <span>Fixes</span>
+        <button id="btn-mode-activity" class="drawer-mode-btn" onclick="switchDrawerMode('activity')">
+          <svg class="icon-svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"/><line x1="3" y1="12" x2="9" y2="12"/><line x1="15" y1="12" x2="21" y2="12"/>
+          </svg>
+          <span>Historial CI/CD</span>
         </button>
       </div>
     </div>
 
-    <div id="activity-feed-list" class="drawer-feed">
-      <!-- Generado dinámicamente -->
+    <!-- VISTA 1: ASISTENTE TÉCNICO INTERACTIVO -->
+    <div id="drawer-view-assistant" class="drawer-view-pane active">
+      <div id="bot-chat-history" class="bot-chat-history">
+        <!-- Generado interactivamente -->
+      </div>
+
+      <div class="bot-quick-prompts">
+        <button class="quick-prompt-btn" onclick="askQuickPrompt('comisiones')">🪙 Comisiones (1% y Piso)</button>
+        <button class="quick-prompt-btn" onclick="askQuickPrompt('sandbox')">⏱️ Sandbox 5 min</button>
+        <button class="quick-prompt-btn" onclick="askQuickPrompt('estados')">⚖️ Por Confirmar vs Cancelado</button>
+        <button class="quick-prompt-btn" onclick="askQuickPrompt('sesion')">📱 Mono-dispositivo</button>
+        <button class="quick-prompt-btn" onclick="askQuickPrompt('webhooks')">🔐 Webhooks HMAC</button>
+        <button class="quick-prompt-btn" onclick="askQuickPrompt('controles')">📋 24 Controles</button>
+        <button class="quick-prompt-btn" onclick="askQuickPrompt('endpoints')">🛣️ 14 Endpoints</button>
+      </div>
+
+      <div class="bot-input-bar">
+        <input type="text" id="bot-input-field" class="bot-input-field" placeholder="Pregunta sobre comisiones, seguridad o endpoints..." onkeydown="handleBotInputKey(event)">
+        <button id="bot-send-btn" class="bot-send-btn" onclick="sendUserBotMessage()" aria-label="Enviar mensaje">
+          <svg class="icon-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+          </svg>
+        </button>
+      </div>
     </div>
 
-    <div class="drawer-footer">
-      <a href="https://github.com/Kuota-inc/kuota-app/commits/{branch}" target="_blank" class="feed-link" style="font-size: 0.76rem;">
-        <svg class="icon-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/>
-        </svg>
-        <span>Ver en GitHub</span>
-        <svg class="icon-svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg>
-      </a>
-      <button id="btn-feed-refresh" onclick="refreshActivityFeed()" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 0.76rem; font-weight: 600; display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.25rem 0.5rem; border-radius: 8px; transition: all 0.2s;">
-        <svg id="icon-feed-refresh" class="icon-svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
-        <span>Refrescar</span>
-      </button>
-    </div>
-  </div>
+    <!-- VISTA 2: HISTORIAL DE ACTIVIDAD CI/CD Y COMMITS -->
+    <div id="drawer-view-activity" class="drawer-view-pane">
+      <div class="drawer-live-strip">
+        <div class="live-indicator">
+          <span class="live-dot"></span>
+          <span>Pipeline CI/CD &bull; Vercel Live</span>
+        </div>
+        <div class="branch-pill" title="Rama: {branch}">
+          <svg class="icon-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 0 1 2 2v7"/><line x1="6" x2="6" y1="9" x2="21"/>
+          </svg>
+          <span class="branch-text">{branch}</span>
+        </div>
+      </div>
 
-  <!-- Scripts de Interacción -->
+      <!-- Buscador en tiempo real de Commits -->
+      <div class="drawer-search-wrap">
+        <div class="drawer-search-box">
+          <span class="drawer-search-icon">
+            <svg class="icon-svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          </span>
+          <input type="text" id="feed-search-input" class="feed-search-input" placeholder="Buscar por mensaje, autor o SHA..." oninput="handleFeedSearch(this.value)">
+        </div>
+      </div>
+
+      <div class="drawer-filter-row">
+        <div class="segmented-control">
+          <button class="segmented-btn active" onclick="filterActivity('all', this)">
+            <svg class="icon-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="7" height="7" x="3" y="3" rx="1.5"/><rect width="7" height="7" x="14" y="3" rx="1.5"/><rect width="7" height="7" x="14" y="14" rx="1.5"/><rect width="7" height="7" x="3" y="14" rx="1.5"/></svg>
+            <span>Todos</span>
+          </button>
+          <button class="segmented-btn" onclick="filterActivity('agent', this)">
+            <svg class="icon-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="12" r="3"/><path d="M6 9v9"/><path d="M6 12h9"/></svg>
+            <span>Agente</span>
+          </button>
+          <button class="segmented-btn" onclick="filterActivity('feat', this)">
+            <svg class="icon-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+            <span>Features</span>
+          </button>
+          <button class="segmented-btn" onclick="filterActivity('fix', this)">
+            <svg class="icon-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+            <span>Fixes</span>
+          </button>
+        </div>
+      </div>
+
+      <div id="activity-feed-list" class="drawer-feed">
+        <!-- Generado dinámicamente -->
+      </div>
+
+      <div class="drawer-footer">
+        <a href="https://github.com/Kuota-inc/kuota-app/commits/{branch}" target="_blank" class="feed-link" style="font-size: 0.76rem;">
+          <svg class="icon-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/>
+          </svg>
+          <span>Ver en GitHub</span>
+          <svg class="icon-svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg>
+        </a>
+        <button id="btn-feed-refresh" onclick="refreshActivityFeed()" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 0.76rem; font-weight: 600; display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.25rem 0.5rem; border-radius: 8px; transition: all 0.2s;">
+          <svg id="icon-feed-refresh" class="icon-svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+          <span>Refrescar</span>
+        </button>
+      </div>
+    </div>
+  </div>\n\n  <!-- Scripts de Interacción -->
   <script>
     const TECHNICAL_DOCS = {docs_json};
     const RECENT_ACTIVITY = {activity_json};
@@ -3187,7 +3619,30 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
       }}
     }}
 
-    // Control del Centro de Notificaciones y Actividad del Agente (Apple HIG)
+    // Control del Centro de Notificaciones y Asistente Técnico Kuota (Apple HIG 2026)
+    let currentDrawerMode = 'assistant';
+    let feedSearchQuery = '';
+    const BOT_CONVERSATION = [];
+
+    function switchDrawerMode(mode) {{
+      currentDrawerMode = mode;
+      document.querySelectorAll('.drawer-mode-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.drawer-view-pane').forEach(pane => pane.classList.remove('active'));
+
+      const btn = document.getElementById('btn-mode-' + mode);
+      const pane = document.getElementById('drawer-view-' + mode);
+      if (btn) btn.classList.add('active');
+      if (pane) pane.classList.add('active');
+
+      if (mode === 'assistant') {{
+        initBotChatIfEmpty();
+        const input = document.getElementById('bot-input-field');
+        if (input) setTimeout(() => input.focus(), 120);
+      }} else if (mode === 'activity') {{
+        renderActivityFeed();
+      }}
+    }}
+
     function toggleActivityDrawer() {{
       const drawer = document.getElementById('activity-drawer');
       const backdrop = document.getElementById('activity-drawer-backdrop');
@@ -3197,7 +3652,13 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
       if (backdrop) backdrop.classList.toggle('open', isOpen);
       document.body.classList.toggle('drawer-open', isOpen);
       if (isOpen) {{
-        renderActivityFeed();
+        if (currentDrawerMode === 'assistant') {{
+          initBotChatIfEmpty();
+          const input = document.getElementById('bot-input-field');
+          if (input) setTimeout(() => input.focus(), 150);
+        }} else {{
+          renderActivityFeed();
+        }}
         if (RECENT_ACTIVITY && RECENT_ACTIVITY.length > 0) {{
           try {{
             localStorage.setItem('kuota_last_seen_sha', RECENT_ACTIVITY[0].sha);
@@ -3231,10 +3692,327 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
       }}
     }});
 
+    // Asistente Técnico Kuota: Chat Interactivo & Base de Conocimiento
+    function initBotChatIfEmpty() {{
+      const container = document.getElementById('bot-chat-history');
+      if (!container || BOT_CONVERSATION.length > 0) return;
+
+      const welcomeMsg = {{
+        sender: 'bot',
+        text: 'Hola, soy el **Asistente Técnico de Kuota**. Estoy sincronizado con la arquitectura, el riel de pagos, los 24 controles normativos y el estado del repositorio.\\n\\nPuedes consultarme sobre comisiones (1% y piso S/ 4.50), la ventana sandbox de 5 min, mono-dispositivo, webhooks HMAC o tocar cualquiera de las consultas rápidas a continuación.',
+        action: {{
+          label: 'Ver Matriz de 24 Controles',
+          onclick: "switchMainTab('seguridad')"
+        }}
+      }};
+      BOT_CONVERSATION.push(welcomeMsg);
+      renderBotChat();
+    }}
+
+    function renderBotChat() {{
+      const container = document.getElementById('bot-chat-history');
+      if (!container) return;
+
+      let html = '';
+      BOT_CONVERSATION.forEach(msg => {{
+        const isBot = msg.sender === 'bot';
+        const formatted = formatBotMessage(msg.text);
+        let actionBtnHtml = '';
+        if (msg.action) {{
+          actionBtnHtml = `<button class="bot-action-btn" onclick="${{escapeHtml(msg.action.onclick)}}">
+            <svg class="icon-svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            <span>${{escapeHtml(msg.action.label)}}</span>
+          </button>`;
+        }}
+
+        if (isBot) {{
+          html += `
+            <div class="bot-msg-row bot">
+              <div class="bot-msg-avatar">
+                <span class="kuota-mini-k" style="width:22px; height:22px; font-size:0.75rem;">K</span>
+              </div>
+              <div class="bot-bubble">
+                ${{formatted}}
+                ${{actionBtnHtml}}
+              </div>
+            </div>
+          `;
+        }} else {{
+          html += `
+            <div class="bot-msg-row user">
+              <div class="bot-bubble">
+                ${{formatted}}
+              </div>
+            </div>
+          `;
+        }}
+      }});
+
+      container.innerHTML = html;
+      container.scrollTop = container.scrollHeight;
+    }}
+
+    function formatBotMessage(text) {{
+      if (!text) return '';
+      let clean = escapeHtml(text);
+      clean = clean.replace(/\\*\\*(.*?)\\*\\*/g, '<strong>$1</strong>');
+      clean = clean.replace(/`([^`]+)`/g, '<code>$1</code>');
+      const paragraphs = clean.split('\\n\\n');
+      return paragraphs.map(p => '<p>' + p.replace(/\\n/g, '<br>') + '</p>').join('');
+    }}
+
+    function handleBotInputKey(e) {{
+      if (e.key === 'Enter') {{
+        e.preventDefault();
+        sendUserBotMessage();
+      }}
+    }}
+
+    function sendUserBotMessage() {{
+      const input = document.getElementById('bot-input-field');
+      if (!input) return;
+      const text = input.value.trim();
+      if (!text) return;
+
+      input.value = '';
+      BOT_CONVERSATION.push({{ sender: 'user', text: text }});
+      renderBotChat();
+
+      showBotTypingIndicator();
+
+      setTimeout(() => {{
+        removeBotTypingIndicator();
+        const response = generateBotResponse(text);
+        BOT_CONVERSATION.push({{
+          sender: 'bot',
+          text: response.text,
+          action: response.action || null
+        }});
+        renderBotChat();
+      }}, 350);
+    }}
+
+    function askQuickPrompt(topic) {{
+      const prompts = {{
+        comisiones: '¿Cómo se calculan las comisiones de Kuota y el piso mínimo?',
+        sandbox: '¿Cómo funciona la ventana sandbox de 5 minutos y qué endpoint se usa?',
+        estados: '¿Cuál es la diferencia entre los estados Por confirmar y Cancelado?',
+        sesion: '¿Cómo opera el control de sesión mono-dispositivo en Kuota?',
+        webhooks: '¿Cómo se autentican los webhooks de 360Pay y Didit?',
+        controles: '¿Qué controles normativos incluye la matriz de 24 controles?',
+        endpoints: '¿Cuáles son los 14 endpoints clave de la API de Kuota?'
+      }};
+
+      const q = prompts[topic] || topic;
+      BOT_CONVERSATION.push({{ sender: 'user', text: q }});
+      renderBotChat();
+      showBotTypingIndicator();
+
+      setTimeout(() => {{
+        removeBotTypingIndicator();
+        const response = generateBotResponse(q, topic);
+        BOT_CONVERSATION.push({{
+          sender: 'bot',
+          text: response.text,
+          action: response.action || null
+        }});
+        renderBotChat();
+      }}, 300);
+    }}
+
+    function showBotTypingIndicator() {{
+      const container = document.getElementById('bot-chat-history');
+      if (!container) return;
+      if (document.getElementById('bot-typing-row')) return;
+
+      const row = document.createElement('div');
+      row.id = 'bot-typing-row';
+      row.className = 'bot-msg-row bot';
+      row.innerHTML = `
+        <div class="bot-msg-avatar">
+          <span class="kuota-mini-k" style="width:22px; height:22px; font-size:0.75rem;">K</span>
+        </div>
+        <div class="bot-bubble" style="padding: 0.5rem 0.75rem;">
+          <div class="typing-dots">
+            <span></span><span></span><span></span>
+          </div>
+        </div>
+      `;
+      container.appendChild(row);
+      container.scrollTop = container.scrollHeight;
+    }}
+
+    function removeBotTypingIndicator() {{
+      const el = document.getElementById('bot-typing-row');
+      if (el) el.remove();
+    }}
+
+    function generateBotResponse(query, explicitTopic) {{
+      const q = (query || '').toLowerCase();
+
+      // 1. Comisiones y Tarifas
+      if (explicitTopic === 'comisiones' || /comisi[oó]n|tarifa|\\bpiso\\b|4\\.50|\\bigv\\b|1%|costo|ahorro|\\bpos\\b/i.test(q)) {{
+        return {{
+          text: '**Riel de Comisiones Kuota:**\\n\\n' +
+                '• **Tasa Base:** 1.00% (100 bps) sobre el volumen bruto transaccionado.\\n' +
+                '• **Piso Mínimo Transaccional:** S/ 4.50 sin IGV (S/ 5.31 con IGV). Aplica cuando el 1% es menor a S/ 4.50 (tickets hasta S/ 450.00) para salvaguardar el costo de procesamiento de pasarela.\\n' +
+                '• **IGV:** 18% con redondeo hacia arriba (`Math.ceil`) sobre la comisión base.\\n' +
+                '• **Ubicación en Código:** `backend/src/services/pricing.ts` y `config.ts:feeBps`.\\n\\n' +
+                'Fórmula: `Math.max(monto * 0.01, 4.50) + IGV`. Ahorras hasta 65% respecto al 3.5% del POS tradicional.',
+          action: {{
+            label: 'Abrir Simulador Interactivo de Tarifas',
+            onclick: "switchMainTab('pagos')"
+          }}
+        }};
+      }}
+
+      // 2. Sandbox 5 minutos
+      if (explicitTopic === 'sandbox' || /sandbox|5\\s*min|settle-pending|simula|post\\s*\\/dev/i.test(q)) {{
+        return {{
+          text: '**Ventana de Liquidación Sandbox (5 Minutos):**\\n\\n' +
+                '• **Endpoint:** `POST /dev/settle-pending` (`backend/src/routes/dev.routes.ts:L86`).\\n' +
+                '• **Regla de Simulación:** Convierte a `SETTLED` únicamente aquellos cobros con antigüedad mayor a **5 minutos (300,000 ms)** en estado `PENDING`.\\n' +
+                '• **Blindaje de Producción:** Si `config.isProd` es true o `process.env.NODE_ENV === "production"`, el endpoint responde estrictamente con **HTTP 403 Forbidden** (`code: SANDBOX_ONLY`).\\n\\n' +
+                'En producción real, los fondos siguen el ciclo bancario formal de 48 horas con 360Pay.',
+          action: {{
+            label: 'Ver Documentación de Riel & Sandbox',
+            onclick: "openDocTile('pagos')"
+          }}
+        }};
+      }}
+
+      // 3. Por Confirmar vs Cancelado
+      if (explicitTopic === 'estados' || /por\\s*confirmar|cancelad|st-02|st-03|unificaci[oó]n|inicio.*concilia/i.test(q)) {{
+        return {{
+          text: '**Diferencia entre Estados en Kuota:**\\n\\n' +
+                '• **Por Confirmar (ST-02):** El cliente pagó exitosamente el link. Los fondos están retenidos en tránsito interbancario hacia la cuenta CCI del comercio (estimado 48h hábiles). **No es un cobro fallido.**\\n' +
+                '• **Cancelado (ST-03):** El link venció (48h sin pago) o fue revocado voluntariamente antes de abonarse (`POST /links/:id/cancel`). No hubo transferencia.\\n\\n' +
+                '**Unificación:** Las vistas de Inicio y Conciliación del Proveedor ahora consumen el endpoint común `GET /provider/orders`, garantizando total consistencia contable.',
+          action: {{
+            label: 'Ver Diagrama de Unificación de Inicio & Conciliación',
+            onclick: "changeDiagram('v2-unificacion-inicio-conciliacion.html', null, 'Unificación de Inicio y Conciliación', 'Flujo de Proveedor'); switchMainTab('diagramas');"
+          }}
+        }};
+      }}
+
+      // 4. Sesión Mono-Dispositivo
+      if (explicitTopic === 'sesion' || /mono|sesi[oó]n|dispositivo|jwt|ctl-a03|multidispositivo/i.test(q)) {{
+        return {{
+          text: '**Control de Sesión Mono-Dispositivo (CTL-A03):**\\n\\n' +
+                '• **Mecanismo:** Kuota impone una única sesión activa por comercio para prevenir fraude y uso compartido indebido de credenciales.\\n' +
+                '• **Lógica en Código:** Al autenticarse un nuevo dispositivo vía `POST /security/auth/login`, el backend ejecuta `auth.ts:revokeSessions(exceptId)` revocando todas las sesiones anteriores.\\n' +
+                '• **Tokens:** Access Token JWT con TTL de 3600s (1h) y rotación estricta de Refresh Token (`auth.ts:issueRefreshToken:L306`).',
+          action: {{
+            label: 'Ver Control CTL-A03 en Matriz',
+            onclick: "switchMainTab('seguridad')"
+          }}
+        }};
+      }}
+
+      // 5. Webhooks HMAC
+      if (explicitTopic === 'webhooks' || /webhook|hmac|360pay|didit|firma|timingSafeEqual|anti-replay/i.test(q)) {{
+        return {{
+          text: '**Seguridad de Webhooks en Kuota:**\\n\\n' +
+                '• **CTL-B01 (360Pay):** Firma HMAC SHA-256 calculada como `sha256=${{hmac(secret, `${{ts}}.${{rawBody}}`)}}` en `webhook.ts:signWebhookBody`.\\n' +
+                '• **CTL-B02 (Anti-Replay):** Tolerancia de timestamp &le; 300,000 ms (5 min) para evitar ataques de repetición.\\n' +
+                '• **CTL-B03 (Timing Attack):** Comparación criptográfica segura mediante `crypto.timingSafeEqual` con buffers de idéntica longitud.\\n' +
+                '• **CTL-B04 (Didit):** Validación de cabecera `X-Didit-Signature` con secreto compartido para eventos biométricos KYC.',
+          action: {{
+            label: 'Ver Controles de Webhooks (Cat. B)',
+            onclick: "switchMainTab('seguridad')"
+          }}
+        }};
+      }}
+
+      // 6. Matriz de 24 Controles
+      if (explicitTopic === 'controles' || /24\\s*control|matriz|seguridad|cumplimiento|auditor/i.test(q)) {{
+        return {{
+          text: '**Matriz de 24 Controles de Seguridad Kuota:**\\n\\n' +
+                'Organizada en 5 dominios auditados según Ley N° 29733 (Perú):\\n' +
+                '• **A. Identidad y Sesión (6):** PIN bcrypt, bloqueo 5 intentos, mono-dispositivo, JWT 1h, rotación refresh, step-up biometría.\\n' +
+                '• **B. Webhooks (4):** HMAC SHA-256, anti-replay 5m, timing-safe, Didit KYC.\\n' +
+                '• **C. Idempotencia (4):** Deduplicación PK, Idempotency-Key 24h, ACID payout, marcado atómico.\\n' +
+                '• **D. Tarifas (6):** Tasa 1%, IGV 18%, piso S/ 4.50, vencimiento 48h, sandbox 5m, límite Basic.\\n' +
+                '• **E. Ledger (4):** Doble partida balance 0, hash chaining SHA-256 + HMAC, redacción logs, anclaje WORM.',
+          action: {{
+            label: 'Explorar Matriz Completa en Portal',
+            onclick: "switchMainTab('seguridad')"
+          }}
+        }};
+      }}
+
+      // 7. Catálogo de 14 Endpoints
+      if (explicitTopic === 'endpoints' || /14\\s*endpoint|rutas|api|cat[aá]logo|post\\s*\\/|get\\s*\\//i.test(q)) {{
+        return {{
+          text: '**Catálogo de 14 Endpoints de API Kuota:**\\n\\n' +
+                '• **Seguridad / Auth:** `POST /security/auth/login`, `POST /security/auth/refresh`, `POST /security/auth/step-up`.\\n' +
+                '• **Links de Cobro:** `POST /links`, `GET /links/:id`, `POST /links/:id/cancel`.\\n' +
+                '• **Webhooks:** `POST /webhooks/360pay`, `POST /webhooks/didit`.\\n' +
+                '• **Proveedor:** `GET /provider/orders` (fuente unificada), `PUT /provider/settlement-account` (step-up requerido).\\n' +
+                '• **Sandbox & Conciliación:** `POST /dev/settle-pending` (solo sandbox), `POST /internal/reconciliation/run`.',
+          action: {{
+            label: 'Ver Tabla de Endpoints',
+            onclick: "switchMainTab('seguridad')"
+          }}
+        }};
+      }}
+
+      // 8. Búsqueda contextual sobre TECHNICAL_DOCS
+      let bestMatch = null;
+      let highestScore = 0;
+      const terms = q.split(/\\s+/).filter(t => t.length > 2);
+
+      if (typeof TECHNICAL_DOCS !== 'undefined') {{
+        Object.keys(TECHNICAL_DOCS).forEach(key => {{
+          const doc = TECHNICAL_DOCS[key];
+          let score = 0;
+          terms.forEach(t => {{
+            if (doc.title.toLowerCase().includes(t)) score += 3;
+            if (doc.content.toLowerCase().includes(t)) score += 1;
+          }});
+          if (score > highestScore) {{
+            highestScore = score;
+            bestMatch = {{ key: key, doc: doc }};
+          }}
+        }});
+      }}
+
+      if (bestMatch && highestScore > 0) {{
+        return {{
+          text: `Encontré información relevante en el informe técnico **"${{escapeHtml(bestMatch.doc.title)}}"** (${{escapeHtml(bestMatch.doc.filename)}}).\\n\\nPuedes abrir el documento completo con formato Markdown en el lector interactivo para revisar todos los detalles técnicos.`,
+          action: {{
+            label: `Abrir ${{bestMatch.doc.filename}}`,
+            onclick: `openDocTile('${{bestMatch.key}}')`
+          }}
+        }};
+      }}
+
+      // Fallback amigable
+      return {{
+        text: 'He procesado tu consulta. Puedo asistirte en detalle sobre cualquiera de los siguientes tópicos técnicos:\\n\\n' +
+              '1. Cálculo de **comisiones** (1% + IGV, piso S/ 4.50)\\n' +
+              '2. Ventana de **sandbox** de 5 minutos y endpoint `/dev/settle-pending`\\n' +
+              '3. Diferencia entre **Por Confirmar** y **Cancelado** en el flujo de Proveedor\\n' +
+              '4. Reglas de **sesión mono-dispositivo** (CTL-A03)\\n' +
+              '5. Autenticación **HMAC de webhooks** (360Pay y Didit)\\n' +
+              '6. Catálogo de los **14 endpoints** o matriz de **24 controles**',
+        action: {{
+          label: 'Ver Matriz de 24 Controles',
+          onclick: "switchMainTab('seguridad')"
+        }}
+      }};
+    }}
+
+    // Historial CI/CD: Filtros, Búsqueda y Renderizado
     function filterActivity(filterType, btn) {{
       currentActivityFilter = filterType;
       document.querySelectorAll('.segmented-btn').forEach(b => b.classList.remove('active'));
       if (btn) btn.classList.add('active');
+      renderActivityFeed();
+    }}
+
+    function handleFeedSearch(val) {{
+      feedSearchQuery = (val || '').toLowerCase().trim();
       renderActivityFeed();
     }}
 
@@ -3260,8 +4038,17 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
         filtered = RECENT_ACTIVITY.filter(item => item.badge_class === 'fix');
       }}
 
+      if (feedSearchQuery) {{
+        filtered = filtered.filter(item => {{
+          return (item.subject && item.subject.toLowerCase().includes(feedSearchQuery)) ||
+                 (item.author && item.author.toLowerCase().includes(feedSearchQuery)) ||
+                 (item.short_sha && item.short_sha.toLowerCase().includes(feedSearchQuery)) ||
+                 (item.tag && item.tag.toLowerCase().includes(feedSearchQuery));
+        }});
+      }}
+
       if (!filtered || filtered.length === 0) {{
-        container.innerHTML = '<div style="text-align: center; padding: 3rem 1rem; color: var(--text-tertiary); font-size: 0.82rem;"><div style="font-size: 1.6rem; margin-bottom: 0.5rem; opacity: 0.6;">📦</div>No hay eventos registrados bajo esta categoría.</div>';
+        container.innerHTML = '<div style="text-align: center; padding: 3rem 1rem; color: var(--text-tertiary); font-size: 0.82rem;"><div style="font-size: 1.6rem; margin-bottom: 0.5rem; opacity: 0.6;">📦</div>No hay eventos que coincidan con la búsqueda o categoría.</div>';
         return;
       }}
 
@@ -3377,80 +4164,29 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
         }});
     }}
 
-    // Restauración Completa de Memoria de Navegación y URL Hash
-    function restoreNavigationState() {{
-      // 1. Restaurar Tema
-      try {{
-        const savedTheme = localStorage.getItem('kuota_theme');
-        if (savedTheme) {{
-          document.documentElement.setAttribute('data-theme', savedTheme);
-          updateThemeUI(savedTheme);
-        }}
-      }} catch (e) {{}}
-
-      // 2. Determinar Pestaña y Sub-recursos
-      let targetTab = 'diagramas';
-      let targetDoc = 'readme';
-      let targetDiagram = 'v1-arquitectura-actual.html';
-
-      try {{
-        const localDoc = localStorage.getItem('kuota_active_doc');
-        if (localDoc && TECHNICAL_DOCS[localDoc]) targetDoc = localDoc;
-
-        const localDiagram = localStorage.getItem('kuota_active_diagram');
-        if (localDiagram) targetDiagram = localDiagram;
-
-        const localTab = localStorage.getItem('kuota_active_tab');
-        if (localTab && ['diagramas', 'pagos', 'seguridad', 'hallazgos', 'documentos'].includes(localTab)) {{
-          targetTab = localTab;
-        }}
-      }} catch (e) {{}}
-
-      // El hash en la URL tiene máxima prioridad (permite links directos y recarga F5 exacta)
-      const rawHash = (window.location.hash || '').replace(/^#\\/?/, '').trim();
-      if (rawHash) {{
-        const parts = rawHash.split('/');
-        const main = parts[0].toLowerCase();
-        const sub = parts[1] ? parts[1].toLowerCase() : null;
-
-        if (['diagramas', 'pagos', 'seguridad', 'hallazgos', 'documentos'].includes(main)) {{
-          targetTab = main;
-        }}
-
-        if (main === 'documentos' && sub && TECHNICAL_DOCS[sub]) {{
-          targetDoc = sub;
-        }} else if (main === 'diagramas' && sub) {{
-          const matched = sub.endsWith('.html') ? sub : sub + '.html';
-          targetDiagram = matched;
-        }}
-      }}
-
-      // 3. Activar Diagrama recordado
-      if (targetDiagram) {{
-        const pill = document.querySelector(`.d-pill[onclick*="${{targetDiagram}}"]`);
-        if (pill) {{
-          pill.click();
-        }}
-      }}
-
-      // 4. Activar Documento en lector
-      showDoc(targetDoc, null, false);
-
-      // 5. Activar Pestaña Principal (sin sobrescribir hash)
-      switchMainTab(targetTab, false);
-
-      // 6. Sincronizar Feed de Actividad y Contador de Novedades
-      renderActivityFeed();
-      checkUnreadBadge();
-    }}
-
-    window.addEventListener('hashchange', function() {{
-      restoreNavigationState();
-    }});
-
-    // Inicialización
+    // Sondeo de Fondo Automático (Auto-Polling cada 45 segundos)
+    function refreshActivityFeedSilently() {{
+      fetch('activity-feed.json?t=' + Date.now())
+        .then(res => res.json())
+        .then(data => {{
+          if (data && data.events && data.events.length > 0) {{
+            const latestSha = data.events[0].sha;
+            const currentSha = RECENT_ACTIVITY.length > 0 ? RECENT_ACTIVITY[0].sha : null;
+            if (latestSha !== currentSha) {{
+              RECENT_ACTIVITY.length = 0;
+              data.events.forEach(ev => RECENT_ACTIVITY.push(ev));
+              renderActivityFeed();
+              checkUnreadBadge();
+              showToastMsg('⚡ Sincronización CI/CD: Nuevo commit ' + data.events[0].short_sha);
+            }}
+          }}
+        }})
+        .catch(() => {{}});
+    }}\n\n    // Inicialización
     runSim(100);
     restoreNavigationState();
+    initBotChatIfEmpty();
+    setInterval(refreshActivityFeedSilently, 45000);
   </script>
 </body>
 </html>
