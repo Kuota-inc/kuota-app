@@ -1,9 +1,22 @@
 {
-  "updated_at": "2026-11-15 04:34 UTC",
-  "branch": "HEAD",
-  "latest_sha": "4141c308dd74dc9369207cae3dcfd59961395bac",
-  "latest_short_sha": "4141c30",
+  "updated_at": "2026-11-15 04:35 UTC",
+  "branch": "fix/proveedor-inicio-conciliacion",
+  "latest_sha": "cd3f2b03d483e1cf124b95b9d99ac1d415f34636",
+  "latest_short_sha": "cd3f2b0",
   "events": [
+    {
+      "sha": "cd3f2b03d483e1cf124b95b9d99ac1d415f34636",
+      "short_sha": "cd3f2b0",
+      "author": "Kuota",
+      "subject": "feat(portal): add floating notification bell and real-time agent activity center with live CI/CD commit feed",
+      "timestamp": 1794717222,
+      "rel_time": "Hace un momento",
+      "date": "Sat Nov 14 23:33:42 2026 -0500",
+      "is_agent": false,
+      "tag": "Feature",
+      "badge_class": "feat",
+      "url": "https://github.com/Kuota-inc/kuota-app/commit/cd3f2b03d483e1cf124b95b9d99ac1d415f34636"
+    },
     {
       "sha": "4141c308dd74dc9369207cae3dcfd59961395bac",
       "short_sha": "4141c30",
@@ -250,19 +263,6 @@
       "tag": "Feature",
       "badge_class": "feat",
       "url": "https://github.com/Kuota-inc/kuota-app/commit/57edfdb3899f51e6fbce81aaca1c0226f4cb5be1"
-    },
-    {
-      "sha": "45a12d2c191a27c2812aadc34874060e2e030b45",
-      "short_sha": "45a12d2",
-      "author": "Kuota",
-      "subject": "feat(security): P1-5 — biometría verificada en el servidor (reto firmado con llave del Keystore)",
-      "timestamp": 1794635385,
-      "rel_time": "Hace 22 h",
-      "date": "Sat Nov 14 00:49:45 2026 -0500",
-      "is_agent": false,
-      "tag": "Feature",
-      "badge_class": "feat",
-      "url": "https://github.com/Kuota-inc/kuota-app/commit/45a12d2c191a27c2812aadc34874060e2e030b45"
     }
   ]
 }
