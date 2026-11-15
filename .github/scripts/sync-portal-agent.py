@@ -56,8 +56,73 @@ def read_markdown_reports():
                 }
     return docs_data
 
-def generate_portal_html(sha, short_sha, branch, now_iso, docs_data):
+def get_recent_activity():
+    try:
+        cmd = ['git', 'log', '-n', '20', '--pretty=format:%H|%h|%an|%ae|%at|%ad|%s']
+        output = subprocess.check_output(cmd, text=True, encoding='utf-8', errors='replace').strip()
+        events = []
+        for line in output.split('\n'):
+            if not line:
+                continue
+            parts = line.split('|')
+            if len(parts) >= 7:
+                sha_full, short_hash, author_name, author_email, timestamp_str, date_str, subject = parts[:7]
+                
+                is_agent = ('agent' in author_name.lower() or 'bot' in author_name.lower() or 
+                            'chore(agent)' in subject.lower() or 'sync portal' in subject.lower())
+                
+                try:
+                    ts = int(timestamp_str)
+                    now_ts = int(datetime.datetime.now(datetime.timezone.utc).timestamp())
+                    diff_s = max(0, now_ts - ts)
+                    if diff_s < 120:
+                        rel_time = 'Hace un momento'
+                    elif diff_s < 3600:
+                        rel_time = f'Hace {diff_s // 60} min'
+                    elif diff_s < 86400:
+                        rel_time = f'Hace {diff_s // 3600} h'
+                    else:
+                        rel_time = f'Hace {diff_s // 86400} d'
+                except Exception:
+                    rel_time = date_str[:16]
+
+                if is_agent:
+                    tag = 'Agente Bot'
+                    badge_class = 'agent'
+                elif 'fix' in subject.lower():
+                    tag = 'Fix'
+                    badge_class = 'fix'
+                elif 'feat' in subject.lower():
+                    tag = 'Feature'
+                    badge_class = 'feat'
+                elif 'rebase' in subject.lower() or 'merge' in subject.lower():
+                    tag = 'Sync / Rebase'
+                    badge_class = 'sync'
+                else:
+                    tag = 'Commit'
+                    badge_class = 'commit'
+
+                events.append({
+                    'sha': sha_full,
+                    'short_sha': short_hash,
+                    'author': author_name,
+                    'subject': subject,
+                    'timestamp': int(timestamp_str) if timestamp_str.isdigit() else 0,
+                    'rel_time': rel_time,
+                    'date': date_str,
+                    'is_agent': is_agent,
+                    'tag': tag,
+                    'badge_class': badge_class,
+                    'url': f'https://github.com/Kuota-inc/kuota-app/commit/{sha_full}'
+                })
+        return events
+    except Exception as e:
+        print(f"Warning: could not get git activity: {e}")
+        return []
+
+def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_activity):
     docs_json = json.dumps(docs_data)
+    activity_json = json.dumps(recent_activity)
     
     html = f'''<!DOCTYPE html>
 <html lang="es" data-theme="kuota-light">
@@ -1332,6 +1397,344 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data):
       flex-wrap: wrap;
       gap: 1.25rem;
     }}
+    /* ==========================================================================
+       CAMPANITA FLOTANTE & CENTRO DE ACTIVIDAD DEL AGENTE CI/CD (APPLE DESIGN)
+       ========================================================================== */
+    .activity-bell-wrapper {{
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      z-index: 9999;
+    }}
+
+    .activity-bell-btn {{
+      width: 52px;
+      height: 52px;
+      border-radius: 9999px;
+      background: rgba(255, 255, 255, 0.86);
+      backdrop-filter: blur(24px) saturate(180%);
+      -webkit-backdrop-filter: blur(24px) saturate(180%);
+      border: 1px solid rgba(175, 197, 246, 0.45);
+      color: var(--kuota-persian-blue);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      position: relative;
+      box-shadow: 0 10px 32px rgba(26, 59, 176, 0.2), 0 2px 8px rgba(0, 0, 0, 0.05);
+      transition: all 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+      outline: none;
+    }}
+
+    html[data-theme="kuota-dark"] .activity-bell-btn {{
+      background: rgba(18, 24, 38, 0.88);
+      border-color: rgba(255, 255, 255, 0.14);
+      color: var(--kuota-periwinkle);
+      box-shadow: 0 10px 32px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.08) inset;
+    }}
+
+    .activity-bell-btn:hover {{
+      transform: scale(1.08) translateY(-2px);
+      box-shadow: 0 14px 40px rgba(26, 59, 176, 0.3);
+    }}
+
+    .activity-bell-btn:active {{
+      transform: scale(0.95);
+    }}
+
+    .bell-badge {{
+      position: absolute;
+      top: -2px;
+      right: -2px;
+      background: #10B981;
+      color: #FFFFFF;
+      font-size: 0.68rem;
+      font-weight: 800;
+      min-width: 20px;
+      height: 20px;
+      border-radius: 9999px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 4px;
+      border: 2px solid var(--kuota-white);
+      box-shadow: 0 2px 8px rgba(16, 185, 129, 0.45);
+      animation: pulse-badge 2.4s infinite ease-in-out;
+    }}
+
+    html[data-theme="kuota-dark"] .bell-badge {{
+      border-color: #121826;
+    }}
+
+    @keyframes pulse-badge {{
+      0%, 100% {{ transform: scale(1); }}
+      50% {{ transform: scale(1.14); }}
+    }}
+
+    /* Popover / Cajón de Actividad Flotante */
+    .activity-drawer {{
+      position: fixed;
+      bottom: 5.5rem;
+      right: 1.5rem;
+      width: 410px;
+      max-width: calc(100vw - 2rem);
+      max-height: 590px;
+      background: rgba(255, 255, 255, 0.94);
+      backdrop-filter: blur(32px) saturate(190%);
+      -webkit-backdrop-filter: blur(32px) saturate(190%);
+      border: 1px solid rgba(175, 197, 246, 0.38);
+      border-radius: 24px;
+      box-shadow: 0 24px 60px rgba(11, 37, 69, 0.22), 0 0 0 1px rgba(255, 255, 255, 0.4) inset;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      transform: scale(0.92) translateY(20px);
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }}
+
+    html[data-theme="kuota-dark"] .activity-drawer {{
+      background: rgba(18, 24, 38, 0.94);
+      border-color: rgba(255, 255, 255, 0.12);
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+    }}
+
+    .activity-drawer.open {{
+      transform: scale(1) translateY(0);
+      opacity: 1;
+      pointer-events: auto;
+    }}
+
+    .drawer-header {{
+      padding: 1.15rem 1.25rem 0.85rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+    }}
+
+    .drawer-title-box {{
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+    }}
+
+    .drawer-title {{
+      font-family: var(--font-display);
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }}
+
+    .drawer-close-btn {{
+      width: 28px;
+      height: 28px;
+      border-radius: 9999px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s;
+    }}
+
+    .drawer-close-btn:hover {{
+      background: var(--bg-hover);
+      color: var(--text);
+    }}
+
+    .drawer-live-strip {{
+      padding: 0.65rem 1.25rem;
+      background: rgba(26, 59, 176, 0.04);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.76rem;
+    }}
+
+    html[data-theme="kuota-dark"] .drawer-live-strip {{
+      background: rgba(255, 255, 255, 0.02);
+    }}
+
+    .live-indicator {{
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      color: #10B981;
+      font-weight: 700;
+      font-size: 0.76rem;
+    }}
+
+    .live-dot {{
+      width: 8px;
+      height: 8px;
+      border-radius: 9999px;
+      background: #10B981;
+      box-shadow: 0 0 8px #10B981;
+      display: inline-block;
+    }}
+
+    .drawer-filter-row {{
+      padding: 0.5rem 1.25rem;
+      display: flex;
+      gap: 0.4rem;
+      border-bottom: 1px solid var(--border);
+      overflow-x: auto;
+      scrollbar-width: none;
+    }}
+
+    .drawer-filter-btn {{
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 0.25rem 0.65rem;
+      border-radius: 9999px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-secondary);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s;
+    }}
+
+    .drawer-filter-btn.active {{
+      background: var(--kuota-persian-blue);
+      color: #FFFFFF;
+      border-color: var(--kuota-persian-blue);
+    }}
+
+    .drawer-feed {{
+      flex: 1;
+      overflow-y: auto;
+      padding: 0.85rem 1.15rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      scrollbar-width: thin;
+      max-height: 380px;
+    }}
+
+    .feed-card {{
+      padding: 0.75rem 0.85rem;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.6);
+      transition: all 0.2s;
+      position: relative;
+    }}
+
+    html[data-theme="kuota-dark"] .feed-card {{
+      background: rgba(255, 255, 255, 0.03);
+    }}
+
+    .feed-card:hover {{
+      border-color: var(--kuota-periwinkle);
+      transform: translateY(-1px);
+    }}
+
+    .feed-card-header {{
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      margin-bottom: 0.35rem;
+    }}
+
+    .feed-badge {{
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 0.15rem 0.5rem;
+      border-radius: 9999px;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+    }}
+
+    .feed-badge.agent {{
+      background: rgba(99, 102, 241, 0.12);
+      color: #6366F1;
+      border: 1px solid rgba(99, 102, 241, 0.25);
+    }}
+
+    .feed-badge.fix {{
+      background: rgba(16, 185, 129, 0.12);
+      color: #10B981;
+      border: 1px solid rgba(16, 185, 129, 0.25);
+    }}
+
+    .feed-badge.feat {{
+      background: rgba(26, 59, 176, 0.12);
+      color: var(--kuota-persian-blue);
+      border: 1px solid rgba(26, 59, 176, 0.25);
+    }}
+
+    html[data-theme="kuota-dark"] .feed-badge.feat {{
+      color: var(--kuota-periwinkle);
+    }}
+
+    .feed-badge.commit {{
+      background: rgba(100, 116, 139, 0.12);
+      color: #64748B;
+      border: 1px solid rgba(100, 116, 139, 0.25);
+    }}
+
+    .feed-badge.sync {{
+      background: rgba(245, 158, 11, 0.12);
+      color: #D97706;
+      border: 1px solid rgba(245, 158, 11, 0.25);
+    }}
+
+    .feed-time {{
+      font-size: 0.7rem;
+      color: var(--text-tertiary);
+    }}
+
+    .feed-msg {{
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text);
+      line-height: 1.35;
+      margin-bottom: 0.4rem;
+    }}
+
+    .feed-meta {{
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.72rem;
+      color: var(--text-secondary);
+    }}
+
+    .feed-link {{
+      color: var(--kuota-persian-blue);
+      text-decoration: none;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.2rem;
+    }}
+
+    html[data-theme="kuota-dark"] .feed-link {{
+      color: var(--kuota-periwinkle);
+    }}
+
+    .drawer-footer {{
+      padding: 0.75rem 1.25rem;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(26, 59, 176, 0.02);
+      font-size: 0.75rem;
+    }}
   </style>
 </head>
 <body>
@@ -2185,9 +2588,72 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data):
     </div>
   </footer>
 
+  <!-- Campanita Flotante y Centro de Actividad del Agente CI/CD -->
+  <div class="activity-bell-wrapper">
+    <button id="btn-activity-bell" class="activity-bell-btn" onclick="toggleActivityDrawer()" aria-label="Notificaciones del Agente y Repositorio" title="Actividad del Agente y Commits">
+      <svg class="icon-svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/>
+        <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>
+      </svg>
+      <span id="bell-badge-count" class="bell-badge">3</span>
+    </button>
+  </div>
+
+  <!-- Cajón / Popover Flotante de Actividad -->
+  <div id="activity-drawer" class="activity-drawer" role="dialog" aria-modal="true" aria-labelledby="activity-drawer-title">
+    <div class="drawer-header">
+      <div class="drawer-title-box">
+        <span class="icon-badge" style="width: 28px; height: 28px; min-width: 28px;">
+          <svg class="icon-svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2v4"/><path d="m4.93 4.93 2.83 2.83"/><path d="M2 12h4"/><path d="m4.93 19.07 2.83-2.83"/><path d="M12 22v-4"/><path d="m19.07 19.07-2.83-2.83"/><path d="M22 12h-4"/><path d="m19.07 4.93-2.83 2.83"/>
+          </svg>
+        </span>
+        <div>
+          <div id="activity-drawer-title" class="drawer-title">Actividad del Repositorio</div>
+          <div style="font-size: 0.72rem; color: var(--text-tertiary);">Sincronización Autónoma CI/CD &bull; Kuota</div>
+        </div>
+      </div>
+      <button class="drawer-close-btn" onclick="toggleActivityDrawer()" aria-label="Cerrar">&times;</button>
+    </div>
+
+    <div class="drawer-live-strip">
+      <div class="live-indicator">
+        <span class="live-dot"></span>
+        <span>Agente Activo &bull; Vercel Live</span>
+      </div>
+      <div style="color: var(--text-secondary); font-family: var(--font-mono); font-size: 0.7rem;">
+        Rama: <span style="font-weight: 700; color: var(--kuota-persian-blue);">{branch}</span>
+      </div>
+    </div>
+
+    <div class="drawer-filter-row">
+      <button class="drawer-filter-btn active" onclick="filterActivity('all', this)">Todos</button>
+      <button class="drawer-filter-btn" onclick="filterActivity('agent', this)">🤖 Agente Bot</button>
+      <button class="drawer-filter-btn" onclick="filterActivity('feat', this)">✨ Features</button>
+      <button class="drawer-filter-btn" onclick="filterActivity('fix', this)">🛠️ Fixes</button>
+    </div>
+
+    <div id="activity-feed-list" class="drawer-feed">
+      <!-- Generado dinámicamente -->
+    </div>
+
+    <div class="drawer-footer">
+      <a href="https://github.com/Kuota-inc/kuota-app/commits/{branch}" target="_blank" class="feed-link" style="font-size: 0.75rem;">
+        <span>Ver historial en GitHub</span>
+        <svg class="icon-svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg>
+      </a>
+      <button onclick="refreshActivityFeed()" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 0.75rem; font-weight: 600; display: inline-flex; align-items: center; gap: 0.25rem;">
+        <svg class="icon-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+        <span>Refrescar</span>
+      </button>
+    </div>
+  </div>
+
   <!-- Scripts de Interacción -->
   <script>
     const TECHNICAL_DOCS = {docs_json};
+    const RECENT_ACTIVITY = {activity_json};
+    let currentActivityFilter = 'all';
     let activeDoc = 'readme';
     let currentMainTab = 'diagramas';
     let activeDiagram = 'v1-arquitectura-actual.html';
@@ -2438,6 +2904,150 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data):
       }}
     }}
 
+    // Control del Centro de Notificaciones y Actividad del Agente
+    function toggleActivityDrawer() {{
+      const drawer = document.getElementById('activity-drawer');
+      const badge = document.getElementById('bell-badge-count');
+      if (!drawer) return;
+      const isOpen = drawer.classList.toggle('open');
+      if (isOpen) {{
+        renderActivityFeed();
+        if (RECENT_ACTIVITY && RECENT_ACTIVITY.length > 0) {{
+          try {{
+            localStorage.setItem('kuota_last_seen_sha', RECENT_ACTIVITY[0].sha);
+            if (badge) badge.style.display = 'none';
+          }} catch(e) {{}}
+        }}
+      }}
+    }}
+
+    document.addEventListener('click', function(e) {{
+      const drawer = document.getElementById('activity-drawer');
+      const bell = document.getElementById('btn-activity-bell');
+      if (!drawer || !bell) return;
+      if (drawer.classList.contains('open') && !drawer.contains(e.target) && !bell.contains(e.target)) {{
+        drawer.classList.remove('open');
+      }}
+    }});
+
+    document.addEventListener('keydown', function(e) {{
+      if (e.key === 'Escape') {{
+        const drawer = document.getElementById('activity-drawer');
+        if (drawer && drawer.classList.contains('open')) {{
+          drawer.classList.remove('open');
+        }}
+      }}
+    }});
+
+    function filterActivity(filterType, btn) {{
+      currentActivityFilter = filterType;
+      document.querySelectorAll('.drawer-filter-btn').forEach(b => b.classList.remove('active'));
+      if (btn) btn.classList.add('active');
+      renderActivityFeed();
+    }}
+
+    function renderActivityFeed() {{
+      const container = document.getElementById('activity-feed-list');
+      if (!container) return;
+
+      let filtered = RECENT_ACTIVITY || [];
+      if (currentActivityFilter === 'agent') {{
+        filtered = RECENT_ACTIVITY.filter(item => item.is_agent);
+      }} else if (currentActivityFilter === 'feat') {{
+        filtered = RECENT_ACTIVITY.filter(item => item.badge_class === 'feat');
+      }} else if (currentActivityFilter === 'fix') {{
+        filtered = RECENT_ACTIVITY.filter(item => item.badge_class === 'fix');
+      }}
+
+      if (!filtered || filtered.length === 0) {{
+        container.innerHTML = '<div style="text-align: center; padding: 2.5rem 1rem; color: var(--text-tertiary); font-size: 0.82rem;">No hay eventos en este filtro.</div>';
+        return;
+      }}
+
+      let html = '';
+      filtered.forEach(item => {{
+        const isAgent = item.is_agent;
+        const iconSvg = isAgent 
+          ? '<svg class="icon-svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>'
+          : '<svg class="icon-svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><line x1="3" y1="12" x2="9" y2="12"/><line x1="15" y1="12" x2="21" y2="12"/></svg>';
+
+        html += `
+          <div class="feed-card">
+            <div class="feed-card-header">
+              <span class="feed-badge ${{item.badge_class}}">
+                ${{iconSvg}}
+                <span>${{item.tag}}</span>
+              </span>
+              <span class="feed-time">${{item.rel_time}}</span>
+            </div>
+            <div class="feed-msg">${{escapeHtml(item.subject)}}</div>
+            <div class="feed-meta">
+              <span style="font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-secondary);">
+                ${{escapeHtml(item.author)}} &middot; <code>${{item.short_sha}}</code>
+              </span>
+              <a href="${{item.url}}" target="_blank" class="feed-link" title="Ver commit en GitHub">
+                <span>Ver commit</span>
+                <svg class="icon-svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg>
+              </a>
+            </div>
+          </div>
+        `;
+      }});
+
+      container.innerHTML = html;
+    }}
+
+    function escapeHtml(str) {{
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }}
+
+    function checkUnreadBadge() {{
+      const badge = document.getElementById('bell-badge-count');
+      if (!badge || !RECENT_ACTIVITY || RECENT_ACTIVITY.length === 0) return;
+      try {{
+        const lastSeen = localStorage.getItem('kuota_last_seen_sha');
+        if (lastSeen === RECENT_ACTIVITY[0].sha) {{
+          badge.style.display = 'none';
+        }} else {{
+          let unseenCount = 0;
+          for (let i = 0; i < RECENT_ACTIVITY.length; i++) {{
+            if (RECENT_ACTIVITY[i].sha === lastSeen) break;
+            unseenCount++;
+          }}
+          if (unseenCount > 0) {{
+            badge.textContent = unseenCount > 9 ? '9+' : unseenCount;
+            badge.style.display = 'flex';
+          }} else {{
+            badge.style.display = 'none';
+          }}
+        }}
+      }} catch(e) {{}}
+    }}
+
+    function refreshActivityFeed() {{
+      fetch('activity-feed.json?t=' + Date.now())
+        .then(res => res.json())
+        .then(data => {{
+          if (data && data.events) {{
+            RECENT_ACTIVITY.length = 0;
+            data.events.forEach(ev => RECENT_ACTIVITY.push(ev));
+            renderActivityFeed();
+            checkUnreadBadge();
+            showToastMsg('¡Actividad actualizada desde GitHub!');
+          }}
+        }})
+        .catch(() => {{
+          renderActivityFeed();
+          showToastMsg('Feed en sincronía.');
+        }});
+    }}
+
     // Restauración Completa de Memoria de Navegación y URL Hash
     function restoreNavigationState() {{
       // 1. Restaurar Tema
@@ -2499,6 +3109,10 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data):
 
       // 5. Activar Pestaña Principal (sin sobrescribir hash)
       switchMainTab(targetTab, false);
+
+      // 6. Sincronizar Feed de Actividad y Contador de Novedades
+      renderActivityFeed();
+      checkUnreadBadge();
     }}
 
     window.addEventListener('hashchange', function() {{
@@ -2626,9 +3240,23 @@ def main():
     docs_data = read_markdown_reports()
     print(f"Loaded {len(docs_data)} technical reports.")
     
+    recent_activity = get_recent_activity()
+    print(f"Loaded {len(recent_activity)} recent repository events.")
+    
+    activity_file = os.path.join('docs', 'auditoria-archify', 'activity-feed.json')
+    with open(activity_file, 'w', encoding='utf-8') as f:
+        json.dump({
+            'updated_at': now_iso,
+            'branch': branch,
+            'latest_sha': sha,
+            'latest_short_sha': short_sha,
+            'events': recent_activity
+        }, f, indent=2, ensure_ascii=False)
+    print(f"Activity feed saved: {activity_file}")
+    
     generate_excel_and_clean_csv()
     
-    html = generate_portal_html(sha, short_sha, branch, now_iso, docs_data)
+    html = generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_activity)
     
     dest1 = os.path.join('docs', 'auditoria-archify', 'index.html')
     dest2 = os.path.join('docs', 'auditoria-archify', 'portal-auditoria-completa.html')

@@ -49,7 +49,7 @@ jobs:
         run: |
           git config --global user.name "kuota-portal-agent[bot]"
           git config --global user.email "kuota-portal-agent@users.noreply.github.com"
-          git add docs/auditoria-archify/index.html docs/auditoria-archify/portal-auditoria-completa.html docs/auditoria-archify/01-matriz-controles-y-parametros.xlsx docs/auditoria-archify/01-matriz-controles-y-parametros.csv docs/auditoria-archify/auditoria-archify.zip docs/auditoria-archify.zip
+          git add docs/auditoria-archify/index.html docs/auditoria-archify/portal-auditoria-completa.html docs/auditoria-archify/activity-feed.json docs/auditoria-archify/01-matriz-controles-y-parametros.xlsx docs/auditoria-archify/01-matriz-controles-y-parametros.csv docs/auditoria-archify/auditoria-archify.zip docs/auditoria-archify.zip
           if ! git diff --staged --quiet; then
             git commit -m "chore(agent): sync portal with commit ${GITHUB_SHA::7} [skip ci]"
             git push origin HEAD:${{ github.ref_name }}
