@@ -87,7 +87,7 @@ def get_recent_activity():
                     rel_time = date_str[:16]
 
                 if is_agent:
-                    tag = 'Agente Bot'
+                    tag = 'Agente Kuota'
                     badge_class = 'agent'
                 elif 'fix' in subject.lower():
                     tag = 'Fix'
@@ -1553,6 +1553,27 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
       gap: 0.75rem;
     }}
 
+    .drawer-brand-badge {{
+      width: 36px;
+      height: 36px;
+      min-width: 36px;
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 4px 12px rgba(26, 59, 176, 0.22);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #0B2545;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      flex-shrink: 0;
+    }}
+
+    .drawer-brand-img {{
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }}
+
     .drawer-title {{
       font-family: var(--font-display);
       font-size: 1.05rem;
@@ -1780,37 +1801,98 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
     }}
 
     .feed-badge.agent {{
-      background: rgba(99, 102, 241, 0.12);
-      color: #6366F1;
-      border: 1px solid rgba(99, 102, 241, 0.25);
+      background: rgba(26, 59, 176, 0.08);
+      color: var(--kuota-persian-blue);
+      border: 1px solid rgba(26, 59, 176, 0.22);
+    }}
+
+    html[data-theme="kuota-dark"] .feed-badge.agent {{
+      background: rgba(175, 197, 246, 0.12);
+      color: var(--kuota-periwinkle);
+      border-color: rgba(175, 197, 246, 0.25);
     }}
 
     .feed-badge.fix {{
-      background: rgba(16, 185, 129, 0.12);
-      color: #10B981;
-      border: 1px solid rgba(16, 185, 129, 0.25);
+      background: rgba(16, 185, 129, 0.08);
+      color: #059669;
+      border: 1px solid rgba(16, 185, 129, 0.22);
+    }}
+
+    html[data-theme="kuota-dark"] .feed-badge.fix {{
+      background: rgba(16, 185, 129, 0.14);
+      color: #34D399;
+      border-color: rgba(16, 185, 129, 0.28);
     }}
 
     .feed-badge.feat {{
-      background: rgba(26, 59, 176, 0.12);
-      color: var(--kuota-persian-blue);
-      border: 1px solid rgba(26, 59, 176, 0.25);
+      background: rgba(124, 58, 237, 0.08);
+      color: #7C3AED;
+      border: 1px solid rgba(124, 58, 237, 0.22);
     }}
 
     html[data-theme="kuota-dark"] .feed-badge.feat {{
-      color: var(--kuota-periwinkle);
+      background: rgba(167, 139, 250, 0.12);
+      color: #A78BFA;
+      border-color: rgba(167, 139, 250, 0.25);
     }}
 
     .feed-badge.commit {{
-      background: rgba(100, 116, 139, 0.12);
-      color: #64748B;
-      border: 1px solid rgba(100, 116, 139, 0.25);
+      background: rgba(100, 116, 139, 0.08);
+      color: #475569;
+      border: 1px solid rgba(100, 116, 139, 0.2);
+    }}
+
+    html[data-theme="kuota-dark"] .feed-badge.commit {{
+      background: rgba(148, 163, 184, 0.12);
+      color: #CBD5E1;
+      border-color: rgba(148, 163, 184, 0.2);
     }}
 
     .feed-badge.sync {{
-      background: rgba(245, 158, 11, 0.12);
+      background: rgba(245, 158, 11, 0.08);
       color: #D97706;
-      border: 1px solid rgba(245, 158, 11, 0.25);
+      border: 1px solid rgba(245, 158, 11, 0.2);
+    }}
+
+    html[data-theme="kuota-dark"] .feed-badge.sync {{
+      background: rgba(251, 191, 36, 0.12);
+      color: #FBBF24;
+      border-color: rgba(251, 191, 36, 0.25);
+    }}
+
+    .kuota-mini-k {{
+      width: 14px;
+      height: 14px;
+      min-width: 14px;
+      border-radius: 4px;
+      background: linear-gradient(135deg, #0B2545 0%, #1A3BB0 100%);
+      color: #FFFFFF;
+      font-family: var(--font-display);
+      font-size: 0.6rem;
+      font-weight: 800;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1;
+      box-shadow: 0 1px 3px rgba(26, 59, 176, 0.35);
+      letter-spacing: -0.02em;
+    }}
+
+    .commit-prefix {{
+      font-weight: 700;
+      color: var(--kuota-persian-blue);
+    }}
+
+    html[data-theme="kuota-dark"] .commit-prefix {{
+      color: var(--kuota-periwinkle);
+    }}
+
+    .feed-author-pill {{
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-size: 0.72rem;
+      color: var(--text-secondary);
     }}
 
     .feed-time {{
@@ -2786,14 +2868,12 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
     <div class="drawer-mobile-handle"></div>
     <div class="drawer-header">
       <div class="drawer-title-box">
-        <span class="icon-badge" style="width: 32px; height: 32px; min-width: 32px; background: rgba(26, 59, 176, 0.08); color: var(--kuota-persian-blue); border: 1px solid rgba(26, 59, 176, 0.15); border-radius: 10px;">
-          <svg class="icon-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 2v4"/><path d="m4.93 4.93 2.83 2.83"/><path d="M2 12h4"/><path d="m4.93 19.07 2.83-2.83"/><path d="M12 22v-4"/><path d="m19.07 19.07-2.83-2.83"/><path d="M22 12h-4"/><path d="m19.07 4.93-2.83 2.83"/>
-          </svg>
-        </span>
+        <div class="drawer-brand-badge">
+          <img src="assets/Group Logokuotasvg.svg" alt="Kuota" class="drawer-brand-img">
+        </div>
         <div>
-          <div id="activity-drawer-title" class="drawer-title">Centro de Actividad CI/CD</div>
-          <div style="font-size: 0.72rem; color: var(--text-tertiary);">Agentes Autónomos &bull; Repositorio Kuota</div>
+          <div id="activity-drawer-title" class="drawer-title">Actividad de Kuota</div>
+          <div style="font-size: 0.72rem; color: var(--text-tertiary);">Sincronización CI/CD &bull; Monorepo</div>
         </div>
       </div>
       <button class="drawer-close-btn" onclick="toggleActivityDrawer()" aria-label="Cerrar">&times;</button>
@@ -2802,7 +2882,7 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
     <div class="drawer-live-strip">
       <div class="live-indicator">
         <span class="live-dot"></span>
-        <span>Agente Activo &bull; Vercel Live</span>
+        <span>Pipeline CI/CD &bull; Vercel Live</span>
       </div>
       <div class="branch-pill" title="Rama: {branch}">
         <svg class="icon-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -2815,16 +2895,20 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
     <div class="drawer-filter-row">
       <div class="segmented-control">
         <button class="segmented-btn active" onclick="filterActivity('all', this)">
+          <svg class="icon-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="7" height="7" x="3" y="3" rx="1.5"/><rect width="7" height="7" x="14" y="3" rx="1.5"/><rect width="7" height="7" x="14" y="14" rx="1.5"/><rect width="7" height="7" x="3" y="14" rx="1.5"/></svg>
           <span>Todos</span>
         </button>
         <button class="segmented-btn" onclick="filterActivity('agent', this)">
-          <span>🤖 Agente</span>
+          <svg class="icon-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="12" r="3"/><path d="M6 9v9"/><path d="M6 12h9"/></svg>
+          <span>Agente</span>
         </button>
         <button class="segmented-btn" onclick="filterActivity('feat', this)">
-          <span>✨ Feat</span>
+          <svg class="icon-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+          <span>Features</span>
         </button>
         <button class="segmented-btn" onclick="filterActivity('fix', this)">
-          <span>🛠️ Fix</span>
+          <svg class="icon-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+          <span>Fixes</span>
         </button>
       </div>
     </div>
@@ -3154,6 +3238,15 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
       renderActivityFeed();
     }}
 
+    function formatCommitSubject(subject) {{
+      if (!subject) return '';
+      const match = subject.match(/^([a-z]+(?:\\([a-z0-9_.-]+\\))?:\\s*)(.*)$/i);
+      if (match) {{
+        return `<span class="commit-prefix">${{escapeHtml(match[1])}}</span><span>${{escapeHtml(match[2])}}</span>`;
+      }}
+      return escapeHtml(subject);
+    }}
+
     function renderActivityFeed() {{
       const container = document.getElementById('activity-feed-list');
       if (!container) return;
@@ -3175,25 +3268,48 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
       let html = '';
       filtered.forEach(item => {{
         const isAgent = item.is_agent;
-        const iconSvg = isAgent 
-          ? '<svg class="icon-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>'
-          : '<svg class="icon-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><line x1="3" y1="12" x2="9" y2="12"/><line x1="15" y1="12" x2="21" y2="12"/></svg>';
+        let badgeIcon = '';
+        let badgeLabel = item.tag;
+
+        if (item.badge_class === 'agent' || isAgent) {{
+          badgeLabel = 'Agente Kuota';
+          badgeIcon = '<span class="kuota-mini-k">K</span>';
+        }} else if (item.badge_class === 'feat') {{
+          badgeLabel = 'Feature';
+          badgeIcon = '<svg class="icon-svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>';
+        }} else if (item.badge_class === 'fix') {{
+          badgeLabel = 'Fix';
+          badgeIcon = '<svg class="icon-svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>';
+        }} else if (item.badge_class === 'sync') {{
+          badgeLabel = 'Sync / Rebase';
+          badgeIcon = '<svg class="icon-svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M21 21v-5h-5"/></svg>';
+        }} else {{
+          badgeLabel = 'Commit';
+          badgeIcon = '<svg class="icon-svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><line x1="3" y1="12" x2="9" y2="12"/><line x1="15" y1="12" x2="21" y2="12"/></svg>';
+        }}
+
+        let authorHtml = '';
+        if (isAgent) {{
+          authorHtml = '<span class="feed-author-pill"><span class="kuota-mini-k">K</span><span style="font-weight: 600;">kuota-agent</span></span>';
+        }} else {{
+          authorHtml = `<span class="feed-author-pill"><svg class="icon-svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>${{escapeHtml(item.author)}}</span></span>`;
+        }}
 
         html += `
           <div class="feed-card">
             <div class="feed-card-header">
               <span class="feed-badge ${{item.badge_class}}">
-                ${{iconSvg}}
-                <span>${{item.tag}}</span>
+                ${{badgeIcon}}
+                <span>${{badgeLabel}}</span>
               </span>
               <span class="feed-time">${{item.rel_time}}</span>
             </div>
-            <div class="feed-msg">${{escapeHtml(item.subject)}}</div>
+            <div class="feed-msg">${{formatCommitSubject(item.subject)}}</div>
             <div class="feed-meta">
-              <span style="font-size: 0.72rem; color: var(--text-secondary); display: inline-flex; align-items: center; gap: 0.35rem;">
-                <span style="font-weight: 500;">${{escapeHtml(item.author)}}</span>
+              <div style="display: inline-flex; align-items: center; gap: 0.4rem;">
+                ${{authorHtml}}
                 <span class="commit-sha-badge">${{item.short_sha}}</span>
-              </span>
+              </div>
               <a href="${{item.url}}" target="_blank" class="feed-link" title="Ver commit en GitHub">
                 <span>Ver commit</span>
                 <svg class="icon-svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg>
