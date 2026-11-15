@@ -1752,15 +1752,18 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
 
     .quick-prompt-btn {{
       flex-shrink: 0;
-      font-size: 0.71rem;
+      font-size: 0.72rem;
       font-weight: 600;
-      padding: 0.28rem 0.65rem;
-      border-radius: 9999px;
+      padding: 0.35rem 0.65rem;
+      border-radius: 9px;
       border: 1px solid var(--border);
       background: var(--surface);
       color: var(--text-secondary);
       cursor: pointer;
-      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.38rem;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
       white-space: nowrap;
       outline: none;
     }}
@@ -3459,10 +3462,13 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
     <div id="drawer-view-assistant" class="drawer-view-pane active">
       <div class="bot-status-strip">
         <span class="bot-ai-pill">
-          <span class="live-dot" style="width:6px; height:6px;"></span>
-          <span id="bot-ai-status-label">IA: Motor Experto de Backend (Guardrails Activos)</span>
+          <span class="live-dot" style="width:6px; height:6px; background:#10B981; box-shadow:0 0 8px rgba(16,185,129,0.6);"></span>
+          <span id="bot-ai-status-label">Google Gemini Flash &bull; Cloud Autónomo</span>
         </span>
-        <button class="bot-status-action" onclick="openAiSettingsModal()">IA Gratis</button>
+        <button class="bot-status-action" onclick="openAiSettingsModal()">
+          <svg class="icon-svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          <span>Conexión Cloud</span>
+        </button>
       </div>
 
       <div id="bot-chat-history" class="bot-chat-history">
@@ -3470,14 +3476,38 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
       </div>
 
       <div class="bot-quick-prompts">
-        <button class="quick-prompt-btn" onclick="askQuickPrompt('backend')">🏗️ Lógica del Backend</button>
-        <button class="quick-prompt-btn" onclick="askQuickPrompt('comisiones')">🪙 Comisiones (1% y Piso)</button>
-        <button class="quick-prompt-btn" onclick="askQuickPrompt('sandbox')">⏱️ Sandbox 5 min</button>
-        <button class="quick-prompt-btn" onclick="askQuickPrompt('estados')">⚖️ Por Confirmar vs Cancelado</button>
-        <button class="quick-prompt-btn" onclick="askQuickPrompt('sesion')">📱 Mono-dispositivo</button>
-        <button class="quick-prompt-btn" onclick="askQuickPrompt('webhooks')">🔐 Webhooks HMAC</button>
-        <button class="quick-prompt-btn" onclick="askQuickPrompt('controles')">📋 24 Controles</button>
-        <button class="quick-prompt-btn" onclick="askQuickPrompt('endpoints')">🛣️ 14 Endpoints</button>
+        <button class="quick-prompt-btn" onclick="askQuickPrompt('backend')">
+          <svg class="icon-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+          <span>Arquitectura &amp; Backend</span>
+        </button>
+        <button class="quick-prompt-btn" onclick="askQuickPrompt('comisiones')">
+          <svg class="icon-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          <span>Comisiones (1% &amp; S/ 4.50)</span>
+        </button>
+        <button class="quick-prompt-btn" onclick="askQuickPrompt('sandbox')">
+          <svg class="icon-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <span>Sandbox 5 min</span>
+        </button>
+        <button class="quick-prompt-btn" onclick="askQuickPrompt('estados')">
+          <svg class="icon-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 3h5v5"/><path d="M4 20L21 3"/><path d="M21 16v5h-5"/><path d="M15 15l6 6"/><path d="M4 4l5 5"/></svg>
+          <span>Por Confirmar (ST-02)</span>
+        </button>
+        <button class="quick-prompt-btn" onclick="askQuickPrompt('sesion')">
+          <svg class="icon-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+          <span>Mono-Dispositivo (CTL-A03)</span>
+        </button>
+        <button class="quick-prompt-btn" onclick="askQuickPrompt('webhooks')">
+          <svg class="icon-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          <span>Webhooks HMAC</span>
+        </button>
+        <button class="quick-prompt-btn" onclick="askQuickPrompt('controles')">
+          <svg class="icon-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          <span>24 Controles</span>
+        </button>
+        <button class="quick-prompt-btn" onclick="askQuickPrompt('endpoints')">
+          <svg class="icon-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          <span>14 Endpoints</span>
+        </button>
       </div>
 
       <div class="bot-input-bar">
@@ -3554,35 +3584,62 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
         </button>
       </div>
     </div>
-  </div>\n\n  <!-- Modal de Configuración de IA (Google Gemini Free Tier) -->
+  </div>\n\n  <!-- Modal de Estado y Conexión de IA (Google Gemini Cloud Autónomo) -->
   <div id="ai-settings-modal-backdrop" class="modal-backdrop" onclick="closeAiSettingsModal()"></div>
   <div id="ai-settings-modal" class="settings-modal" role="dialog" aria-modal="true" aria-labelledby="ai-modal-title">
     <div class="modal-header">
       <div style="display: flex; align-items: center; gap: 0.5rem;">
         <span class="kuota-mini-k" style="width:24px; height:24px;">K</span>
         <div>
-          <div id="ai-modal-title" style="font-weight: 700; font-size: 0.95rem; color: var(--text);">Modelo de Inteligencia Artificial</div>
-          <div style="font-size: 0.72rem; color: var(--text-tertiary);">Google Gemini 2.5 Flash &bull; Free Tier</div>
+          <div id="ai-modal-title" style="font-weight: 700; font-size: 0.95rem; color: var(--text);">Motor de IA Autónomo &bull; Google Gemini</div>
+          <div style="font-size: 0.72rem; color: var(--text-tertiary);">Google Gemini Flash &bull; Cloud Conectado (Vercel Serverless)</div>
         </div>
       </div>
       <button class="drawer-close-btn" onclick="closeAiSettingsModal()">&times;</button>
     </div>
     <div class="modal-body">
-      <p style="font-size: 0.78rem; color: var(--text-secondary); line-height: 1.5; margin-bottom: 0.85rem;">
-        El asistente opera por defecto con el <b>motor experto local con guardrails estrictos</b>. Si deseas conectar el modelo de IA generativa de Google gratis, puedes ingresar tu API Key de <b>Google AI Studio</b> (100% gratuita, sin tarjeta). Se almacena exclusivamente en tu navegador (localStorage).
-      </p>
-      <div style="margin-bottom: 0.75rem;">
-        <label for="input-gemini-key" style="display: block; font-size: 0.72rem; font-weight: 700; color: var(--text); margin-bottom: 0.35rem;">API Key de Gemini (Opcional):</label>
-        <input type="password" id="input-gemini-key" class="settings-input" placeholder="AIzaSy..." autocomplete="off">
+      <div style="background: rgba(16, 185, 129, 0.07); border: 1px solid rgba(16, 185, 129, 0.22); border-radius: 12px; padding: 0.75rem 0.9rem; margin-bottom: 0.85rem; display: flex; align-items: flex-start; gap: 0.65rem;">
+        <span class="live-dot" style="margin-top: 5px; flex-shrink: 0; background: #10B981; box-shadow: 0 0 8px rgba(16, 185, 129, 0.7);"></span>
+        <div>
+          <div style="font-weight: 700; font-size: 0.8rem; color: var(--green);">Conexión Cloud Autónoma Activa</div>
+          <div style="font-size: 0.73rem; color: var(--text-secondary); margin-top: 0.15rem; line-height: 1.45;">
+            El asistente opera de manera autónoma en la nube conectándose directamente con la <b>API de Google Gemini</b> a través de la función serverless de Vercel (<code>/api/chat</code>). No requiere configuración manual ni dependencias locales.
+          </div>
+        </div>
       </div>
+
+      <div style="font-size: 0.75rem; color: var(--text-secondary); line-height: 1.5; margin-bottom: 0.85rem;">
+        <b>Parámetros de Gobernanza y Arquitectura:</b>
+        <div style="margin-top: 0.35rem; display: flex; flex-direction: column; gap: 0.25rem;">
+          <div style="display: flex; align-items: center; gap: 0.35rem;">
+            <svg class="icon-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
+            <span>Modelo: <code>gemini-flash-latest</code> (Google Generative AI)</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 0.35rem;">
+            <svg class="icon-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
+            <span>Pipeline: Serverless Endpoint <code>POST /api/chat</code></span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 0.35rem;">
+            <svg class="icon-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
+            <span>Guardrails: 10 módulos de backend y 24 controles normativos</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border);">
+        <label for="input-gemini-key" style="display: block; font-size: 0.72rem; font-weight: 700; color: var(--text); margin-bottom: 0.35rem;">API Key Personalizada de Google AI Studio (Opcional):</label>
+        <input type="password" id="input-gemini-key" class="settings-input" placeholder="Sobrescribir conexión por defecto (AIzaSy...)" autocomplete="off">
+        <div style="font-size: 0.68rem; color: var(--text-tertiary); margin-top: 0.3rem;">Opcional: déjalo vacío para usar la API Cloud integrada en el backend.</div>
+      </div>
+
       <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; margin-top: 1rem; flex-wrap: wrap;">
         <a href="https://aistudio.google.com/app/apikey" target="_blank" class="feed-link" style="font-size: 0.73rem;">
-          <span>Obtener Key gratis en Google AI Studio</span>
+          <span>Google AI Studio</span>
           <svg class="icon-svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg>
         </a>
         <div style="display: flex; gap: 0.4rem;">
-          <button class="settings-btn secondary" onclick="clearAiKey()">Restablecer</button>
-          <button class="settings-btn primary" onclick="saveAiKey()">Guardar Key</button>
+          <button class="settings-btn secondary" onclick="clearAiKey()">Restablecer a Cloud</button>
+          <button class="settings-btn primary" onclick="saveAiKey()">Guardar Personalizada</button>
         </div>
       </div>
     </div>
@@ -3923,7 +3980,7 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
 
       const welcomeMsg = {{
         sender: 'bot',
-        text: '¡Hola! 👋 Soy el **Asistente Técnico y Auditor de Backend de Kuota**.\\n\\nEstoy conectado directamente con el código fuente del monorepo (`backend/src/`). He sido calibrado para resolver dudas de ingeniería sobre el pipeline de middlewares, el riel de pagos (1% + IGV y piso S/ 4.50), los 24 controles normativos, la liquidación en sandbox de 5 min y la conciliación.\\n\\nPuedes consultarme en lenguaje natural o pulsar cualquiera de los accesos rápidos a continuación.',
+        text: '¡Hola! Soy el **Asistente Técnico y Auditor de Backend de Kuota**.\\n\\nEstoy conectado directamente con el código fuente del monorepo (`backend/src/`). He sido calibrado para resolver dudas de ingeniería sobre el pipeline de middlewares, el riel de pagos (1% + IGV y piso S/ 4.50), los 24 controles normativos, la liquidación en sandbox de 5 min y la conciliación.\\n\\nPuedes consultarme en lenguaje natural o pulsar cualquiera de los accesos rápidos a continuación.',
         action: {{
           label: 'Ver Documentación Completa del Backend (10 Módulos)',
           onclick: "openDocTile('backend')"
@@ -4056,7 +4113,7 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
       }}
     }}
 
-    function askQuickPrompt(topic) {{
+    async function askQuickPrompt(topic) {{
       const prompts = {{
         backend: '¿Cómo está estructurada la arquitectura y la lógica profunda del backend?',
         comisiones: '¿Cómo se calculan las comisiones de Kuota y el piso mínimo?',
@@ -4069,20 +4126,9 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
       }};
 
       const q = prompts[topic] || topic;
-      BOT_CONVERSATION.push({{ sender: 'user', text: q }});
-      renderBotChat();
-      showBotTypingIndicator();
-
-      setTimeout(() => {{
-        removeBotTypingIndicator();
-        const response = generateBotResponse(q, topic);
-        BOT_CONVERSATION.push({{
-          sender: 'bot',
-          text: response.text,
-          action: response.action || null
-        }});
-        renderBotChat();
-      }}, 300);
+      const input = document.getElementById('bot-input-field');
+      if (input) input.value = q;
+      await sendUserBotMessage();
     }}
 
     function showBotTypingIndicator() {{
@@ -4119,7 +4165,7 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
       // 1. Saludos iniciales ("hola", "buenos días", "hey", etc.)
       if (/^[¡¿]?\\s*(hola|buenas?(\\s+(d[ií]as|tardes|noches))?|hey|saludos|que\\s+tal|qu[eé]\\s+tal|hi|hello)\\b/i.test(q) || q.includes("hola")) {{
         return {{
-          text: '¡Hola! 👋 Soy el **Asistente Técnico y Auditor de Backend de Kuota**.\\n\\nEstoy conectado con la arquitectura y el código real del monorepo (`backend/src/`). Puedo asistirte en profundidad en:\\n\\n• **Lógica del Backend:** Pipeline de middlewares Express, `assertProductionEnv` y persistencia.\\n• **Riel de Pagos & Comisiones:** Tasa del 1.00% + IGV (18%) con piso mínimo de S/ 4.50 (costo fijo 360Pay S/ 3.82).\\n• **Ventana Sandbox 5m:** Endpoint `POST /dev/settle-pending` (bloqueado con HTTP 403 en producción).\\n• **Conciliación Proveedor:** Diferencia entre **Por Confirmar (ST-02)** y **Cancelado (ST-03)**.\\n• **Seguridad & Webhooks:** Sesión mono-dispositivo (CTL-A03) y validación de firmas HMAC SHA-256.\\n\\n¿Qué módulo o flujo técnico deseas consultar?',
+          text: '¡Hola! Soy el **Asistente Técnico y Auditor de Backend de Kuota**.\\n\\nEstoy conectado con la arquitectura y el código real del monorepo (`backend/src/`). Puedo asistirte en profundidad en:\\n\\n• **Lógica del Backend:** Pipeline de middlewares Express, `assertProductionEnv` y persistencia.\\n• **Riel de Pagos & Comisiones:** Tasa del 1.00% + IGV (18%) con piso mínimo de S/ 4.50 (costo fijo 360Pay S/ 3.82).\\n• **Ventana Sandbox 5m:** Endpoint `POST /dev/settle-pending` (bloqueado con HTTP 403 en producción).\\n• **Conciliación Proveedor:** Diferencia entre **Por Confirmar (ST-02)** y **Cancelado (ST-03)**.\\n• **Seguridad & Webhooks:** Sesión mono-dispositivo (CTL-A03) y validación de firmas HMAC SHA-256.\\n\\n¿Qué módulo o flujo técnico deseas consultar?',
           action: {{
             label: 'Ver Arquitectura Integral del Backend',
             onclick: "openDocTile('backend')"
@@ -4305,7 +4351,7 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
 
       // 13. GUARDRAIL ESTRICTO: Rechazo de consultas externas / ajenas a Kuota
       return {{
-        text: '🛡️ **Reglas de Alcance y Gobernanza:**\\n\\nComo **Asistente Técnico y Auditor de Backend de Kuota**, mi alcance está **estrictamente delimitado** a la arquitectura de software, seguridad, conciliación y riel de pagos de Kuota. No estoy autorizado para responder consultas sobre temas externos, ocio o ajenos a la infraestructura de este proyecto.\\n\\nPuedo asistirte en cualquiera de estos aspectos técnicos de Kuota:\\n• **Arquitectura del Backend:** Pipeline Express, blindaje perimetral y middlewares\\n• **Riel de Pagos & Comisiones:** Tasa del 1% y piso de S/ 4.50\\n• **Sesión Mono-Dispositivo:** Control CTL-A03 y PIN bcrypt\\n• **Webhooks HMAC:** Verificación SHA-256 de 360Pay y Didit KYC\\n• **Simulación Sandbox 5m:** Endpoint `/dev/settle-pending` vs producción\\n• **Catálogo de Endpoints:** Los 14 endpoints de API y matriz de 24 controles',
+        text: '**Reglas de Alcance y Gobernanza:**\\n\\nComo **Asistente Técnico y Auditor de Backend de Kuota**, mi alcance está **estrictamente delimitado** a la arquitectura de software, seguridad, conciliación y riel de pagos de Kuota. No estoy autorizado para responder consultas sobre temas externos, ocio o ajenos a la infraestructura de este proyecto.\\n\\nPuedo asistirte en cualquiera de estos aspectos técnicos de Kuota:\\n• **Arquitectura del Backend:** Pipeline Express, blindaje perimetral y middlewares\\n• **Riel de Pagos & Comisiones:** Tasa del 1% y piso de S/ 4.50\\n• **Sesión Mono-Dispositivo:** Control CTL-A03 y PIN bcrypt\\n• **Webhooks HMAC:** Verificación SHA-256 de 360Pay y Didit KYC\\n• **Simulación Sandbox 5m:** Endpoint `/dev/settle-pending` vs producción\\n• **Catálogo de Endpoints:** Los 14 endpoints de API y matriz de 24 controles',
         action: {{
           label: 'Ver Documentación del Backend',
           onclick: "openDocTile('backend')"
@@ -4341,7 +4387,7 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
         showToastMsg('¡API Key de Gemini guardada con éxito!');
       }} else {{
         localStorage.removeItem('kuota_gemini_api_key');
-        showToastMsg('Configuración restablecida al motor local.');
+        showToastMsg('Restablecido a la conexión Cloud de Google Gemini.');
       }}
       closeAiSettingsModal();
       updateAiStatusLabel();
@@ -4353,7 +4399,7 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
       localStorage.removeItem('kuota_gemini_api_key');
       closeAiSettingsModal();
       updateAiStatusLabel();
-      showToastMsg('Clave eliminada. Motor local activo.');
+      showToastMsg('Clave eliminada. Conexión Cloud autónoma activa.');
     }}
 
     function updateAiStatusLabel() {{
@@ -4361,9 +4407,9 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
       if (!label) return;
       const key = localStorage.getItem('kuota_gemini_api_key');
       if (key) {{
-        label.textContent = 'IA Activa: Google Gemini 2.5 Flash (Conectado)';
+        label.textContent = 'Google Gemini Flash (Key Personal Conectada)';
       }} else {{
-        label.textContent = 'IA: Motor Experto de Backend (Guardrails Activos)';
+        label.textContent = 'Google Gemini Flash • Cloud Autónomo';
       }}
     }}
 
@@ -4412,7 +4458,7 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
       }}
 
       if (!filtered || filtered.length === 0) {{
-        container.innerHTML = '<div style="text-align: center; padding: 3rem 1rem; color: var(--text-tertiary); font-size: 0.82rem;"><div style="font-size: 1.6rem; margin-bottom: 0.5rem; opacity: 0.6;">📦</div>No hay eventos que coincidan con la búsqueda o categoría.</div>';
+        container.innerHTML = '<div style="text-align: center; padding: 3rem 1rem; color: var(--text-tertiary); font-size: 0.82rem;"><div style="margin-bottom: 0.5rem; opacity: 0.6;"><svg class="icon-svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></div>No hay eventos que coincidan con la búsqueda o categoría.</div>';
         return;
       }}
 
@@ -4541,7 +4587,7 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
               data.events.forEach(ev => RECENT_ACTIVITY.push(ev));
               renderActivityFeed();
               checkUnreadBadge();
-              showToastMsg('⚡ Sincronización CI/CD: Nuevo commit ' + data.events[0].short_sha);
+              showToastMsg('Sincronización CI/CD: Nuevo commit ' + data.events[0].short_sha);
             }}
           }}
         }})

@@ -2,6 +2,10 @@
 // Modelo de Inteligencia Artificial para el Asistente Técnico y Auditor de Backend de Kuota
 // Integra Google Gemini API (Free Tier) con reglas estrictas de guardrails y conocimiento de arquitectura.
 
+export const config = {
+  maxDuration: 30,
+};
+
 const SYSTEM_INSTRUCTION = `Eres el Arquitecto de Software y Auditor de Backend Oficial de Kuota (Monorepo Kuota Android / Backend).
 
 REGLAS ESTRICTAS DE ALCANCE Y GOBERNANZA:
@@ -37,7 +41,6 @@ export default async function handler(req, res) {
     const { message, messages, apiKey: clientApiKey } = req.body || {};
     const apiKey = clientApiKey || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
 
-    // Si no hay API key de Gemini configurada, indicamos al cliente que use el motor experto local con guardrails
     if (!apiKey) {
       return res.status(200).json({
         fallback: true,
@@ -73,35 +76,48 @@ export default async function handler(req, res) {
       }
     };
 
-    // Llamada oficial a Google Gemini 2.5 Flash / 1.5 Flash (Free Tier)
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
-    const response = await fetch(geminiUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
+    // Intentar con modelos oficiales de Google Gemini (gemini-flash-latest / gemini-3.8-flash)
+    const modelsToTry = ['gemini-flash-latest', 'gemini-3.8-flash'];
+    let lastError = null;
 
-    if (!response.ok) {
-      const errText = await response.text();
-      console.warn('Gemini API returned error, falling back to local engine:', response.status, errText);
-      return res.status(200).json({
-        fallback: true,
-        error: `Gemini API status ${response.status}`,
-        message: 'Respuesta servida por el motor local de contingencia.'
-      });
+    for (const modelName of modelsToTry) {
+      try {
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 9500);
+
+        const response = await fetch(geminiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+
+        if (response.ok) {
+          const data = await response.json();
+          const candidate = data.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (candidate) {
+            return res.status(200).json({
+              success: true,
+              model: modelName,
+              autonomous: true,
+              reply: candidate
+            });
+          }
+        } else {
+          lastError = await response.text();
+        }
+      } catch (err) {
+        lastError = err.message;
+      }
     }
 
-    const data = await response.json();
-    const candidate = data.candidates?.[0]?.content?.parts?.[0]?.text;
-
-    if (!candidate) {
-      return res.status(200).json({ fallback: true });
-    }
-
+    console.warn('Gemini models attempted, falling back to local engine:', lastError);
     return res.status(200).json({
-      success: true,
-      model: 'gemini-2.5-flash',
-      reply: candidate
+      fallback: true,
+      error: lastError,
+      message: 'Respuesta servida por el motor local de contingencia.'
     });
   } catch (err) {
     console.error('Error in /api/chat:', err);
