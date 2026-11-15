@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-15 16:55 UTC",
+  "updated_at": "2026-11-15 16:54 UTC",
   "branch": "fix/proveedor-inicio-conciliacion",
   "latest_sha": "b9928633bca38562dbf53a368c188ac19c39496c",
   "latest_short_sha": "b992863",
@@ -36,7 +36,7 @@
       "author": "Kuota",
       "subject": "feat(portal): add master backend architecture documentation, conversational AI guardrails and Gemini free-tier serverless function",
       "timestamp": 1794758698,
-      "rel_time": "Hace 50 min",
+      "rel_time": "Hace 49 min",
       "date": "Sun Nov 15 11:04:58 2026 -0500",
       "is_agent": false,
       "tag": "Feature",

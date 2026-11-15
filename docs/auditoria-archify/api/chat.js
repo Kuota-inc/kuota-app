@@ -76,15 +76,15 @@ export default async function handler(req, res) {
       }
     };
 
-    // Intentar con modelos oficiales de Google Gemini (gemini-flash-latest / gemini-3.8-flash)
-    const modelsToTry = ['gemini-flash-latest', 'gemini-3.8-flash'];
+    // Modelos ultra-rápidos de Google Gemini oficiales (3.5-flash-lite responde en ~2-3s en Vercel Serverless)
+    const modelsToTry = ['gemini-3.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-flash-latest'];
     let lastError = null;
 
     for (const modelName of modelsToTry) {
       try {
         const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 9500);
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
 
         const response = await fetch(geminiUrl, {
           method: 'POST',
