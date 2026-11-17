@@ -107,3 +107,16 @@ devRouter.post('/settle-pending', async (req, res) => {
   );
   res.json({ ok: true, settled: result.changes ?? 0, window_ms: windowMs, cutoff, settled_at: settledAt });
 });
+
+// Rota el access_token de un proveedor y devuelve el nuevo token en texto plano.
+// Solo para pruebas en dev. POST /dev/provider-token  { provider_id: "prov_..." }
+import crypto from 'crypto';
+devRouter.post('/provider-token', async (req, res) => {
+  const { provider_id } = req.body ?? {};
+  if (!provider_id) return res.status(400).json({ error: { code: 'MISSING_ID', message: 'Falta provider_id.' } });
+  const token = crypto.randomBytes(32).toString('base64url');
+  const hash = crypto.createHash('sha256').update(token).digest('hex');
+  const r = await paymentsDb.run('UPDATE provider_profiles SET access_token_hash = ? WHERE id = ?', hash, provider_id);
+  if (!r.changes) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Proveedor no encontrado.' } });
+  res.json({ provider_token: token });
+});

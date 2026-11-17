@@ -200,8 +200,8 @@ export async function seedData() {
   await insertUser.run('usr_carlos', '+51987654321', 'MERCHANT', 'ACTIVE', 'Carlos', 'Mendoza');
 
   const insertMerchant = db.prepare(`
-    INSERT INTO merchant_profiles (id, user_id, business_name, ruc, category, seniority_range, tier_hint, address, district, city)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO merchant_profiles (id, user_id, business_name, ruc, ruc_verified, category, seniority_range, tier_hint, address, district, city)
+    VALUES (?, ?, ?, ?, TRUE, ?, ?, ?, ?, ?, ?)
   `);
   await insertMerchant.run('mer_carlos', 'usr_carlos', 'Confecciones Carlos & Hnos.', '10458923011', 'FASHION', 'CONSOLIDATED', 'EXTENDED_ELIGIBLE', 'Jr. Gamarra 1020 Int. 302', 'La Victoria', 'Lima');
 
