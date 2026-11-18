@@ -1,9 +1,22 @@
 {
-  "updated_at": "2026-11-18 01:19 UTC",
+  "updated_at": "2026-11-18 01:20 UTC",
   "branch": "fix/proveedor-inicio-conciliacion",
-  "latest_sha": "9c3989541f19e168fe1342084d3cff2a1c66931e",
-  "latest_short_sha": "9c39895",
+  "latest_sha": "fc1486dff2f2cfa48a1b2eabcda7cd2f33ecc603",
+  "latest_short_sha": "fc1486d",
   "events": [
+    {
+      "sha": "fc1486dff2f2cfa48a1b2eabcda7cd2f33ecc603",
+      "short_sha": "fc1486d",
+      "author": "Kuota",
+      "subject": "fix(portal): resolve navigation state, dark contrast, ST-03 semantics, 27 controls & Gemini API hardening",
+      "timestamp": 1794964676,
+      "rel_time": "Hace 2 min",
+      "date": "Tue Nov 17 20:17:56 2026 -0500",
+      "is_agent": false,
+      "tag": "Fix",
+      "badge_class": "fix",
+      "url": "https://github.com/Kuota-inc/kuota-app/commit/fc1486dff2f2cfa48a1b2eabcda7cd2f33ecc603"
+    },
     {
       "sha": "9c3989541f19e168fe1342084d3cff2a1c66931e",
       "short_sha": "9c39895",
@@ -250,19 +263,6 @@
       "tag": "Fix",
       "badge_class": "fix",
       "url": "https://github.com/Kuota-inc/kuota-app/commit/98acd18f6e8d45584c2c5c6f33ae9af61835e5fb"
-    },
-    {
-      "sha": "b9bd4fab2bd9e98f3aa847b6255008056eb347cc",
-      "short_sha": "b9bd4fa",
-      "author": "kuota-portal-agent[bot]",
-      "subject": "chore(agent): sync portal with commit 3a4138f [skip ci]",
-      "timestamp": 1794692820,
-      "rel_time": "Hace 3 d",
-      "date": "Sat Nov 14 21:47:00 2026 +0000",
-      "is_agent": true,
-      "tag": "Agente Kuota",
-      "badge_class": "agent",
-      "url": "https://github.com/Kuota-inc/kuota-app/commit/b9bd4fab2bd9e98f3aa847b6255008056eb347cc"
     }
   ]
 }
