@@ -93,36 +93,43 @@ HTTP/1.1 426 Upgrade Required
 ## 3. Motor Criptográfico, Identidad y Sesión Mono-Dispositivo
 
 ### 3.1 Hashing de PIN y Pimienta Criptográfica (Control CTL-A01)
-El PIN del comercio (4 a 6 dígitos) jamás se almacena en texto claro. Se procesa con `bcrypt` (factor de costo 10) combinado con una **pimienta del servidor** (`KUOTA_PIN_PEPPER`) inyectada desde variables de entorno. Incluso si un atacante obtuviera un volcado completo de la base de datos, los hashes son matemáticamente invulnerables a ataques de diccionario offline sin la clave de entorno.
+El PIN numérico del comercio (exactamente 6 dígitos válidos verificados por `pinProblem`, rechazando secuencias y fechas) jamás se almacena en texto claro. Se procesa con **`crypto.scryptSync`** (`N=16384, r=8, p=1, keylen=32`) aplicado sobre **`HMAC-SHA256(KUOTA_PIN_PEPPER, pin)`** con sal aleatoria de 16 bytes y comparación en tiempo constante (`crypto.timingSafeEqual`). Incluso ante un volcado de la base de datos, los hashes son matemáticamente invulnerables sin la pimienta del servidor.
 
-### 3.2 Bloqueo Anti-Fuerza Bruta Progresivo (Control CTL-A02)
-* **Límite:** 5 intentos consecutivos erróneos de PIN.
-* **Penalización:** La cuenta queda bloqueada automáticamente durante 15 minutos en producción (30 minutos en transacciones críticas).
-* **Reset:** Solo un inicio de sesión exitoso o una validación biométrica facial vía Didit restablece el contador a cero.
+### 3.2 Bloqueo Anti-Fuerza Bruta y Enfriamiento (Control CTL-A02 y Device Binding)
+* **Límite:** 5 intentos consecutivos erróneos de PIN (`pinMaxAttempts = 5`).
+* **Penalización:** La cuenta queda bloqueada automáticamente durante **15 minutos** (`pinLockMinutes = 15`), registrando auditoría `PIN_LOCKED` y disparando una alerta antifraude crítica si proviene de un equipo no reconocido.
+* **Enfriamiento de Dispositivo Nuevo:** Todo dispositivo nuevo (`deviceId` validado de 16 a 64 caracteres) entra en enfriamiento por **24 horas** (`cooldownHours = 24`) con límites operativos reducidos al 25% (`cooldownFactor = 0.25`).
 
 ### 3.3 Sesión Mono-Dispositivo Forzosa (Control CTL-A03)
 Para prevenir el fraude por clonación de credenciales o uso simultáneo no autorizado en múltiples terminales, Kuota aplica una regla estricta de sesión única por comercio:
 ```typescript
-// backend/src/security/auth.ts:L284
-export async function revokeSessions(merchantId: string, exceptSessionId?: string): Promise<void> {
-  await db.prepare(`
-    UPDATE refresh_tokens 
-    SET revoked_at = utc_now_text(), revoke_reason = 'MONO_DEVICE_LOGIN'
-    WHERE merchant_id = ? AND revoked_at IS NULL AND id != ?
-  `).run(merchantId, exceptSessionId || '');
+// backend/src/security/auth.ts:L284-L299
+export async function revokeSessions(
+  merchantId: string,
+  opts: { exceptSessionId?: string; exceptDeviceId?: string; deviceId?: string } = {}
+) {
+  const now = nowIso();
+  if (opts.exceptDeviceId) {
+    return (await db
+      .prepare('UPDATE merchant_sessions SET revoked_at = ? WHERE merchant_id = ? AND device_id <> ? AND revoked_at IS NULL')
+      .run(now, merchantId, opts.exceptDeviceId)).changes;
+  }
+  // ...
 }
 ```
-Al autenticarse exitosamente en un dispositivo B, cualquier token de sesión emitido previamente para el dispositivo A queda invalidado en la base de datos de inmediato.
+Al autenticarse exitosamente en un dispositivo B, cualquier sesión previa del dispositivo A en `merchant_sessions` queda revocada inmediatamente.
 
-### 3.4 Arquitectura de Tokens Dual (CTL-A04 y CTL-A05)
-1. **Access Token JWT:**
-   * Firmado con HMAC SHA-256 (`KUOTA_SESSION_SECRET`).
-   * TTL ultracorto: 3600 segundos (1 hora).
-   * Contiene claims mínimos: `sub` (merchantId), `role`, `iat`, `exp`, `sid` (sessionId).
-2. **Refresh Token con Rotación de Familia:**
-   * Almacenado en tabla `refresh_tokens`.
-   * En cada renovación (`POST /security/auth/refresh`), el refresh token actual se destruye y se emite un nuevo par.
-   * Si se detecta un intento de reutilizar un refresh token ya consumido, se dispara la alerta de compromiso de clave y se revoca toda la **familia** de sesiones asociadas.
+### 3.4 Arquitectura de Tokens Dual (`ks1` + Refresh Token, CTL-A04 a CTL-A06)
+1. **Access Token `ks1` Firmado (`signSession`):**
+   * Token propietario `ks1.<payload_base64url>.<hmac>` firmado con HMAC SHA-256 (`KUOTA_SESSION_SECRET`).
+   * TTL corto por defecto: **900 segundos (15 minutos)** configurable vía `KUOTA_SESSION_TTL_SEC`.
+   * Contiene claims mínimos: `sid` (sessionId), `mid` (merchantId), `did` (deviceId) y `exp`.
+2. **Refresh Token con Rotación de Familia (`CTL-A05`):**
+   * Almacenado con hash SHA-256 en la tabla `refresh_tokens` (TTL 90 días).
+   * En cada renovación (`POST /api/v1/auth/refresh`), el token actual se marca como usado y se emite un sucesor.
+   * Si se detecta un intento de reutilizar un refresh token ya consumido, se revoca inmediatamente toda la **familia** (`family_id`) de sesiones asociadas.
+3. **Token Step-Up para Operaciones Críticas (`CTL-A06`):**
+   * Emisión tras re-validar PIN o biometría Didit con TTL estricto de **120 segundos (2 minutos)** (`stepUpTtlSec = 120`), obligatorio para modificar la cuenta CCI de liquidación.
 
 ---
 
@@ -173,28 +180,35 @@ Un link de cobro (`payment_links`) transita por los siguientes estados discretos
 3. `EXPIRED`: Se cumple la ventana de 48 horas sin confirmación de abono.
 4. `CANCELLED`: Anulado voluntariamente por el comercio antes del pago (`POST /api/v1/payment-links/:id/cancel`).
 
-### 5.2 Riel de Liquidación al Proveedor (ST-01 a ST-04)
+### 5.2 Riel de Liquidación al Proveedor (`ST-01` a `ST-07`)
 
 ```mermaid
 stateDiagram-v2
-    [*] --> ST01_Pendiente: Emisión de Cobro
-    ST01_Pendiente --> ST02_PorConfirmar: Webhook Pago 360Pay Recibido
-    ST01_Pendiente --> ST03_Cancelado: Expiración 48h o Anulación Manual
+    [*] --> ST01_Pendiente: Emisión de Cobro (ACTIVE)
+    ST01_Pendiente --> ST02_PorConfirmar: Webhook Pago 360Pay (PAID)
+    ST01_Pendiente --> ST04_Vencido: Expiración 48h (EXPIRED)
+    ST01_Pendiente --> ST05_Fallido: Rechazo Pasarela (FAILED)
+    ST01_Pendiente --> ST06_Anulado: Revocación Manual (CANCELLED)
     
     state ST02_PorConfirmar {
-        [*] --> TransitoBancario: Fondos en Cuenta Puente 360Pay
-        TransitoBancario --> CicloInterbancario: CCE / Transferencia CCI (48h hábiles)
+        [*] --> TransitoBancario: Fondos en Custodia 360Pay
+        TransitoBancario --> CicloInterbancario: Transferencia a CCI (48h estimadas)
     }
     
-    ST02_PorConfirmar --> ST04_Liquidado: Confirmación Bancaria de Abono a CCI
+    ST02_PorConfirmar --> ST03_Cancelado: Confirmación Bancaria (settled_at)
     ST03_Cancelado --> [*]
-    ST04_Liquidado --> [*]
+    ST04_Vencido --> [*]
+    ST05_Fallido --> [*]
+    ST06_Anulado --> [*]
 ```
 
-* **ST-01 (Pendiente):** Link emitido, a la espera de que el cliente realice el pago.
-* **ST-02 (Por Confirmar):** **El cliente ya pagó exitosamente.** Los fondos se encuentran retenidos en tránsito en la cuenta recaudadora de 360Pay mientras se procesa la transferencia interbancaria hacia la cuenta CCI del proveedor (plazo estimado de 48 horas hábiles). **Bajo ninguna circunstancia representa un fallo o error.**
-* **ST-03 (Cancelado):** El link caducó o fue revocado sin haber recibido fondos.
-* **ST-04 (Liquidado / Settled):** El abono en la cuenta CCI del proveedor ha sido confirmado fehacientemente por el banco.
+* **ST-01 (`ACTIVE` — Link pendiente de pago):** Link emitido a la espera de que el cliente realice el abono; vence a las 48 horas y no suma a ventas recibidas.
+* **ST-02 (`PAID`, `settled_at IS NULL` — UI "Por confirmar"):** **El cliente ya pagó exitosamente.** Los fondos se encuentran en custodia dentro de 360Pay mientras se procesa la transferencia interbancaria hacia la cuenta CCI del proveedor (plazo estimado de 48 horas). **Bajo ninguna circunstancia representa un fallo o error.**
+* **ST-03 (`PAID`, `settled_at IS NOT NULL` — UI "Cancelado" / "Cobrado"):** **Liquidado al 100% en la cuenta CCI del proveedor.** En el contexto comercial peruano, "Cancelado" denota deuda saldada/pagada al vendedor y **no** operación anulada.
+* **ST-04 (`EXPIRED` — UI "Vencido"):** El link caducó tras 48 horas sin haber recibido fondos.
+* **ST-05 (`FAILED` — UI "Fallido"):** Rechazo bancario o fallo en la pasarela.
+* **ST-06 (`CANCELLED` — UI "Anulado"):** El comercio anuló el link manualmente antes de que el cliente realizara el pago (`POST /api/v1/payment-links/:id/cancel`), sin movimiento de dinero.
+* **ST-07 (`AKUOTAS_PENDING` — UI "Por cobrar"):** Pedidos financiados bajo crédito mayorista **aKuotas!** separados contablemente de Kuota Payments.
 
 ### 5.3 Unificación de Inicio y Conciliación (`GET /api/v1/providers/orders`)
 Históricamente, los dashboards de ventas y los módulos contables tendían a desfasarse. En Kuota, ambas pantallas consumen **exactamente el mismo endpoint**:
@@ -269,22 +283,24 @@ if (config.isProd || process.env.NODE_ENV === 'production' || !config.sandboxEna
 
 ## 8. Inventario de Endpoints y Diccionario de Base de Datos
 
-### 8.1 Inventario de Endpoints Principales
+### 8.1 Inventario de Endpoints Principales (14)
 
 | Método | Ruta | Actor / Rol | Autenticación | Función / Regla de Negocio |
 | :--- | :--- | :--- | :--- | :--- |
-| `POST` | `/api/v1/auth/login` | Comercio / Proveedor | Pública (Teléfono + PIN) | Autenticación con bcrypt y revocación forzosa de sesiones anteriores (CTL-A03). |
-| `POST` | `/api/v1/auth/refresh` | Token Holder | Refresh Token Bearer | Emisión de nuevo par de tokens con rotación de familia e invalidación de token previo. |
-| `POST` | `/api/v1/auth/step-up` | Comercio Propietario | JWT + Biometría Didit | Generación de token temporal (TTL 120s) para operaciones de riesgo (cambio de CCI). |
-| `POST` | `/api/v1/payment-links` | Comercio | Bearer JWT | Creación de link de cobro firmado con vencimiento a 48h y tasa 1% + IGV. |
-| `GET` | `/api/v1/payment-links/:id`| Comercio / Admin | Bearer JWT | Consulta de estado y detalle transaccional del link de pago. |
-| `POST` | `/api/v1/payment-links/:id/cancel` | Comercio Propietario | Bearer JWT | Cancelación manual de link antes de ser cobrado. |
-| `POST` | `/api/v1/webhooks/360pay` | Pasarela 360Pay | Firma HMAC SHA-256 | Recepción de notificaciones de cobro exitoso, validación anti-replay y deduplicación. |
-| `POST` | `/api/v1/webhooks/didit` | Didit Biometrics | X-Didit-Signature | Validación de resultados de KYC facial y aprobación de identidad de comercios. |
-| `GET` | `/api/v1/providers/orders`| Proveedor | Bearer JWT | **Fuente Única de Verdad** para Inicio y Conciliación (pedidos a crédito y links de cobro). |
-| `PUT` | `/api/v1/providers/settlement-account` | Proveedor | JWT + Step-Up Token | Actualización de banco y CCI de liquidación con validación checksum interbancario. |
-| `POST` | `/api/v1/dev/settle-pending` | Tester / Sandbox | Sandbox Only (HTTP 403 en Prod) | Simula liquidación de pagos de prueba con más de 5 minutos de antigüedad. |
-| `POST` | `/api/v1/internal/reconciliation/run` | Admin / Cron Job | API Key Interna | Ejecución del job nocturno de conciliación de doble partida contra extractos de 360Pay. |
+| `POST` | `/api/v1/auth/login` | Comercio / Proveedor | Pública (Teléfono + PIN) | Autenticación con `scrypt` + pepper y revocación forzosa de sesiones anteriores (CTL-A03). |
+| `POST` | `/api/v1/auth/refresh` | Token Holder | Refresh Token | Emisión de nuevo par de tokens (`ks1` + refresh) con rotación de familia e invalidación de token previo. |
+| `POST` | `/api/v1/auth/step-up` | Comercio / Proveedor | Bearer `ks1` + PIN / Biometría | Generación de token temporal (`TTL 120s`) para operaciones críticas (cambio de CCI). |
+| `POST` | `/api/v1/payment-links` | Comercio / Proveedor | Bearer `ks1` | Creación de link de cobro firmado con vencimiento a 48h y tasa 1% + IGV (piso S/ 4.50). |
+| `GET` | `/api/v1/payment-links/:id`| Comercio / Admin | Bearer `ks1` | Consulta de estado y detalle transaccional del link de pago con filtro multi-tenant. |
+| `POST` | `/api/v1/payment-links/:id/cancel` | Comercio Propietario | Bearer `ks1` | Anulación manual (`CANCELLED` / UI "Anulado") antes de ser cobrado. |
+| `POST` | `/api/v1/webhooks/360pay` | Pasarela 360Pay | Firma HMAC SHA-256 | Recepción de notificaciones de cobro exitoso, validación anti-replay (5m) y deduplicación. |
+| `POST` | `/api/v1/webhooks/didit` | Didit Biometrics | `X-Didit-Signature` | Validación de resultados de KYC facial y aprobación de identidad de comercios. |
+| `GET` | `/api/v1/providers/me` | Proveedor | Bearer / Token Provider | Retorna perfil corporativo, estado KYC, banco y CCI enmascarado. |
+| `GET` | `/api/v1/providers/orders`| Proveedor | Bearer / Token Provider | **Fuente Única de Verdad** para Inicio y Conciliación (pedidos aKuotas! y links de cobro). |
+| `PUT` | `/api/v1/providers/settlement-account` | Proveedor | Bearer + Step-Up Token | Actualización de banco y CCI de liquidación con validación checksum interbancario. |
+| `POST` | `/api/v1/dev/settle-pending` | Tester / Sandbox | Sandbox Only (`HTTP 403` en Prod) | Simula liquidación ("Cancelado") de pagos de prueba con más de 5 minutos de antigüedad. |
+| `POST` | `/api/v1/internal/reconciliation/run` | Admin / Cron Job | `X-Admin-Token` | Ejecución del job de conciliación de doble partida contra extractos de 360Pay. |
+| `GET` | `/api/v1/health` | Público / Railway | Pública | Monitor de disponibilidad, versión mínima de APK y estado de sandbox/tarifa. |
 
 ### 8.2 Estructura de Tablas Centrales de la Base de Datos
 

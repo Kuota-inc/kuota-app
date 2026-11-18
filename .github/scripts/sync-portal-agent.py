@@ -35,7 +35,7 @@ def get_git_info():
 def read_markdown_reports():
     files = [
         ('readme', 'README.md', 'Resumen Ejecutivo y Metodología', 'Arquitectura General'),
-        ('controles', '01-matriz-controles-y-parametros.md', 'Matriz de 24 Controles de Seguridad', 'Controles Técnicos'),
+        ('controles', '01-matriz-controles-y-parametros.md', 'Matriz de 27 Controles de Seguridad', 'Controles Técnicos'),
         ('endpoints', '02-inventario-endpoints.md', 'Catálogo de 14 Endpoints de API', 'APIs & Rutas'),
         ('roles', '03-matriz-roles-y-datos.md', 'Roles, Sesiones y Clasificación de Datos', 'Privacidad & Ley 29733'),
         ('pagos', '04-estados-y-riel-de-pagos.md', 'Riel de Pagos, Comisiones y Liquidación', 'Finanzas & Sandbox'),
@@ -122,8 +122,8 @@ def get_recent_activity():
         return []
 
 def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_activity):
-    docs_json = json.dumps(docs_data)
-    activity_json = json.dumps(recent_activity)
+    docs_json = json.dumps(docs_data, ensure_ascii=False).replace('</', '<\\/').replace('<!--', '<\\!--')
+    activity_json = json.dumps(recent_activity, ensure_ascii=False).replace('</', '<\\/').replace('<!--', '<\\!--')
     
     html = f'''<!DOCTYPE html>
 <html lang="es" data-theme="kuota-light">
@@ -132,19 +132,24 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
   <title>Kuota — Arquitectura de Software, Conciliación de Pagos y Seguridad</title>
   <meta name="description" content="Portal técnico oficial de Kuota. Arquitectura de componentes, conciliación contable, controles de seguridad y simulador de comisiones.">
+  <link rel="icon" type="image/svg+xml" href="assets/Group Logokuotasvg.svg">
   
   <!-- Tipografía Oficial Kuota: Plus Jakarta Sans (Títulos/Métricas) e Inter (Cuerpo) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous">
   
-  <!-- Lector Markdown local con fallback a CDN -->
+  <!-- Lector Markdown local con fallback a CDN + KaTeX & Mermaid -->
   <script src="assets/marked.min.js"></script>
   <script>
     if (!window.marked) {{
       document.write('<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"><\\/script>');
     }}
   </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" crossorigin="anonymous"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js" crossorigin="anonymous"></script>
   <script>
     // Restauración inmediata del tema Kuota (sin parpadeo visual)
     (function() {{
@@ -311,15 +316,34 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
       text-decoration: none;
     }}
     
-    .kuota-logo-img {{
+    .kuota-icon-img {{
       height: 30px;
-      width: auto;
+      width: 30px;
       object-fit: contain;
       display: block;
+      border-radius: 7px;
+      flex-shrink: 0;
+    }}
+    .kuota-wordmark-svg {{
+      height: 21px;
+      width: auto;
+      color: #0B2545;
+      display: block;
+      transition: color 0.25s ease;
+    }}
+    .kuota-wordmark-svg.kuota-wordmark-sm {{
+      height: 17px;
+    }}
+    html[data-theme="kuota-dark"] .kuota-wordmark-svg {{
+      color: #FFFFFF;
     }}
     @media (max-width: 480px) {{
-      .kuota-logo-img {{
+      .kuota-icon-img {{
         height: 24px;
+        width: 24px;
+      }}
+      .kuota-wordmark-svg {{
+        height: 17px;
       }}
     }}
 
@@ -1221,7 +1245,17 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
       color: var(--text);
       border-color: var(--kuota-persian-blue);
     }}
-    .doc-btn.active {{
+    .doc-btn.doc-btn-featured {{
+      color: var(--kuota-persian-blue);
+      font-weight: 700;
+      border-color: rgba(26, 59, 176, 0.35);
+    }}
+    html[data-theme="kuota-dark"] .doc-btn.doc-btn-featured {{
+      color: #60A5FA;
+      border-color: rgba(96, 165, 250, 0.35);
+    }}
+    .doc-btn.active,
+    .doc-btn.doc-btn-featured.active {{
       background: var(--kuota-persian-blue);
       color: #FFFFFF;
       border-color: var(--kuota-persian-blue);
@@ -1331,6 +1365,34 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
       color: inherit;
       border: none;
       padding: 0;
+    }}
+    .reader-body .mermaid {{
+      background: var(--surface-elevated);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1rem;
+      margin: 1.1rem 0;
+      overflow-x: auto;
+      text-align: center;
+    }}
+    .doc-tile-accent {{
+      color: var(--kuota-persian-blue);
+    }}
+    html[data-theme="kuota-dark"] .doc-tile-accent {{
+      color: #60A5FA;
+    }}
+    .footer-zip-pill {{
+      color: var(--kuota-persian-blue);
+      text-decoration: none;
+      font-weight: 700;
+      background: var(--kuota-lavender);
+      padding: 0.35rem 0.75rem;
+      border-radius: 9999px;
+      border: 1px solid var(--border);
+    }}
+    html[data-theme="kuota-dark"] .footer-zip-pill {{
+      color: var(--kuota-periwinkle);
+      background: var(--surface-soft);
     }}
 
     /* Catálogo de Descargas */
@@ -1702,6 +1764,42 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
       color: var(--kuota-periwinkle);
     }}
 
+    .bot-bubble h4 {{
+      font-family: var(--font-display);
+      font-size: 0.84rem;
+      font-weight: 700;
+      margin: 0.45rem 0 0.25rem;
+      color: var(--text);
+    }}
+
+    .bot-bubble ul, .bot-bubble ol {{
+      margin: 0.25rem 0 0.45rem 1.15rem;
+      padding: 0;
+    }}
+
+    .bot-bubble li {{
+      margin-bottom: 0.2rem;
+    }}
+
+    .bot-bubble pre {{
+      background: #0B101B;
+      color: #E2E8F0;
+      padding: 0.6rem 0.75rem;
+      border-radius: 10px;
+      overflow-x: auto;
+      margin: 0.4rem 0;
+      font-family: var(--font-mono);
+      font-size: 0.73rem;
+      line-height: 1.45;
+      border: 1px solid rgba(175, 197, 246, 0.16);
+    }}
+
+    .bot-bubble pre code {{
+      background: transparent;
+      color: inherit;
+      padding: 0;
+    }}
+
     .bot-action-btn {{
       margin-top: 0.45rem;
       display: inline-flex;
@@ -1838,6 +1936,12 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
       transform: scale(0.92);
     }}
 
+    .bot-send-btn:disabled {{
+      opacity: 0.55;
+      cursor: not-allowed;
+      transform: none;
+    }}
+
     .typing-dots {{
       display: inline-flex;
       align-items: center;
@@ -1859,6 +1963,11 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
     @keyframes bounceDot {{
       0%, 80%, 100% {{ transform: scale(0); }}
       40% {{ transform: scale(1); }}
+    }}
+
+    @keyframes spin {{
+      from {{ transform: rotate(0deg); }}
+      to {{ transform: rotate(360deg); }}
     }}
 
     /* Buscador en tiempo real de Commits dentro de Historial CI/CD */
@@ -2535,11 +2644,14 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
 </head>
 <body>
 
-  <!-- Cabecera Limpia con Logo Oficial Kuota -->
+  <!-- Cabecera Limpia con Logo Oficial Kuota Dual-Theme -->
   <header class="kuota-header">
     <div class="brand-wrap">
       <a href="#" class="brand-wrap">
-        <img src="assets/Kuotalogotiposvg.svg" alt="Kuota" class="kuota-logo-img">
+        <img src="assets/Group Logokuotasvg.svg" alt="" class="kuota-icon-img">
+        <svg class="kuota-wordmark-svg" viewBox="145 25 292 85" aria-label="Kuota" role="img">
+          <path d="M149.7 104V28.3H157.2V81.3L154 80.8L184.1 50.4H193.8L172.8 71.9L195.7 104H186.7L165.2 74.3L170 74.7L154.7 90.5L157.2 84.3V104H149.7ZM223.485 105.2C219.752 105.2 216.352 104.333 213.285 102.6C210.218 100.8 207.785 98.3333 205.985 95.2C204.252 92 203.385 88.3333 203.385 84.2V50.4H210.885V83.3C210.885 86.1667 211.452 88.7 212.585 90.9C213.785 93.0333 215.418 94.7 217.485 95.9C219.618 97.1 222.052 97.7 224.785 97.7C227.518 97.7 229.952 97.1 232.085 95.9C234.218 94.6333 235.885 92.8667 237.085 90.6C238.285 88.2667 238.885 85.5 238.885 82.3V50.4H246.385V104H238.885V93.6L240.585 94C239.318 97.4667 237.152 100.2 234.085 102.2C231.018 104.2 227.485 105.2 223.485 105.2ZM286.909 105.2C281.843 105.2 277.243 104 273.109 101.6C268.976 99.1333 265.676 95.8 263.209 91.6C260.809 87.3333 259.609 82.5 259.609 77.1C259.609 71.7667 260.809 67 263.209 62.8C265.609 58.6 268.843 55.3 272.909 52.9C277.043 50.4333 281.709 49.2 286.909 49.2C292.109 49.2 296.743 50.4 300.809 52.8C304.943 55.2 308.176 58.5 310.509 62.7C312.909 66.9 314.109 71.7 314.109 77.1C314.109 82.5667 312.876 87.4333 310.409 91.7C307.943 95.9 304.643 99.2 300.509 101.6C296.443 104 291.909 105.2 286.909 105.2ZM286.909 97.7C290.509 97.7 293.743 96.8 296.609 95C299.543 93.2 301.843 90.7333 303.509 87.6C305.243 84.4667 306.109 80.9667 306.109 77.1C306.109 73.2333 305.243 69.7667 303.509 66.7C301.843 63.6333 299.543 61.2 296.609 59.4C293.743 57.6 290.509 56.7 286.909 56.7C283.309 56.7 280.043 57.6 277.109 59.4C274.243 61.2 271.943 63.6333 270.209 66.7C268.476 69.7667 267.609 73.2333 267.609 77.1C267.609 80.9667 268.476 84.4667 270.209 87.6C271.943 90.7333 274.243 93.2 277.109 95C280.043 96.8 283.309 97.7 286.909 97.7ZM346.86 104.6C342.06 104.6 338.36 103.2 335.76 100.4C333.16 97.6 331.86 93.6 331.86 88.4V57.9H321.96V50.4H324.46C326.727 50.4 328.527 49.6667 329.86 48.2C331.193 46.6667 331.86 44.7667 331.86 42.5V38H339.36V50.4H351.16V57.9H339.36V88.4C339.36 90.2 339.627 91.8 340.16 93.2C340.693 94.5333 341.593 95.6 342.86 96.4C344.193 97.2 345.96 97.6 348.16 97.6C348.693 97.6 349.327 97.5667 350.06 97.5C350.793 97.4333 351.427 97.3667 351.96 97.3V104C351.16 104.2 350.26 104.333 349.26 104.4C348.26 104.533 347.46 104.6 346.86 104.6ZM379.653 105.2C376.253 105.2 373.22 104.567 370.553 103.3C367.886 101.967 365.786 100.167 364.253 97.9C362.72 95.6333 361.953 93.0333 361.953 90.1C361.953 87.3 362.553 84.7667 363.753 82.5C364.953 80.1667 366.82 78.2 369.353 76.6C371.886 75 375.12 73.8667 379.053 73.2L400.053 69.7V76.5L380.853 79.7C376.986 80.3667 374.186 81.6 372.453 83.4C370.786 85.2 369.953 87.3333 369.953 89.8C369.953 92.2 370.886 94.2333 372.753 95.9C374.686 97.5667 377.153 98.4 380.153 98.4C383.82 98.4 387.02 97.6333 389.753 96.1C392.486 94.5 394.62 92.3667 396.153 89.7C397.686 87.0333 398.453 84.0667 398.453 80.8V67.2C398.453 64 397.286 61.4 394.953 59.4C392.62 57.4 389.586 56.4 385.853 56.4C382.586 56.4 379.72 57.2333 377.253 58.9C374.786 60.5 372.953 62.6 371.753 65.2L364.953 61.5C365.953 59.2333 367.52 57.1667 369.653 55.3C371.853 53.4333 374.353 51.9667 377.153 50.9C379.953 49.7667 382.853 49.2 385.853 49.2C389.786 49.2 393.253 49.9667 396.253 51.5C399.32 53.0333 401.686 55.1667 403.353 57.9C405.086 60.5667 405.953 63.6667 405.953 67.2V104H398.453V93.3L399.553 94.4C398.62 96.4 397.153 98.2333 395.153 99.9C393.22 101.5 390.92 102.8 388.253 103.8C385.653 104.733 382.786 105.2 379.653 105.2ZM423.98 104V93H431.98V104H423.98Z" fill="currentColor"/>
+        </svg>
         <span class="badge-portal">PORTAL TÉCNICO</span>
       </a>
     </div>
@@ -2580,7 +2692,7 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
       </div>
       <h1 class="hero-title">Arquitectura, Pagos<br>y Seguridad Técnica</h1>
       <p class="hero-subtitle">
-        Portal unificado para el equipo de desarrollo y producto. Documenta la unificación de Inicio y Conciliación del perfil Proveedor, el cálculo verificado de comisiones (1% + IGV con piso de S/ 4.50), las reglas de liquidación bancaria, el catálogo de 24 controles normativos y la lectura en vivo de los 7 informes técnicos.
+        Portal unificado para el equipo de desarrollo y producto. Documenta la unificación de Inicio y Conciliación del perfil Proveedor, el cálculo verificado de comisiones (1% + IGV con piso de S/ 4.50), las reglas de liquidación bancaria, el catálogo de 27 controles normativos y la lectura en vivo de los 8 informes técnicos.
       </p>
 
       <div class="hero-chips">
@@ -2617,9 +2729,9 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
         <div class="metric-desc">Fórmula oficial con piso mínimo de S/ 4.50.</div>
       </div>
       <div class="metric-card" onclick="switchMainTab('seguridad')">
-        <div class="metric-val">24</div>
+        <div class="metric-val">27</div>
         <div class="metric-lbl">Controles de Seguridad</div>
-        <div class="metric-desc">Parámetros auditados y exportados a CSV.</div>
+        <div class="metric-desc">Parámetros auditados y exportados a CSV/XLSX.</div>
       </div>
       <div class="metric-card" onclick="switchMainTab('seguridad')">
         <div class="metric-val">14</div>
@@ -2756,12 +2868,12 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
           <input type="range" id="sim-slider" class="calc-slider" min="10" max="2000" step="10" value="100" oninput="runSim(this.value)">
           <div class="quick-chips">
             <span style="font-size: 0.75rem; opacity: 0.8; align-self: center;">Valores comunes:</span>
-            <button class="q-chip" onclick="setSim(50)">S/ 50</button>
-            <button class="q-chip active" onclick="setSim(100)">S/ 100</button>
-            <button class="q-chip" onclick="setSim(200)">S/ 200</button>
-            <button class="q-chip" onclick="setSim(500)">S/ 500</button>
-            <button class="q-chip" onclick="setSim(1000)">S/ 1,000</button>
-            <button class="q-chip" onclick="setSim(1500)">S/ 1,500</button>
+            <button class="q-chip" data-amount="50" onclick="setSim(50)">S/ 50</button>
+            <button class="q-chip active" data-amount="100" onclick="setSim(100)">S/ 100</button>
+            <button class="q-chip" data-amount="200" onclick="setSim(200)">S/ 200</button>
+            <button class="q-chip" data-amount="500" onclick="setSim(500)">S/ 500</button>
+            <button class="q-chip" data-amount="1000" onclick="setSim(1000)">S/ 1,000</button>
+            <button class="q-chip" data-amount="1500" onclick="setSim(1500)">S/ 1,500</button>
           </div>
         </div>
 
@@ -2884,7 +2996,7 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
           Para validar el cambio de estado sin esperar 2 días ni alterar la fecha del teléfono, el backend expone un endpoint seguro exclusivo de pruebas:
         </p>
         <div class="code-callout">
-          // Endpoint: POST /dev/settle-pending en backend/src/routes/dev.routes.ts<br>
+          // Endpoint: POST /api/v1/dev/settle-pending en backend/src/routes/dev.routes.ts<br>
           if (config.isProd || process.env.NODE_ENV === 'production' || !config.sandboxEnabled) {{<br>
           &nbsp;&nbsp;return res.status(403).json({{ error: {{ code: 'SANDBOX_ONLY' }} }});<br>
           }}<br>
@@ -2903,7 +3015,7 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
       <div class="section-title-wrap">
         <div class="section-eyebrow">Auditoría Técnica &middot; Controles &middot; APIs</div>
         <h2 class="section-title">Controles de Seguridad y Catálogo de Endpoints</h2>
-        <p class="section-desc">24 controles normativos auditados y el inventario de 14 endpoints con sus niveles de autenticación y ubicación en código.</p>
+        <p class="section-desc">27 controles normativos auditados y el inventario de 14 endpoints con sus niveles de autenticación y ubicación en código.</p>
       </div>
 
       <!-- Buscador y Tabla de Controles -->
@@ -2915,7 +3027,7 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
                 <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
               </svg>
             </span>
-            <span>Matriz de Controles y Parámetros (24)</span>
+            <span>Matriz de Controles y Parámetros (27)</span>
           </div>
           <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
             <a href="01-matriz-controles-y-parametros.xlsx" download="01-matriz-controles-y-parametros.xlsx" class="reader-btn" style="background: var(--kuota-persian-blue); color: #FFFFFF; font-weight: 700; border-color: var(--kuota-persian-blue);">
@@ -2924,7 +3036,7 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
               </svg>
               <span>Descargar Excel (.xlsx)</span>
             </a>
-            <a href="01-matriz-controles-y-parametros.csv" download="01-matriz-controles-y-parametros.csv" class="reader-btn" style="color: var(--kuota-persian-blue); font-weight: 700;">
+            <a href="01-matriz-controles-y-parametros.csv" download="01-matriz-controles-y-parametros.csv" class="reader-btn doc-tile-accent" style="font-weight: 700;">
               <svg class="icon-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>
               </svg>
@@ -2935,14 +3047,14 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
 
         <div class="search-row">
           <div class="search-input-box">
-            <input type="text" id="ctrl-search" class="search-input" placeholder="Buscar por ID, parámetro o archivo..." onkeyup="filterControls()">
+            <input type="text" id="ctrl-search" class="search-input" placeholder="Buscar por ID, parámetro o archivo..." oninput="filterControls()">
           </div>
           <div class="filter-chips">
-            <button class="f-chip active" onclick="filterCtrlCat('ALL', this)">Todos (24)</button>
-            <button class="f-chip" onclick="filterCtrlCat('A', this)">Identidad (6)</button>
-            <button class="f-chip" onclick="filterCtrlCat('B', this)">Webhooks (4)</button>
+            <button class="f-chip active" onclick="filterCtrlCat('ALL', this)">Todos (27)</button>
+            <button class="f-chip" onclick="filterCtrlCat('A', this)">Identidad (7)</button>
+            <button class="f-chip" onclick="filterCtrlCat('B', this)">Webhooks (5)</button>
             <button class="f-chip" onclick="filterCtrlCat('C', this)">Idempotencia (4)</button>
-            <button class="f-chip" onclick="filterCtrlCat('D', this)">Tarifas (6)</button>
+            <button class="f-chip" onclick="filterCtrlCat('D', this)">Tarifas (7)</button>
             <button class="f-chip" onclick="filterCtrlCat('E', this)">Ledger (4)</button>
           </div>
         </div>
@@ -2959,30 +3071,34 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
               </tr>
             </thead>
             <tbody>
-              <tr data-cat="A"><td><code>CTL-A01</code></td><td>A</td><td>Hashing de PIN de Comercio</td><td><code>bcrypt.hash(pin, 10)</code> y <code>verifyPin</code></td><td><code>crypto.ts:verifyPin:L45</code></td></tr>
-              <tr data-cat="A"><td><code>CTL-A02</code></td><td>A</td><td>Bloqueo por Intentos Fallidos</td><td>5 intentos consecutivos bloquean 30 min</td><td><code>auth.ts:verifyMerchantPin:L142</code></td></tr>
-              <tr data-cat="A"><td><code>CTL-A03</code></td><td>A</td><td>Sesión Mono-Dispositivo</td><td>Revocación forzosa vía <code>revokeSessions(exceptId)</code></td><td><code>auth.ts:revokeSessions:L284</code></td></tr>
-              <tr data-cat="A"><td><code>CTL-A04</code></td><td>A</td><td>Expiración de JWT Access Token</td><td>TTL de 3600s (1 hora) con HMAC SHA-256</td><td><code>config.ts:jwtTtlSeconds:L35</code></td></tr>
-              <tr data-cat="A"><td><code>CTL-A05</code></td><td>A</td><td>Rotación de Refresh Tokens</td><td>TTL 90 días; reuso revoca la familia <code>family_id</code></td><td><code>auth.ts:issueRefreshToken:L306</code></td></tr>
-              <tr data-cat="A"><td><code>CTL-A06</code></td><td>A</td><td>Step-Up Auth para Cambios de CCI</td><td>Token con TTL de 300s tras validación biométrica</td><td><code>auth.ts:issueStepUpToken:L210</code></td></tr>
+              <tr data-cat="A"><td><code>CTL-A01</code></td><td>A</td><td>Hashing de PIN de Comercio</td><td><code>scrypt</code> (N=16384, r=8, p=1) sobre HMAC-SHA256 con <code>pinPepper</code></td><td><code>crypto.ts:verifyPin:L44-L67</code></td></tr>
+              <tr data-cat="A"><td><code>CTL-A02</code></td><td>A</td><td>Bloqueo por Intentos Fallidos</td><td>5 intentos consecutivos bloquean 15 min + alerta de equipo nuevo</td><td><code>auth.ts:checkPin:L115-L160</code></td></tr>
+              <tr data-cat="A"><td><code>CTL-A03</code></td><td>A</td><td>Sesión Mono-Dispositivo</td><td>Revocación forzosa en <code>merchant_sessions</code> vía <code>revokeSessions</code></td><td><code>auth.ts:revokeSessions:L284-L299</code></td></tr>
+              <tr data-cat="A"><td><code>CTL-A04</code></td><td>A</td><td>Expiración de Access Token (<code>ks1</code>)</td><td>TTL 900s (15 min default vía <code>KUOTA_SESSION_TTL_SEC</code>)</td><td><code>config.ts:sessionTtlSec:L106</code></td></tr>
+              <tr data-cat="A"><td><code>CTL-A05</code></td><td>A</td><td>Rotación de Refresh Tokens</td><td>TTL 90 días; reuso revoca la familia <code>family_id</code></td><td><code>auth.ts:issueRefreshToken:L306-L318</code></td></tr>
+              <tr data-cat="A"><td><code>CTL-A06</code></td><td>A</td><td>Step-Up Auth para Cambios de CCI</td><td>Token step-up con TTL de 120s (2 min) tras validación PIN/biometría</td><td><code>config.ts:stepUpTtlSec:L107</code></td></tr>
+              <tr data-cat="A"><td><code>CTL-A07</code></td><td>A</td><td>Validación de Device Binding</td><td>Regex 16 a 64 chars + enfriamiento 24h en equipo nuevo</td><td><code>auth.ts:isValidDeviceId:L81-L82</code></td></tr>
               <tr data-cat="B"><td><code>CTL-B01</code></td><td>B</td><td>Firma HMAC Webhook 360Pay</td><td><code>sha256=${{hmac(secret, `${{ts}}.${{rawBody}}`)}}</code></td><td><code>webhook.ts:signWebhookBody:L20</code></td></tr>
               <tr data-cat="B"><td><code>CTL-B02</code></td><td>B</td><td>Ventana Temporal Anti-Replay</td><td>Tolerancia de timestamp &le; 300,000 ms (5 min)</td><td><code>webhook.ts:verifyWebhookTimestamp:L78</code></td></tr>
-              <tr data-cat="B"><td><code>CTL-B03</code></td><td>B</td><td>Comparación Timing-Safe</td><td><code>crypto.timingSafeEqual</code> sobre buffers de igual longitud</td><td><code>crypto.ts:safeEqual:L30</code></td></tr>
+              <tr data-cat="B"><td><code>CTL-B03</code></td><td>B</td><td>Comparación Timing-Safe</td><td><code>crypto.timingSafeEqual</code> sobre buffers de igual longitud</td><td><code>crypto.ts:safeEqual:L24-L28</code></td></tr>
               <tr data-cat="B"><td><code>CTL-B04</code></td><td>B</td><td>Firma Webhook Didit (KYC)</td><td>Cabecera <code>X-Didit-Signature</code> con secreto compartido</td><td><code>diditGuard.ts:verifyDiditSignature:L40</code></td></tr>
+              <tr data-cat="B"><td><code>CTL-B05</code></td><td>B</td><td>Firma Digital Interna de Link</td><td>Firma HMAC sobre <code>link_id</code>, <code>amount_cents</code> y <code>merchant_id</code></td><td><code>links.ts:linkSignatureValid:L180</code></td></tr>
               <tr data-cat="C"><td><code>CTL-C01</code></td><td>C</td><td>Deduplicación de Webhooks</td><td>Tabla <code>webhook_events</code> con <code>event_id</code> como PK</td><td><code>webhook.ts:handleWebhook:L110</code></td></tr>
               <tr data-cat="C"><td><code>CTL-C02</code></td><td>C</td><td>Idempotency-Key en Cobros</td><td>Cabecera <code>Idempotency-Key</code> almacenada por 24h</td><td><code>guards.ts:idempotent:L85</code></td></tr>
               <tr data-cat="C"><td><code>CTL-C03</code></td><td>C</td><td>Transaccionalidad ACID en Payout</td><td>Transacciones atómicas <code>db.transaction()</code> con rollback</td><td><code>reconciliation.ts:executeSettlement:L180</code></td></tr>
               <tr data-cat="C"><td><code>CTL-C04</code></td><td>C</td><td>Marcado Atómico de Pago</td><td><code>UPDATE payment_links SET status='PAID' WHERE status='ACTIVE'</code></td><td><code>links.ts:markLinkPaid:L240</code></td></tr>
-              <tr data-cat="D"><td><code>PAR-D01</code></td><td>D</td><td>Tasa de Comisión Kuota</td><td>1.00% (100 bps) sobre volumen bruto</td><td><code>config.ts:feeBps:L25</code></td></tr>
+              <tr data-cat="D"><td><code>PAR-D01</code></td><td>D</td><td>Tasa de Comisión Kuota</td><td>1.00% (100 bps) sobre volumen bruto</td><td><code>config.ts:feeBps:L86</code></td></tr>
               <tr data-cat="D"><td><code>PAR-D02</code></td><td>D</td><td>IGV sobre Comisión</td><td>18.00% con redondeo hacia arriba <code>Math.ceil</code></td><td><code>pricing.ts:IGV_BPS:L4</code></td></tr>
-              <tr data-cat="D"><td><code>PAR-D03</code></td><td>D</td><td>Comisión Mínima Transaccional</td><td>S/ 4.50 sin IGV (S/ 5.31 con IGV) para cubrir costo pasarela</td><td><code>pricing.ts:MIN_FEE_CENTS:L6</code></td></tr>
-              <tr data-cat="D"><td><code>PAR-D04</code></td><td>D</td><td>Vencimiento de Links de Cobro</td><td>48 horas calendario desde emisión (<code>addHours now 48</code>)</td><td><code>links.ts:createLink:L95</code></td></tr>
+              <tr data-cat="D"><td><code>PAR-D03</code></td><td>D</td><td>Comisión Mínima Transaccional</td><td>S/ 4.50 sin IGV (S/ 5.31 con IGV) para cubrir costo pasarela S/ 3.82</td><td><code>pricing.ts:MIN_FEE_CENTS:L6</code></td></tr>
+              <tr data-cat="D"><td><code>PAR-D04</code></td><td>D</td><td>Vencimiento de Links de Cobro</td><td>48 horas calendario desde emisión (<code>linkTtlHours: 48</code>)</td><td><code>config.ts:linkTtlHours:L115</code></td></tr>
               <tr data-cat="D"><td><code>PAR-D05</code></td><td>D</td><td>Ventana Sandbox de Simulación</td><td>300,000 ms (5 min) configurable vía body/env</td><td><code>dev.routes.ts:postSettlePending:L86</code></td></tr>
-              <tr data-cat="D"><td><code>PAR-D06</code></td><td>D</td><td>Límite por Operación (Basic)</td><td>S/ 5,000.00 (<code>max_tx_cents: 500_000</code>); Pro sin límite</td><td><code>pricing.ts:PLANS.BASIC:L33</code></td></tr>
+              <tr data-cat="D"><td><code>PAR-D06</code></td><td>D</td><td>Límite por Operación (Basic)</td><td>S/ 5,000.00 (<code>max_tx_cents: 500_000</code>); Pro sin límite</td><td><code>pricing.ts:PLANS.BASIC:L37</code></td></tr>
+              <tr data-cat="D"><td><code>CTL-D07</code></td><td>D</td><td>Rate Limiting en Endpoints</td><td>Webhooks/API 600 req/min; Login 10 req/min con header <code>Retry-After</code></td><td><code>guards.ts:rateLimit:L30-L75</code></td></tr>
               <tr data-cat="E"><td><code>CTL-E01</code></td><td>E</td><td>Ledger de Partida Doble</td><td>Débito = Crédito; balance neto exacto de 0 centavos</td><td><code>reconciliation.ts:recordLedgerEntry:L130</code></td></tr>
               <tr data-cat="E"><td><code>CTL-E02</code></td><td>E</td><td>Encadenamiento Hash de Auditoría</td><td>SHA-256 público + HMAC privado con triggers WORM</td><td><code>audit.ts:audit:L85</code></td></tr>
               <tr data-cat="E"><td><code>CTL-E03</code></td><td>E</td><td>Redacción de Secretos en Logs</td><td>Filtro <code>REDACT</code> sustituye PIN y tokens por <code>[redacted]</code></td><td><code>audit.ts:redact:L28</code></td></tr>
               <tr data-cat="E"><td><code>CTL-E04</code></td><td>E</td><td>Anclaje Periódico de Auditoría</td><td><code>anchorAuditChain()</code> congela cola HMAC en <code>audit_anchors</code></td><td><code>audit.ts:anchorAuditChain:L190</code></td></tr>
+              <tr id="ctrl-empty-row" style="display:none;"><td colspan="5" style="text-align:center;color:var(--text-tertiary);padding:1.5rem;">No hay controles que coincidan con el filtro o búsqueda actual.</td></tr>
             </tbody>
           </table>
         </div>
@@ -3009,18 +3125,20 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
               </tr>
             </thead>
             <tbody>
-              <tr><td><span class="method-tag method-post">POST</span> <code>/security/auth/login</code></td><td>Comercio / Proveedor</td><td>Pública (teléfono + PIN)</td><td><code>security.routes.ts:L470</code></td></tr>
-              <tr><td><span class="method-tag method-post">POST</span> <code>/security/auth/refresh</code></td><td>Token Holder</td><td>Refresh Token</td><td><code>security.routes.ts:L540</code></td></tr>
-              <tr><td><span class="method-tag method-post">POST</span> <code>/security/auth/step-up</code></td><td>Comercio / Proveedor</td><td>JWT + Biometría / PIN</td><td><code>security.routes.ts:L620</code></td></tr>
-              <tr><td><span class="method-tag method-post">POST</span> <code>/links</code></td><td>Comercio / Proveedor</td><td>Bearer JWT</td><td><code>paymentLink.routes.ts:L114</code></td></tr>
-              <tr><td><span class="method-tag method-get">GET</span> <code>/links/:id</code></td><td>Comercio / Admin</td><td>Bearer JWT</td><td><code>paymentLink.routes.ts:L218</code></td></tr>
-              <tr><td><span class="method-tag method-post">POST</span> <code>/links/:id/cancel</code></td><td>Comercio propietario</td><td>Bearer JWT</td><td><code>paymentLink.routes.ts:L270</code></td></tr>
-              <tr><td><span class="method-tag method-post">POST</span> <code>/webhooks/360pay</code></td><td>Pasarela 360Pay</td><td>Firma HMAC SHA-256</td><td><code>webhook.routes.ts:L22</code></td></tr>
-              <tr><td><span class="method-tag method-post">POST</span> <code>/webhooks/didit</code></td><td>Didit Biometrics</td><td>Firma HMAC SHA-256</td><td><code>webhook.routes.ts:L36</code></td></tr>
-              <tr><td><span class="method-tag method-get">GET</span> <code>/provider/orders</code></td><td>Proveedor</td><td>Bearer JWT (Fuente Unificada)</td><td><code>provider.routes.ts:L694</code></td></tr>
-              <tr><td><span class="method-tag method-put">PUT</span> <code>/provider/settlement-account</code></td><td>Proveedor</td><td>JWT + Step-Up Token</td><td><code>provider.routes.ts:L649</code></td></tr>
-              <tr><td><span class="method-tag method-post">POST</span> <code>/dev/settle-pending</code></td><td>Tester / Sandbox</td><td>Solo Sandbox (Bloqueado en Prod)</td><td><code>dev.routes.ts:L86</code></td></tr>
-              <tr><td><span class="method-tag method-post">POST</span> <code>/internal/reconciliation/run</code></td><td>Admin / Cron Job</td><td>API Key Interna</td><td><code>internal.routes.ts:L210</code></td></tr>
+              <tr><td><span class="method-tag method-post">POST</span> <code>/api/v1/auth/login</code></td><td>Comercio / Proveedor</td><td>Pública (teléfono + PIN)</td><td><code>security.routes.ts:L470</code></td></tr>
+              <tr><td><span class="method-tag method-post">POST</span> <code>/api/v1/auth/refresh</code></td><td>Token Holder</td><td>Refresh Token</td><td><code>security.routes.ts:L540</code></td></tr>
+              <tr><td><span class="method-tag method-post">POST</span> <code>/api/v1/auth/step-up</code></td><td>Comercio / Proveedor</td><td>Bearer <code>ks1</code> + Biometría / PIN</td><td><code>security.routes.ts:L620</code></td></tr>
+              <tr><td><span class="method-tag method-post">POST</span> <code>/api/v1/payment-links</code></td><td>Comercio / Proveedor</td><td>Bearer <code>ks1</code></td><td><code>paymentLink.routes.ts:L114</code></td></tr>
+              <tr><td><span class="method-tag method-get">GET</span> <code>/api/v1/payment-links/:id</code></td><td>Comercio / Admin</td><td>Bearer <code>ks1</code></td><td><code>paymentLink.routes.ts:L218</code></td></tr>
+              <tr><td><span class="method-tag method-post">POST</span> <code>/api/v1/payment-links/:id/cancel</code></td><td>Comercio propietario</td><td>Bearer <code>ks1</code></td><td><code>paymentLink.routes.ts:L270</code></td></tr>
+              <tr><td><span class="method-tag method-post">POST</span> <code>/api/v1/webhooks/360pay</code></td><td>Pasarela 360Pay</td><td>Firma HMAC SHA-256</td><td><code>webhook.routes.ts:L22</code></td></tr>
+              <tr><td><span class="method-tag method-post">POST</span> <code>/api/v1/webhooks/didit</code></td><td>Didit Biometrics</td><td>Firma HMAC SHA-256</td><td><code>webhook.routes.ts:L36</code></td></tr>
+              <tr><td><span class="method-tag method-get">GET</span> <code>/api/v1/providers/me</code></td><td>Proveedor</td><td>Bearer / Token Provider</td><td><code>provider.routes.ts:L798</code></td></tr>
+              <tr><td><span class="method-tag method-get">GET</span> <code>/api/v1/providers/orders</code></td><td>Proveedor</td><td>Bearer / Token Provider (SSOT)</td><td><code>provider.routes.ts:L694</code></td></tr>
+              <tr><td><span class="method-tag method-put">PUT</span> <code>/api/v1/providers/settlement-account</code></td><td>Proveedor</td><td>Bearer + Step-Up Token</td><td><code>provider.routes.ts:L649</code></td></tr>
+              <tr><td><span class="method-tag method-post">POST</span> <code>/api/v1/dev/settle-pending</code></td><td>Tester / Sandbox</td><td>Solo Sandbox (HTTP 403 en Prod)</td><td><code>dev.routes.ts:L86</code></td></tr>
+              <tr><td><span class="method-tag method-post">POST</span> <code>/api/v1/internal/reconciliation/run</code></td><td>Admin / Cron Job</td><td>Token Admin Interno</td><td><code>internal.routes.ts:L210</code></td></tr>
+              <tr><td><span class="method-tag method-get">GET</span> <code>/api/v1/health</code></td><td>Público / Monitor Railway</td><td>Pública (Sin gate versión APK)</td><td><code>app.ts:L100</code></td></tr>
             </tbody>
           </table>
         </div>
@@ -3183,7 +3301,7 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
       <div class="section-title-wrap">
         <div class="section-eyebrow">Informes Técnicos &middot; Lector Integrado</div>
         <h2 class="section-title">Lector de Informes Técnicos de Auditoría</h2>
-        <p class="section-desc">Lee cualquiera de los 7 informes elaborados directamente en la aplicación. También puedes copiar el texto en Markdown o descargarlos individualmente.</p>
+        <p class="section-desc">Lee cualquiera de los 8 informes elaborados directamente en la aplicación. También puedes copiar el texto en Markdown o descargarlos individualmente.</p>
       </div>
 
       <!-- Lector In-App -->
@@ -3197,7 +3315,7 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
             <button class="doc-btn" onclick="showDoc('pagos', this)">04-riel-de-pagos.md</button>
             <button class="doc-btn" onclick="showDoc('hallazgos', this)">05-registro-hallazgos.md</button>
             <button class="doc-btn" onclick="showDoc('comparativa', this)">06-comparativa-historica.md</button>
-            <button class="doc-btn" onclick="showDoc('backend', this)" style="color: var(--kuota-persian-blue); font-weight: 700;">07-arquitectura-backend.md</button>
+            <button class="doc-btn doc-btn-featured" onclick="showDoc('backend', this)">07-arquitectura-backend.md</button>
           </div>
           
           <div class="reader-actions">
@@ -3228,16 +3346,16 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
       </div>
 
       <div class="docs-catalog">
-        <div class="doc-tile" onclick="openDocTile('backend')" style="border-color: rgba(26, 59, 176, 0.4); background: rgba(26, 59, 176, 0.03); grid-column: 1 / -1;">
+        <div class="doc-tile" onclick="openDocTile('backend')" style="border-color: rgba(26, 59, 176, 0.4); background: rgba(26, 59, 176, 0.04); grid-column: 1 / -1;">
           <div>
             <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;">
-              <div style="font-family: var(--font-mono); font-size: 0.72rem; color: var(--kuota-persian-blue); font-weight: 700;">DOCUMENTO MAESTRO DE INGENIERÍA</div>
+              <div class="doc-tile-accent" style="font-family: var(--font-mono); font-size: 0.72rem; font-weight: 700;">DOCUMENTO MAESTRO DE INGENIERÍA</div>
               <span class="feed-badge feat" style="font-size: 0.68rem;">10 Módulos Exhaustivos</span>
             </div>
-            <div style="font-family: var(--font-display); font-size: 1.15rem; font-weight: 800; margin: 0.35rem 0; color: var(--kuota-persian-blue);">07-arquitectura-backend-logica-completa.md</div>
-            <div style="font-size: 0.86rem; color: var(--text-secondary); line-height: 1.5;">Topología monolítica modular en Express/TS, arranque fail-safe con assertProductionEnv, blindaje perimetral HTTP, sesión mono-dispositivo (CTL-A03), motor de comisiones (1% + IGV, piso S/ 4.50), riel de pagos, liquidación ST-01..ST-04, doble partida contable (ledger neto 0), webhooks HMAC timingSafeEqual y diccionario SQL.</div>
+            <div class="doc-tile-accent" style="font-family: var(--font-display); font-size: 1.15rem; font-weight: 800; margin: 0.35rem 0;">07-arquitectura-backend-logica-completa.md</div>
+            <div style="font-size: 0.86rem; color: var(--text-secondary); line-height: 1.5;">Topología monolítica modular en Express/TS, arranque fail-safe con assertProductionEnv, blindaje perimetral HTTP, sesión mono-dispositivo (CTL-A03), motor de comisiones (1% + IGV, piso S/ 4.50), riel de pagos, liquidación ST-01..ST-07, doble partida contable (ledger neto 0), webhooks HMAC timingSafeEqual y diccionario SQL.</div>
           </div>
-          <div style="font-size: 0.8rem; font-weight: 700; color: var(--kuota-persian-blue); margin-top: 1rem; display: flex; align-items: center; gap: 0.35rem;">
+          <div class="doc-tile-accent" style="font-size: 0.8rem; font-weight: 700; margin-top: 1rem; display: flex; align-items: center; gap: 0.35rem;">
             <span>Abrir documento maestro en lector</span>
             <svg class="icon-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/>
@@ -3247,11 +3365,11 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
 
         <div class="doc-tile" onclick="openDocTile('readme')">
           <div>
-            <div style="font-family: var(--font-mono); font-size: 0.72rem; color: var(--kuota-persian-blue); font-weight: 700;">INFORME PRINCIPAL</div>
+            <div class="doc-tile-accent" style="font-family: var(--font-mono); font-size: 0.72rem; font-weight: 700;">INFORME PRINCIPAL</div>
             <div style="font-family: var(--font-display); font-size: 1.05rem; font-weight: 700; margin: 0.35rem 0;">README.md &middot; Síntesis</div>
             <div style="font-size: 0.85rem; color: var(--text-secondary);">Resumen ejecutivo, arquitectura general, decisiones tomadas y metodología.</div>
           </div>
-          <div style="font-size: 0.8rem; font-weight: 700; color: var(--kuota-persian-blue); margin-top: 1rem; display: flex; align-items: center; gap: 0.35rem;">
+          <div class="doc-tile-accent" style="font-size: 0.8rem; font-weight: 700; margin-top: 1rem; display: flex; align-items: center; gap: 0.35rem;">
             <span>Abrir en lector</span>
             <svg class="icon-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/>
@@ -3261,11 +3379,11 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
 
         <div class="doc-tile" onclick="openDocTile('controles')">
           <div>
-            <div style="font-family: var(--font-mono); font-size: 0.72rem; color: var(--kuota-persian-blue); font-weight: 700;">CONTROLES &amp; PARÁMETROS</div>
+            <div class="doc-tile-accent" style="font-family: var(--font-mono); font-size: 0.72rem; font-weight: 700;">CONTROLES &amp; PARÁMETROS</div>
             <div style="font-family: var(--font-display); font-size: 1.05rem; font-weight: 700; margin: 0.35rem 0;">01-matriz-controles.md</div>
-            <div style="font-size: 0.85rem; color: var(--text-secondary);">24 controles catalogados con citas exactas de código y estados canónicos.</div>
+            <div style="font-size: 0.85rem; color: var(--text-secondary);">27 controles catalogados con citas exactas de código y estados canónicos.</div>
           </div>
-          <div style="font-size: 0.8rem; font-weight: 700; color: var(--kuota-persian-blue); margin-top: 1rem; display: flex; align-items: center; gap: 0.35rem;">
+          <div class="doc-tile-accent" style="font-size: 0.8rem; font-weight: 700; margin-top: 1rem; display: flex; align-items: center; gap: 0.35rem;">
             <span>Abrir en lector</span>
             <svg class="icon-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/>
@@ -3275,11 +3393,11 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
 
         <a href="01-matriz-controles-y-parametros.xlsx" download="01-matriz-controles-y-parametros.xlsx" class="doc-tile" style="border-color: rgba(26, 59, 176, 0.35); background: rgba(26, 59, 176, 0.04);">
           <div>
-            <div style="font-family: var(--font-mono); font-size: 0.72rem; color: var(--kuota-persian-blue); font-weight: 700;">MICROSOFT EXCEL (.XLSX)</div>
+            <div class="doc-tile-accent" style="font-family: var(--font-mono); font-size: 0.72rem; font-weight: 700;">MICROSOFT EXCEL (.XLSX)</div>
             <div style="font-family: var(--font-display); font-size: 1.05rem; font-weight: 700; margin: 0.35rem 0;">01-matriz-controles.xlsx</div>
             <div style="font-size: 0.85rem; color: var(--text-secondary);">Libro Excel nativo con tipografía corporativa, cabeceras en azul persa, auto-filtro y columnas ajustadas.</div>
           </div>
-          <div style="font-size: 0.8rem; font-weight: 700; color: var(--kuota-persian-blue); margin-top: 1rem; display: flex; align-items: center; gap: 0.35rem;">
+          <div class="doc-tile-accent" style="font-size: 0.8rem; font-weight: 700; margin-top: 1rem; display: flex; align-items: center; gap: 0.35rem;">
             <span>Descargar archivo XLSX</span>
             <svg class="icon-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>
@@ -3303,11 +3421,11 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
 
         <div class="doc-tile" onclick="openDocTile('endpoints')">
           <div>
-            <div style="font-family: var(--font-mono); font-size: 0.72rem; color: var(--kuota-persian-blue); font-weight: 700;">APIS &amp; RUTAS</div>
+            <div class="doc-tile-accent" style="font-family: var(--font-mono); font-size: 0.72rem; font-weight: 700;">APIS &amp; RUTAS</div>
             <div style="font-family: var(--font-display); font-size: 1.05rem; font-weight: 700; margin: 0.35rem 0;">02-inventario-endpoints.md</div>
             <div style="font-size: 0.85rem; color: var(--text-secondary);">14 endpoints analizados con roles, nivel de autenticación y mutaciones.</div>
           </div>
-          <div style="font-size: 0.8rem; font-weight: 700; color: var(--kuota-persian-blue); margin-top: 1rem; display: flex; align-items: center; gap: 0.35rem;">
+          <div class="doc-tile-accent" style="font-size: 0.8rem; font-weight: 700; margin-top: 1rem; display: flex; align-items: center; gap: 0.35rem;">
             <span>Abrir en lector</span>
             <svg class="icon-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/>
@@ -3317,11 +3435,11 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
 
         <div class="doc-tile" onclick="openDocTile('roles')">
           <div>
-            <div style="font-family: var(--font-mono); font-size: 0.72rem; color: var(--kuota-persian-blue); font-weight: 700;">PRIVACIDAD &amp; TENANCY</div>
+            <div class="doc-tile-accent" style="font-family: var(--font-mono); font-size: 0.72rem; font-weight: 700;">PRIVACIDAD &amp; TENANCY</div>
             <div style="font-family: var(--font-display); font-size: 1.05rem; font-weight: 700; margin: 0.35rem 0;">03-roles-y-datos.md</div>
             <div style="font-size: 0.85rem; color: var(--text-secondary);">Aislamiento multi-tenant, sesiones mono-dispositivo y Ley N° 29733.</div>
           </div>
-          <div style="font-size: 0.8rem; font-weight: 700; color: var(--kuota-persian-blue); margin-top: 1rem; display: flex; align-items: center; gap: 0.35rem;">
+          <div class="doc-tile-accent" style="font-size: 0.8rem; font-weight: 700; margin-top: 1rem; display: flex; align-items: center; gap: 0.35rem;">
             <span>Abrir en lector</span>
             <svg class="icon-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/>
@@ -3331,11 +3449,11 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
 
         <div class="doc-tile" onclick="openDocTile('pagos')">
           <div>
-            <div style="font-family: var(--font-mono); font-size: 0.72rem; color: var(--kuota-persian-blue); font-weight: 700;">CONTABILIDAD &amp; PAGOS</div>
+            <div class="doc-tile-accent" style="font-family: var(--font-mono); font-size: 0.72rem; font-weight: 700;">CONTABILIDAD &amp; PAGOS</div>
             <div style="font-family: var(--font-display); font-size: 1.05rem; font-weight: 700; margin: 0.35rem 0;">04-riel-de-pagos.md</div>
             <div style="font-size: 0.85rem; color: var(--text-secondary);">Matemática de comisiones (1% + IGV), libro de doble partida y ventana de 5 min.</div>
           </div>
-          <div style="font-size: 0.8rem; font-weight: 700; color: var(--kuota-persian-blue); margin-top: 1rem; display: flex; align-items: center; gap: 0.35rem;">
+          <div class="doc-tile-accent" style="font-size: 0.8rem; font-weight: 700; margin-top: 1rem; display: flex; align-items: center; gap: 0.35rem;">
             <span>Abrir en lector</span>
             <svg class="icon-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/>
@@ -3359,11 +3477,11 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
 
         <div class="doc-tile" onclick="openDocTile('comparativa')">
           <div>
-            <div style="font-family: var(--font-mono); font-size: 0.72rem; color: var(--kuota-persian-blue); font-weight: 700;">VERIFICACIÓN &amp; TESTS</div>
+            <div class="doc-tile-accent" style="font-family: var(--font-mono); font-size: 0.72rem; font-weight: 700;">VERIFICACIÓN &amp; TESTS</div>
             <div style="font-family: var(--font-display); font-size: 1.05rem; font-weight: 700; margin: 0.35rem 0;">06-comparativa-historica.md</div>
             <div style="font-size: 0.85rem; color: var(--text-secondary);">Contraste contra documentos previos, inventario de pruebas y dudas con 360Pay.</div>
           </div>
-          <div style="font-size: 0.8rem; font-weight: 700; color: var(--kuota-persian-blue); margin-top: 1rem; display: flex; align-items: center; gap: 0.35rem;">
+          <div class="doc-tile-accent" style="font-size: 0.8rem; font-weight: 700; margin-top: 1rem; display: flex; align-items: center; gap: 0.35rem;">
             <span>Abrir en lector</span>
             <svg class="icon-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/>
@@ -3384,7 +3502,12 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
   <footer class="kuota-footer">
     <div class="footer-wrap">
       <div style="display: flex; align-items: center; gap: 0.85rem;">
-        <img src="assets/Kuotalogotiposvg.svg" alt="Kuota" style="height: 24px; width: auto;">
+        <div style="display: inline-flex; align-items: center; gap: 0.5rem;">
+          <img src="assets/Group Logokuotasvg.svg" alt="" style="height: 24px; width: 24px; border-radius: 6px;">
+          <svg class="kuota-wordmark-svg kuota-wordmark-sm" viewBox="145 25 292 85" aria-label="Kuota" role="img">
+            <path d="M149.7 104V28.3H157.2V81.3L154 80.8L184.1 50.4H193.8L172.8 71.9L195.7 104H186.7L165.2 74.3L170 74.7L154.7 90.5L157.2 84.3V104H149.7ZM223.485 105.2C219.752 105.2 216.352 104.333 213.285 102.6C210.218 100.8 207.785 98.3333 205.985 95.2C204.252 92 203.385 88.3333 203.385 84.2V50.4H210.885V83.3C210.885 86.1667 211.452 88.7 212.585 90.9C213.785 93.0333 215.418 94.7 217.485 95.9C219.618 97.1 222.052 97.7 224.785 97.7C227.518 97.7 229.952 97.1 232.085 95.9C234.218 94.6333 235.885 92.8667 237.085 90.6C238.285 88.2667 238.885 85.5 238.885 82.3V50.4H246.385V104H238.885V93.6L240.585 94C239.318 97.4667 237.152 100.2 234.085 102.2C231.018 104.2 227.485 105.2 223.485 105.2ZM286.909 105.2C281.843 105.2 277.243 104 273.109 101.6C268.976 99.1333 265.676 95.8 263.209 91.6C260.809 87.3333 259.609 82.5 259.609 77.1C259.609 71.7667 260.809 67 263.209 62.8C265.609 58.6 268.843 55.3 272.909 52.9C277.043 50.4333 281.709 49.2 286.909 49.2C292.109 49.2 296.743 50.4 300.809 52.8C304.943 55.2 308.176 58.5 310.509 62.7C312.909 66.9 314.109 71.7 314.109 77.1C314.109 82.5667 312.876 87.4333 310.409 91.7C307.943 95.9 304.643 99.2 300.509 101.6C296.443 104 291.909 105.2 286.909 105.2ZM286.909 97.7C290.509 97.7 293.743 96.8 296.609 95C299.543 93.2 301.843 90.7333 303.509 87.6C305.243 84.4667 306.109 80.9667 306.109 77.1C306.109 73.2333 305.243 69.7667 303.509 66.7C301.843 63.6333 299.543 61.2 296.609 59.4C293.743 57.6 290.509 56.7 286.909 56.7C283.309 56.7 280.043 57.6 277.109 59.4C274.243 61.2 271.943 63.6333 270.209 66.7C268.476 69.7667 267.609 73.2333 267.609 77.1C267.609 80.9667 268.476 84.4667 270.209 87.6C271.943 90.7333 274.243 93.2 277.109 95C280.043 96.8 283.309 97.7 286.909 97.7ZM346.86 104.6C342.06 104.6 338.36 103.2 335.76 100.4C333.16 97.6 331.86 93.6 331.86 88.4V57.9H321.96V50.4H324.46C326.727 50.4 328.527 49.6667 329.86 48.2C331.193 46.6667 331.86 44.7667 331.86 42.5V38H339.36V50.4H351.16V57.9H339.36V88.4C339.36 90.2 339.627 91.8 340.16 93.2C340.693 94.5333 341.593 95.6 342.86 96.4C344.193 97.2 345.96 97.6 348.16 97.6C348.693 97.6 349.327 97.5667 350.06 97.5C350.793 97.4333 351.427 97.3667 351.96 97.3V104C351.16 104.2 350.26 104.333 349.26 104.4C348.26 104.533 347.46 104.6 346.86 104.6ZM379.653 105.2C376.253 105.2 373.22 104.567 370.553 103.3C367.886 101.967 365.786 100.167 364.253 97.9C362.72 95.6333 361.953 93.0333 361.953 90.1C361.953 87.3 362.553 84.7667 363.753 82.5C364.953 80.1667 366.82 78.2 369.353 76.6C371.886 75 375.12 73.8667 379.053 73.2L400.053 69.7V76.5L380.853 79.7C376.986 80.3667 374.186 81.6 372.453 83.4C370.786 85.2 369.953 87.3333 369.953 89.8C369.953 92.2 370.886 94.2333 372.753 95.9C374.686 97.5667 377.153 98.4 380.153 98.4C383.82 98.4 387.02 97.6333 389.753 96.1C392.486 94.5 394.62 92.3667 396.153 89.7C397.686 87.0333 398.453 84.0667 398.453 80.8V67.2C398.453 64 397.286 61.4 394.953 59.4C392.62 57.4 389.586 56.4 385.853 56.4C382.586 56.4 379.72 57.2333 377.253 58.9C374.786 60.5 372.953 62.6 371.753 65.2L364.953 61.5C365.953 59.2333 367.52 57.1667 369.653 55.3C371.853 53.4333 374.353 51.9667 377.153 50.9C379.953 49.7667 382.853 49.2 385.853 49.2C389.786 49.2 393.253 49.9667 396.253 51.5C399.32 53.0333 401.686 55.1667 403.353 57.9C405.086 60.5667 405.953 63.6667 405.953 67.2V104H398.453V93.3L399.553 94.4C398.62 96.4 397.153 98.2333 395.153 99.9C393.22 101.5 390.92 102.8 388.253 103.8C385.653 104.733 382.786 105.2 379.653 105.2ZM423.98 104V93H431.98V104H423.98Z" fill="currentColor"/>
+          </svg>
+        </div>
         <div>
           <div style="font-family: var(--font-display); font-weight: 700; color: var(--text);">Kuota &middot; Portal Técnico de Arquitectura y Pagos</div>
           <div>Monorepo Kuota &middot; Commit <code>{short_sha}</code> &middot; Rama <code>{branch}</code></div>
@@ -3395,9 +3518,9 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
           <span>GitHub</span>
           <svg class="icon-svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg>
         </a>
-        <a href="01-matriz-controles-y-parametros.xlsx" download="01-matriz-controles-y-parametros.xlsx" style="color: var(--kuota-persian-blue); text-decoration: none; font-weight: 700;">Excel (.xlsx)</a>
+        <a href="01-matriz-controles-y-parametros.xlsx" download="01-matriz-controles-y-parametros.xlsx" class="doc-tile-accent" style="text-decoration: none; font-weight: 700;">Excel (.xlsx)</a>
         <a href="01-matriz-controles-y-parametros.csv" download="01-matriz-controles-y-parametros.csv" style="color: var(--text-secondary); text-decoration: none; font-weight: 600;">CSV (BOM)</a>
-        <a href="auditoria-archify.zip" download="auditoria-archify.zip" style="color: var(--kuota-persian-blue); text-decoration: none; font-weight: 700; background: var(--kuota-lavender); padding: 0.35rem 0.75rem; border-radius: 9999px;">Auditoría ZIP (9.3 MB)</a>
+        <a href="auditoria-archify.zip" download="auditoria-archify.zip" class="footer-zip-pill">Auditoría ZIP</a>
       </div>
     </div>
   </footer>
@@ -3502,7 +3625,7 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
         </button>
         <button class="quick-prompt-btn" onclick="askQuickPrompt('controles')">
           <svg class="icon-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-          <span>24 Controles</span>
+          <span>27 Controles</span>
         </button>
         <button class="quick-prompt-btn" onclick="askQuickPrompt('endpoints')">
           <svg class="icon-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
@@ -3613,7 +3736,7 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
         <div style="margin-top: 0.35rem; display: flex; flex-direction: column; gap: 0.25rem;">
           <div style="display: flex; align-items: center; gap: 0.35rem;">
             <svg class="icon-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
-            <span>Modelo: <code>gemini-flash-latest</code> (Google Generative AI)</span>
+            <span>Modelo: <code>gemini-3.5-flash-lite</code> (Google Generative AI)</span>
           </div>
           <div style="display: flex; align-items: center; gap: 0.35rem;">
             <svg class="icon-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
@@ -3621,7 +3744,7 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
           </div>
           <div style="display: flex; align-items: center; gap: 0.35rem;">
             <svg class="icon-svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
-            <span>Guardrails: 10 módulos de backend y 24 controles normativos</span>
+            <span>Guardrails: 8 informes, 10 módulos de backend y 27 controles normativos</span>
           </div>
         </div>
       </div>
@@ -3692,6 +3815,53 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
       }}
     }}
 
+    const DIAGRAM_META = {{
+      'v1-arquitectura-actual.html': {{
+        title: 'v1-arquitectura-actual.archify',
+        desc: 'Arquitectura actual de componentes y servicios externos.'
+      }},
+      'v1b-arquitectura-recomendada.html': {{
+        title: 'v1b-arquitectura-target.archify',
+        desc: 'Arquitectura target state con WAF, Event Bus y colas Redis.'
+      }},
+      'v2-flujo-datos.html': {{
+        title: 'v2-flujo-datos.dataflow',
+        desc: 'Flujo de datos end-to-end y fronteras de confianza.'
+      }},
+      'v3-secuencia-auth-stepup.html': {{
+        title: 'v3-secuencia-auth.sequence',
+        desc: 'Secuencia de autenticación, rotación de tokens y step-up biométrico.'
+      }},
+      'v4-riel-pagos-webhook.html': {{
+        title: 'v4-webhook-hmac.sequence',
+        desc: 'Riel de pagos, validación de webhook HMAC e idempotencia.'
+      }},
+      'v5-ciclo-vida-pagos.html': {{
+        title: 'v5-ciclo-vida.lifecycle',
+        desc: 'Ciclo de vida de cobros, liquidación y estado Cancelado.'
+      }},
+      'v6-autorizacion-roles-tenants.html': {{
+        title: 'v6-roles-sesiones.workflow',
+        desc: 'Workflow de autorización, mono-dispositivo y tenancy.'
+      }},
+      'v7-conciliacion-incidentes.html': {{
+        title: 'v7-conciliacion.workflow',
+        desc: 'Workflow de conciliación diaria, circuit breaker y auditoría WORM.'
+      }}
+    }};
+    const VALID_DIAGRAMS = new Set(Object.keys(DIAGRAM_META));
+    const VALID_TABS = new Set(['diagramas', 'pagos', 'seguridad', 'hallazgos', 'documentos']);
+
+    function getArchifyThemeParam() {{
+      const t = document.documentElement.getAttribute('data-theme') || 'kuota-light';
+      return t === 'kuota-dark' ? 'dark' : 'light';
+    }}
+
+    function buildDiagramUrl(file) {{
+      const cleanFile = VALID_DIAGRAMS.has(file) ? file : 'v1-arquitectura-actual.html';
+      return cleanFile + '?theme=' + getArchifyThemeParam();
+    }}
+
     // Alternador de Tema con persistencia en localStorage
     function toggleTheme() {{
       const html = document.documentElement;
@@ -3704,6 +3874,18 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
       }} catch (e) {{}}
 
       updateThemeUI(next);
+
+      const iframe = document.getElementById('archify-iframe');
+      if (iframe && activeDiagram) {{
+        const themedUrl = buildDiagramUrl(activeDiagram);
+        iframe.src = themedUrl;
+        const fsBtn = document.getElementById('btn-fullscreen-diagram');
+        if (fsBtn) fsBtn.href = themedUrl;
+      }}
+
+      if (currentMainTab === 'documentos' && activeDoc) {{
+        showDoc(activeDoc, null, false);
+      }}
     }}
 
     function updateThemeUI(theme) {{
@@ -3719,97 +3901,128 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
       }}
     }}
 
-    // Selector de Diagramas Archify con memoria de vista
+    // Selector de Diagramas Archify con memoria de vista y tema
     function changeDiagram(file, btn, desc, title, updateUrl = true) {{
-      activeDiagram = file;
+      const targetFile = VALID_DIAGRAMS.has(file) ? file : 'v1-arquitectura-actual.html';
+      activeDiagram = targetFile;
       try {{
-        localStorage.setItem('kuota_active_diagram', file);
+        localStorage.setItem('kuota_active_diagram', targetFile);
       }} catch (e) {{}}
 
-      document.querySelectorAll('.d-pill').forEach(el => el.classList.remove('active'));
-      if (btn) {{
-        btn.classList.add('active');
-      }} else {{
-        const pill = document.querySelector(`.d-pill[onclick*="${{file}}"]`);
-        if (pill) pill.classList.add('active');
-      }}
+      document.querySelectorAll('.d-pill').forEach(el => {{
+        if (btn) {{
+          el.classList.toggle('active', el === btn);
+        }} else {{
+          const oc = el.getAttribute('onclick') || '';
+          el.classList.toggle('active', oc.includes("'" + targetFile + "'"));
+        }}
+      }});
+
+      const meta = DIAGRAM_META[targetFile] || {{}};
+      const resolvedDesc = desc || meta.desc;
+      const resolvedTitle = title || meta.title;
+      const themedUrl = buildDiagramUrl(targetFile);
 
       const iframe = document.getElementById('archify-iframe');
       const descEl = document.getElementById('archify-desc');
       const titleEl = document.getElementById('archify-title');
       const fsBtn = document.getElementById('btn-fullscreen-diagram');
 
-      if (iframe) iframe.src = file;
-      if (descEl && desc) descEl.textContent = desc;
-      if (titleEl && title) titleEl.textContent = title + ' · Diagrama de Arquitectura';
-      if (fsBtn) fsBtn.href = file;
+      if (iframe) iframe.src = themedUrl;
+      if (descEl && resolvedDesc) descEl.textContent = resolvedDesc;
+      if (titleEl && resolvedTitle) titleEl.textContent = resolvedTitle + ' · Diagrama de Arquitectura';
+      if (fsBtn) fsBtn.href = themedUrl;
 
       if (updateUrl && currentMainTab === 'diagramas') {{
-        const hash = '#diagramas/' + file.replace('.html', '');
+        const hash = '#diagramas/' + targetFile.replace('.html', '');
         if (window.location.hash !== hash) {{
           history.replaceState(null, '', hash);
         }}
       }}
     }}
 
-    // Simulador de Tarifas
+    // Simulador de Tarifas (paridad en céntimos con backend/src/security/pricing.ts)
     function runSim(val) {{
-      val = parseFloat(val) || 0;
-      document.getElementById('sim-amount-label').textContent = 'S/ ' + val.toFixed(2);
+      const parsed = Math.max(0, parseFloat(val) || 0);
+      const amountCents = Math.round(parsed * 100);
+      const valSoles = amountCents / 100;
+      const labelEl = document.getElementById('sim-amount-label');
+      if (labelEl) labelEl.textContent = 'S/ ' + valSoles.toFixed(2);
 
-      const MIN_FEE = 4.50;
-      const IGV = 0.18;
-      
-      const baseFee = Math.max((val * 0.01), MIN_FEE);
-      const igvAmount = baseFee * IGV;
-      const totalFee = baseFee + igvAmount;
+      const MIN_FEE_CENTS = 450;
+      const FEE_BPS = 100;
+      const IGV_BPS = 1800;
 
-      const posFee = val * 0.035;
-      const netSettled = Math.max(0, val - totalFee);
-      const netSaving = Math.max(0, posFee - totalFee);
+      const pctBaseCents = Math.ceil((amountCents * FEE_BPS) / 10000);
+      const baseCents = Math.max(pctBaseCents, MIN_FEE_CENTS);
+      const igvCents = Math.ceil((baseCents * IGV_BPS) / 10000);
+      const totalFeeCents = baseCents + igvCents;
+
+      const posFeeCents = Math.round(amountCents * 0.035);
+      const netSettledCents = Math.max(0, amountCents - totalFeeCents);
+      const netSavingCents = Math.max(0, posFeeCents - totalFeeCents);
+
+      const baseFee = baseCents / 100;
+      const igvAmount = igvCents / 100;
+      const totalFee = totalFeeCents / 100;
+      const posFee = posFeeCents / 100;
+      const netSettled = netSettledCents / 100;
+      const netSaving = netSavingCents / 100;
 
       document.getElementById('sim-kuota-fee').textContent = 'S/ ' + totalFee.toFixed(2);
-      document.getElementById('sim-kuota-desc').textContent = (baseFee === MIN_FEE)
+      document.getElementById('sim-kuota-desc').textContent = (baseCents === MIN_FEE_CENTS && pctBaseCents <= MIN_FEE_CENTS)
         ? 'Piso mínimo S/ 4.50 + S/ ' + igvAmount.toFixed(2) + ' IGV'
         : '1% (S/ ' + baseFee.toFixed(2) + ') + S/ ' + igvAmount.toFixed(2) + ' IGV';
 
       document.getElementById('sim-pos-fee').textContent = 'S/ ' + posFee.toFixed(2);
       document.getElementById('sim-net-settled').textContent = 'S/ ' + netSettled.toFixed(2);
       document.getElementById('sim-net-saving').textContent = 'S/ ' + netSaving.toFixed(2);
-      document.getElementById('sim-saving-desc').textContent = (netSaving > 0)
+      document.getElementById('sim-saving-desc').textContent = (netSavingCents > 0)
         ? 'Ahorras S/ ' + netSaving.toFixed(2) + ' vs POS tradicional'
         : 'Micro-ticket protegido por piso mínimo';
+
+      document.querySelectorAll('.q-chip').forEach(c => {{
+        const chipAmt = Number(c.dataset.amount);
+        c.classList.toggle('active', Number.isFinite(chipAmt) && chipAmt * 100 === amountCents);
+      }});
     }}
 
     function setSim(amount) {{
-      document.getElementById('sim-slider').value = amount;
+      const slider = document.getElementById('sim-slider');
+      if (slider) slider.value = amount;
       runSim(amount);
-      document.querySelectorAll('.q-chip').forEach(c => {{
-        c.classList.remove('active');
-        if (c.textContent.includes(amount)) c.classList.add('active');
-      }});
     }}
 
-    // Filtros de Controles
-    function filterControls() {{
-      const q = document.getElementById('ctrl-search').value.toLowerCase();
-      const rows = document.querySelectorAll('#ctrl-table tbody tr');
+    // Filtros unificados de Controles (búsqueda + categoría)
+    let activeCtrlCat = 'ALL';
+
+    function applyControlFilters() {{
+      const input = document.getElementById('ctrl-search');
+      const q = (input ? input.value : '').toLowerCase().trim();
+      const rows = document.querySelectorAll('#ctrl-table tbody tr[data-cat]');
+      let visibleCount = 0;
+
       rows.forEach(r => {{
-        r.style.display = r.textContent.toLowerCase().includes(q) ? '' : 'none';
+        const matchesCat = activeCtrlCat === 'ALL' || r.getAttribute('data-cat') === activeCtrlCat;
+        const matchesQuery = !q || r.textContent.toLowerCase().includes(q);
+        const show = matchesCat && matchesQuery;
+        r.style.display = show ? '' : 'none';
+        if (show) visibleCount++;
       }});
+
+      const emptyRow = document.getElementById('ctrl-empty-row');
+      if (emptyRow) emptyRow.style.display = visibleCount === 0 ? '' : 'none';
+    }}
+
+    function filterControls() {{
+      applyControlFilters();
     }}
 
     function filterCtrlCat(cat, btn) {{
+      activeCtrlCat = cat || 'ALL';
       document.querySelectorAll('.filter-chips .f-chip').forEach(el => el.classList.remove('active'));
-      btn.classList.add('active');
-      const rows = document.querySelectorAll('#ctrl-table tbody tr');
-      rows.forEach(r => {{
-        if (cat === 'ALL' || r.getAttribute('data-cat') === cat) {{
-          r.style.display = '';
-        }} else {{
-          r.style.display = 'none';
-        }}
-      }});
+      if (btn) btn.classList.add('active');
+      applyControlFilters();
     }}
 
     // Toggle de Hallazgos
@@ -3850,6 +4063,8 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
         container.innerHTML = '<h1>' + doc.title + '</h1><pre style="white-space: pre-wrap;">' + doc.content + '</pre>';
       }}
 
+      renderDocRichContent(container);
+
       if (updateUrl && currentMainTab === 'documentos') {{
         const hash = '#documentos/' + docId;
         if (window.location.hash !== hash) {{
@@ -3857,6 +4072,59 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
         }}
       }}
     }}
+
+    function renderDocRichContent(container) {{
+      if (!container) return;
+
+      // Convertir bloques ```mermaid generados por marked a <div class="mermaid">
+      const mermaidCodeBlocks = container.querySelectorAll('pre > code.language-mermaid');
+      mermaidCodeBlocks.forEach(codeEl => {{
+        const pre = codeEl.parentElement;
+        if (!pre) return;
+        const wrapper = document.createElement('div');
+        wrapper.className = 'mermaid';
+        wrapper.textContent = codeEl.textContent || '';
+        pre.replaceWith(wrapper);
+      }});
+
+      if (window.mermaid) {{
+        const isDark = (document.documentElement.getAttribute('data-theme') || 'kuota-light') === 'kuota-dark';
+        try {{
+          mermaid.initialize({{
+            startOnLoad: false,
+            theme: isDark ? 'dark' : 'default',
+            securityLevel: 'loose'
+          }});
+          const nodes = container.querySelectorAll('.mermaid:not([data-processed="true"])');
+          if (nodes.length > 0 && typeof mermaid.run === 'function') {{
+            mermaid.run({{ nodes: Array.from(nodes) }}).catch(() => {{}});
+          }}
+        }} catch (e) {{}}
+      }}
+
+      if (typeof window.renderMathInElement === 'function') {{
+        try {{
+          window.renderMathInElement(container, {{
+            delimiters: [
+              {{ left: '$$', right: '$$', display: true }},
+              {{ left: '$', right: '$', display: false }},
+              {{ left: '\\\\(', right: '\\\\)', display: false }},
+              {{ left: '\\\\[', right: '\\\\]', display: true }}
+            ],
+            ignoredTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code', 'option'],
+            ignoredClasses: ['mermaid'],
+            throwOnError: false
+          }});
+        }} catch (e) {{}}
+      }}
+    }}
+
+    document.addEventListener('DOMContentLoaded', () => {{
+      const container = document.getElementById('reader-content');
+      if (container && container.innerHTML.trim()) {{
+        renderDocRichContent(container);
+      }}
+    }});
 
     function openDocTile(docId) {{
       activeDoc = docId;
@@ -3950,6 +4218,12 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
     }}
 
     document.addEventListener('click', function(e) {{
+      const modal = document.getElementById('ai-settings-modal');
+      const modalBackdrop = document.getElementById('ai-settings-modal-backdrop');
+      if (modal && modal.classList.contains('open')) return;
+      if (modal && modal.contains(e.target)) return;
+      if (modalBackdrop && e.target === modalBackdrop) return;
+
       const drawer = document.getElementById('activity-drawer');
       const backdrop = document.getElementById('activity-drawer-backdrop');
       const bell = document.getElementById('btn-activity-bell');
@@ -3963,6 +4237,11 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
 
     document.addEventListener('keydown', function(e) {{
       if (e.key === 'Escape') {{
+        const modal = document.getElementById('ai-settings-modal');
+        if (modal && modal.classList.contains('open')) {{
+          closeAiSettingsModal();
+          return;
+        }}
         const drawer = document.getElementById('activity-drawer');
         const backdrop = document.getElementById('activity-drawer-backdrop');
         if (drawer && drawer.classList.contains('open')) {{
@@ -3980,7 +4259,7 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
 
       const welcomeMsg = {{
         sender: 'bot',
-        text: '¡Hola! Soy el **Asistente Técnico y Auditor de Backend de Kuota**.\\n\\nEstoy conectado directamente con el código fuente del monorepo (`backend/src/`). He sido calibrado para resolver dudas de ingeniería sobre el pipeline de middlewares, el riel de pagos (1% + IGV y piso S/ 4.50), los 24 controles normativos, la liquidación en sandbox de 5 min y la conciliación.\\n\\nPuedes consultarme en lenguaje natural o pulsar cualquiera de los accesos rápidos a continuación.',
+        text: '¡Hola! Soy el **Asistente Técnico y Auditor de Backend de Kuota**.\\n\\nEstoy conectado directamente con el código fuente del monorepo (`backend/src/`). He sido calibrado para resolver dudas de ingeniería sobre el pipeline de middlewares, el riel de pagos (1% + IGV y piso S/ 4.50), los 27 controles normativos, la liquidación en sandbox de 5 min y la conciliación.\\n\\nPuedes consultarme en lenguaje natural o pulsar cualquiera de los accesos rápidos a continuación.',
         action: {{
           label: 'Ver Documentación Completa del Backend (10 Módulos)',
           onclick: "openDocTile('backend')"
@@ -4034,13 +4313,100 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
       container.scrollTop = container.scrollHeight;
     }}
 
+    function formatInlineBotMarkdown(escapedLine) {{
+      const codeSpans = [];
+      let s = escapedLine.replace(/`([^`]+)`/g, (_, code) => {{
+        const idx = codeSpans.length;
+        codeSpans.push('<code>' + code + '</code>');
+        return '%%CODE_INLINE_' + idx + '%%';
+      }});
+      s = s.replace(/\\*\\*(.+?)\\*\\*/g, '<strong>$1</strong>');
+      s = s.replace(/(^|[^*])\\*([^*]+)\\*(?!\\*)/g, '$1<em>$2</em>');
+      s = s.replace(/%%CODE_INLINE_(\\d+)%%/g, (_, i) => codeSpans[Number(i)] || '');
+      return s;
+    }}
+
     function formatBotMessage(text) {{
       if (!text) return '';
-      let clean = escapeHtml(text);
-      clean = clean.replace(/\\*\\*(.*?)\\*\\*/g, '<strong>$1</strong>');
-      clean = clean.replace(/`([^`]+)`/g, '<code>$1</code>');
-      const paragraphs = clean.split('\\n\\n');
-      return paragraphs.map(p => '<p>' + p.replace(/\\n/g, '<br>') + '</p>').join('');
+      let clean = escapeHtml(text).replace(/\\r\\n?/g, '\\n');
+
+      // Proteger bloques de código ```lang ... ``` antes de parsear párrafos y listas
+      const preBlocks = [];
+      clean = clean.replace(/```[^\\n]*\\n([\\s\\S]*?)```/g, (_, body) => {{
+        const idx = preBlocks.length;
+        preBlocks.push('<pre><code>' + body.replace(/\\n$/, '') + '</code></pre>');
+        return '\\n%%PRE_BLOCK_' + idx + '%%\\n';
+      }});
+
+      const lines = clean.split('\\n');
+      const out = [];
+      let listType = null;
+      let paraBuf = [];
+
+      const flushPara = () => {{
+        if (paraBuf.length > 0) {{
+          out.push('<p>' + paraBuf.map(formatInlineBotMarkdown).join('<br>') + '</p>');
+          paraBuf = [];
+        }}
+      }};
+
+      const closeList = () => {{
+        if (listType) {{
+          out.push('</' + listType + '>');
+          listType = null;
+        }}
+      }};
+
+      for (const rawLine of lines) {{
+        const line = rawLine.trim();
+        const preMatch = line.match(/^%%PRE_BLOCK_(\\d+)%%$/);
+        if (preMatch) {{
+          flushPara();
+          closeList();
+          out.push(preBlocks[Number(preMatch[1])] || '');
+          continue;
+        }}
+        if (!line) {{
+          flushPara();
+          closeList();
+          continue;
+        }}
+        const hMatch = line.match(/^#{{1,4}}\\s+(.*)$/);
+        if (hMatch) {{
+          flushPara();
+          closeList();
+          out.push('<h4>' + formatInlineBotMarkdown(hMatch[1]) + '</h4>');
+          continue;
+        }}
+        const ulMatch = line.match(/^(?:[-*\\u2022])\\s+(.*)$/);
+        if (ulMatch) {{
+          flushPara();
+          if (listType !== 'ul') {{
+            closeList();
+            listType = 'ul';
+            out.push('<ul>');
+          }}
+          out.push('<li>' + formatInlineBotMarkdown(ulMatch[1]) + '</li>');
+          continue;
+        }}
+        const olMatch = line.match(/^\\d+\\.\\s+(.*)$/);
+        if (olMatch) {{
+          flushPara();
+          if (listType !== 'ol') {{
+            closeList();
+            listType = 'ol';
+            out.push('<ol>');
+          }}
+          out.push('<li>' + formatInlineBotMarkdown(olMatch[1]) + '</li>');
+          continue;
+        }}
+        closeList();
+        paraBuf.push(line);
+      }}
+
+      flushPara();
+      closeList();
+      return out.join('');
     }}
 
     function handleBotInputKey(e) {{
@@ -4050,57 +4416,66 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
       }}
     }}
 
+    let isBotSending = false;
+
     async function sendUserBotMessage() {{
+      if (isBotSending) return;
       const input = document.getElementById('bot-input-field');
+      const sendBtn = document.getElementById('bot-send-btn');
       if (!input) return;
       const text = input.value.trim();
       if (!text) return;
 
-      input.value = '';
-      BOT_CONVERSATION.push({{ sender: 'user', text: text }});
-      renderBotChat();
+      isBotSending = true;
+      if (sendBtn) sendBtn.disabled = true;
+      input.disabled = true;
 
-      showBotTypingIndicator();
-
-      const savedKey = localStorage.getItem('kuota_gemini_api_key') || '';
-      let aiReplied = false;
-
-      // Intentar invocar el endpoint Serverless /api/chat con Gemini Free Tier
       try {{
-        const payload = {{
-          message: text,
-          messages: BOT_CONVERSATION.slice(-6),
-          apiKey: savedKey
-        }};
+        input.value = '';
+        BOT_CONVERSATION.push({{ sender: 'user', text: text }});
+        renderBotChat();
 
-        const res = await fetch('/api/chat', {{
-          method: 'POST',
-          headers: {{ 'Content-Type': 'application/json' }},
-          body: JSON.stringify(payload)
-        }});
+        showBotTypingIndicator();
 
-        if (res.ok) {{
-          const data = await res.json();
-          if (data && data.success && data.reply) {{
-            removeBotTypingIndicator();
-            BOT_CONVERSATION.push({{
-              sender: 'bot',
-              text: data.reply,
-              action: {{
-                label: 'Ver Documentación del Backend',
-                onclick: "openDocTile('backend')"
-              }}
-            }});
-            renderBotChat();
-            aiReplied = true;
+        const savedKey = localStorage.getItem('kuota_gemini_api_key') || '';
+        let aiReplied = false;
+
+        // Intentar invocar el endpoint Serverless /api/chat con Gemini Free Tier
+        try {{
+          const payload = {{
+            message: text,
+            messages: BOT_CONVERSATION.slice(-6),
+            apiKey: savedKey
+          }};
+
+          const res = await fetch('/api/chat', {{
+            method: 'POST',
+            headers: {{ 'Content-Type': 'application/json' }},
+            body: JSON.stringify(payload)
+          }});
+
+          if (res.ok) {{
+            const data = await res.json();
+            if (data && data.success && data.reply) {{
+              removeBotTypingIndicator();
+              BOT_CONVERSATION.push({{
+                sender: 'bot',
+                text: data.reply,
+                action: {{
+                  label: 'Ver Documentación del Backend',
+                  onclick: "openDocTile('backend')"
+                }}
+              }});
+              renderBotChat();
+              aiReplied = true;
+            }}
           }}
+        }} catch (e) {{
+          // Si hay timeout o error de red, cae suavemente al motor local
         }}
-      }} catch (e) {{
-        // Si hay timeout o error de red, cae suavemente al motor local
-      }}
 
-      if (!aiReplied) {{
-        setTimeout(() => {{
+        if (!aiReplied) {{
+          await new Promise(resolve => setTimeout(resolve, 320));
           removeBotTypingIndicator();
           const response = generateBotResponse(text);
           BOT_CONVERSATION.push({{
@@ -4109,11 +4484,17 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
             action: response.action || null
           }});
           renderBotChat();
-        }}, 320);
+        }}
+      }} finally {{
+        isBotSending = false;
+        if (sendBtn) sendBtn.disabled = false;
+        input.disabled = false;
+        input.focus();
       }}
     }}
 
     async function askQuickPrompt(topic) {{
+      if (isBotSending) return;
       const prompts = {{
         backend: '¿Cómo está estructurada la arquitectura y la lógica profunda del backend?',
         comisiones: '¿Cómo se calculan las comisiones de Kuota y el piso mínimo?',
@@ -4121,7 +4502,7 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
         estados: '¿Cuál es la diferencia entre los estados Por confirmar y Cancelado?',
         sesion: '¿Cómo opera el control de sesión mono-dispositivo en Kuota?',
         webhooks: '¿Cómo se autentican los webhooks de 360Pay y Didit?',
-        controles: '¿Qué controles normativos incluye la matriz de 24 controles?',
+        controles: '¿Qué controles normativos incluye la matriz de 27 controles?',
         endpoints: '¿Cuáles son los 14 endpoints clave de la API de Kuota?'
       }};
 
@@ -4165,7 +4546,7 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
       // 1. Saludos iniciales ("hola", "buenos días", "hey", etc.)
       if (/^[¡¿]?\\s*(hola|buenas?(\\s+(d[ií]as|tardes|noches))?|hey|saludos|que\\s+tal|qu[eé]\\s+tal|hi|hello)\\b/i.test(q) || q.includes("hola")) {{
         return {{
-          text: '¡Hola! Soy el **Asistente Técnico y Auditor de Backend de Kuota**.\\n\\nEstoy conectado con la arquitectura y el código real del monorepo (`backend/src/`). Puedo asistirte en profundidad en:\\n\\n• **Lógica del Backend:** Pipeline de middlewares Express, `assertProductionEnv` y persistencia.\\n• **Riel de Pagos & Comisiones:** Tasa del 1.00% + IGV (18%) con piso mínimo de S/ 4.50 (costo fijo 360Pay S/ 3.82).\\n• **Ventana Sandbox 5m:** Endpoint `POST /dev/settle-pending` (bloqueado con HTTP 403 en producción).\\n• **Conciliación Proveedor:** Diferencia entre **Por Confirmar (ST-02)** y **Cancelado (ST-03)**.\\n• **Seguridad & Webhooks:** Sesión mono-dispositivo (CTL-A03) y validación de firmas HMAC SHA-256.\\n\\n¿Qué módulo o flujo técnico deseas consultar?',
+          text: '¡Hola! Soy el **Asistente Técnico y Auditor de Backend de Kuota**.\\n\\nEstoy conectado con la arquitectura y el código real del monorepo (`backend/src/`). Puedo asistirte en profundidad en:\\n\\n• **Lógica del Backend:** Pipeline de middlewares Express, `assertProductionEnv` y persistencia.\\n• **Riel de Pagos & Comisiones:** Tasa del 1.00% + IGV (18%) con piso mínimo de S/ 4.50 (costo fijo 360Pay S/ 3.82).\\n• **Ventana Sandbox 5m:** Endpoint `POST /api/v1/dev/settle-pending` (bloqueado con HTTP 403 en producción).\\n• **Conciliación Proveedor:** **Por Confirmar (ST-02)** vs **Cancelado (ST-03, liquidado en CCI)** vs **Anulado (ST-06)**.\\n• **Seguridad & Webhooks:** Hashing PIN `scrypt` + `KUOTA_PIN_PEPPER`, sesión mono-dispositivo `ks1` (CTL-A03), matriz de 27 controles y firmas HMAC SHA-256.\\n\\n¿Qué módulo o flujo técnico deseas consultar?',
           action: {{
             label: 'Ver Arquitectura Integral del Backend',
             onclick: "openDocTile('backend')"
@@ -4187,7 +4568,7 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
       // 3. Identidad y función
       if (/^[¡¿]?\\s*(qui[eé]n eres|qu[eé] haces|cu[aá]l es tu funci[oó]n|pres[eé]ntate|para qu[eé] sirves|qu[eé] puedes hacer)/i.test(q) || q.includes("quien eres") || q.includes("quién eres")) {{
         return {{
-          text: 'Soy el **Asistente Técnico Oficial del Backend de Kuota**. Fui calibrado directamente con la arquitectura del monorepo (`backend/src/`), los 24 controles normativos de seguridad (Ley N° 29733 / PCI-DSS) y el riel de pagos. Mi función es resolver consultas técnicas precisas, explicar la lógica interna del sistema y garantizar la transparencia del desarrollo.',
+          text: 'Soy el **Asistente Técnico Oficial del Backend de Kuota**. Fui calibrado directamente con la arquitectura del monorepo (`backend/src/`), los 27 controles normativos de seguridad (Ley N° 29733 / PCI-DSS) y el riel de pagos. Mi función es resolver consultas técnicas precisas, explicar la lógica interna del sistema y garantizar la transparencia del desarrollo.',
           action: {{
             label: 'Explorar Arquitectura Backend (10 Módulos)',
             onclick: "openDocTile('backend')"
@@ -4218,9 +4599,9 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
           text: '**Riel de Comisiones Kuota:**\\n\\n' +
                 '• **Tasa Base:** 1.00% (100 bps) sobre el volumen bruto transaccionado.\\n' +
                 '• **Piso Mínimo Transaccional:** S/ 4.50 sin IGV (S/ 5.31 con IGV). Aplica cuando el 1% es menor a S/ 4.50 (tickets hasta S/ 450.00) para salvaguardar el **costo unitario fijo de 360Pay de S/ 3.82 netos por transacción**.\\n' +
-                '• **IGV:** 18% con redondeo hacia arriba (`Math.ceil`) sobre la comisión base.\\n' +
-                '• **Ubicación en Código:** `backend/src/security/pricing.ts` y `config.ts:feeBps`.\\n\\n' +
-                'Fórmula: `Math.max(monto * 0.01, 4.50) + IGV`. Ahorras hasta 66% respecto al 3.5% del POS tradicional.',
+                '• **IGV:** 18% con redondeo hacia arriba (`Math.ceil`) sobre la comisión base en céntimos.\\n' +
+                '• **Ubicación en Código:** `backend/src/security/pricing.ts` (`computeFees`) y `config.ts:feeBps`.\\n\\n' +
+                'Fórmula: `Math.max(Math.ceil((amountCents * 100) / 10000), 450) + Math.ceil((base * 1800) / 10000)`. Ahorras hasta 66% respecto al 3.5% del POS tradicional.',
           action: {{
             label: 'Abrir Simulador Interactivo de Tarifas',
             onclick: "switchMainTab('pagos')"
@@ -4229,13 +4610,13 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
       }}
 
       // 6. Sandbox 5 minutos
-      if (explicitTopic === 'sandbox' || /sandbox|5\\s*min|settle-pending|simula|post\\s*\\/dev/i.test(q)) {{
+      if (explicitTopic === 'sandbox' || /sandbox|5\\s*min|settle-pending|simula|post\\s*\\/api\\/v1\\/dev|post\\s*\\/dev/i.test(q)) {{
         return {{
           text: '**Ventana de Liquidación Sandbox (5 Minutos):**\\n\\n' +
-                '• **Endpoint:** `POST /dev/settle-pending` (`backend/src/routes/dev.routes.ts:L86`).\\n' +
-                '• **Regla de Simulación:** Convierte a `SETTLED` únicamente aquellos cobros con antigüedad mayor a **5 minutos (300,000 ms)** en estado `PENDING`.\\n' +
-                '• **Blindaje de Producción:** Si `config.isProd` es true o `process.env.NODE_ENV === "production"`, el endpoint responde estrictamente con **HTTP 403 Forbidden** (`code: SANDBOX_ONLY`).\\n\\n' +
-                'En producción real, los fondos siguen el ciclo bancario formal de 48 horas con 360Pay.',
+                '• **Endpoint:** `POST /api/v1/dev/settle-pending` (`backend/src/routes/dev.routes.ts:L86-L109`).\\n' +
+                '• **Regla de Simulación:** Marca con `settled_at = nowIso()` aquellos links en estado `PAID` cuyo `paid_at` tenga una antigüedad mayor a **5 minutos (300,000 ms)** y excluye referencias reales `live_%`. Así la UI transiciona de **"Por confirmar"** a **"Cancelado"** (liquidado).\\n' +
+                '• **Blindaje de Producción:** Si `config.isProd` es true o `KUOTA_SANDBOX === "0"`, el endpoint responde estrictamente con **HTTP 403 Forbidden** (`code: SANDBOX_ONLY`).\\n\\n' +
+                'En producción real, los fondos siguen el ciclo bancario formal de 48h con 360Pay.',
           action: {{
             label: 'Ver Documentación de Riel & Sandbox',
             onclick: "openDocTile('pagos')"
@@ -4244,26 +4625,29 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
       }}
 
       // 7. Por Confirmar vs Cancelado
-      if (explicitTopic === 'estados' || /por\\s*confirmar|cancelad|st-02|st-03|unificaci[oó]n|inicio.*concilia/i.test(q)) {{
+      if (explicitTopic === 'estados' || /por\\s*confirmar|cancelad|anulad|vencid|st-02|st-03|st-04|st-06|unificaci[oó]n|inicio.*concilia/i.test(q)) {{
         return {{
-          text: '**Diferencia entre Estados en Kuota:**\\n\\n' +
-                '• **Por Confirmar (ST-02):** El cliente pagó exitosamente el link. Los fondos están retenidos en tránsito interbancario hacia la cuenta CCI del comercio (estimado 48h hábiles). **No es un cobro fallido.**\\n' +
-                '• **Cancelado (ST-03):** El link venció (48h sin pago) o fue revocado voluntariamente antes de abonarse (`POST /links/:id/cancel`). No hubo transferencia.\\n\\n' +
-                '**Unificación:** Las vistas de Inicio y Conciliación del Proveedor ahora consumen el endpoint común `GET /provider/orders`, garantizando total consistencia contable.',
+          text: '**Estados Operativos y Conciliación en Kuota:**\\n\\n' +
+                '• **Por Confirmar (`ST-02`, `PAID` con `settled_at IS NULL`):** El cliente ya pagó exitosamente. Los fondos fueron capturados y están en tránsito interbancario hacia la cuenta CCI del comercio (plazo estimado 48h hábiles). **No es un cobro fallido.**\\n' +
+                '• **Cancelado (`ST-03`, `PAID` con `settled_at IS NOT NULL`):** **Liquidado y abonado al 100% en la cuenta CCI del proveedor** (en el comercio peruano "Cancelado" denota deuda saldada/pagada, **no** anulada).\\n' +
+                '• **Anulado (`ST-06`, `CANCELLED`):** Link revocado manualmente antes del pago (`POST /api/v1/payment-links/:id/cancel`), sin transferencia.\\n' +
+                '• **Vencido (`ST-04`, `EXPIRED`):** Link que superó el plazo de 48h sin recibir pago.\\n\\n' +
+                '**Unificación:** Las vistas de Inicio y Conciliación del Proveedor consumen la fuente única `GET /api/v1/providers/orders`.',
           action: {{
-            label: 'Ver Diagrama de Unificación de Inicio & Conciliación',
-            onclick: "changeDiagram('v2-unificacion-inicio-conciliacion.html', null, 'Unificación de Inicio y Conciliación', 'Flujo de Proveedor'); switchMainTab('diagramas');"
+            label: 'Ver Diagrama V5: Ciclo de Vida de Pagos',
+            onclick: "changeDiagram('v5-ciclo-vida-pagos.html', null, 'Ciclo de vida de cobros, liquidación y estado Cancelado.', 'v5-ciclo-vida.lifecycle'); switchMainTab('diagramas');"
           }}
         }};
       }}
 
       // 8. Sesión Mono-Dispositivo
-      if (explicitTopic === 'sesion' || /mono|sesi[oó]n|dispositivo|jwt|ctl-a03|multidispositivo/i.test(q)) {{
+      if (explicitTopic === 'sesion' || /mono|sesi[oó]n|dispositivo|ks1|jwt|scrypt|pepper|ctl-a03|multidispositivo/i.test(q)) {{
         return {{
-          text: '**Control de Sesión Mono-Dispositivo (CTL-A03):**\\n\\n' +
-                '• **Mecanismo:** Kuota impone una única sesión activa por comercio para prevenir fraude y uso compartido indebido de credenciales.\\n' +
-                '• **Lógica en Código:** Al autenticarse un nuevo dispositivo vía `POST /security/auth/login`, el backend ejecuta `auth.ts:revokeSessions(exceptId)` revocando todas las sesiones anteriores.\\n' +
-                '• **Tokens:** Access Token JWT con TTL de 3600s (1h) y rotación estricta de Refresh Token (`auth.ts:issueRefreshToken:L306`).',
+          text: '**Control de Sesión Mono-Dispositivo e Identidad (CTL-A01..A06):**\\n\\n' +
+                '• **PIN Seguro (CTL-A01):** Hash `scrypt` (`N=16384, r=8, p=1, keylen=32`) sobre `HMAC-SHA256(pinPepper, pin)` con `KUOTA_PIN_PEPPER` y verificación `crypto.timingSafeEqual`.\\n' +
+                '• **Bloqueo & Antifraude (CTL-A02):** 5 intentos fallidos bloquean el acceso durante **15 minutos** (`pinLockMinutes = 15`); cambio a dispositivo nuevo aplica cooldown de **24 horas**.\\n' +
+                '• **Mono-Dispositivo (CTL-A03):** Al autenticarse vía `POST /api/v1/auth/login`, el backend ejecuta `auth.ts:revokeSessions(exceptDeviceId)` revocando las sesiones previas.\\n' +
+                '• **Tokens `ks1` y Step-Up (CTL-A04..A06):** Access Token `ks1.*` firmado HMAC-SHA256 con TTL de **900s (15 min)**, rotación estricta de Refresh Token (TTL 90d con detección de reuso) y `step_up_token` de **120s (2 min)** para operaciones críticas.',
           action: {{
             label: 'Ver Control CTL-A03 en Matriz',
             onclick: "switchMainTab('seguridad')"
@@ -4286,16 +4670,16 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
         }};
       }}
 
-      // 10. Matriz de 24 Controles
-      if (explicitTopic === 'controles' || /24\\s*control|matriz|seguridad|cumplimiento|auditor/i.test(q)) {{
+      // 10. Matriz de 27 Controles
+      if (explicitTopic === 'controles' || /24\\s*control|27\\s*control|matriz|seguridad|cumplimiento|auditor/i.test(q)) {{
         return {{
-          text: '**Matriz de 24 Controles de Seguridad Kuota:**\\n\\n' +
+          text: '**Matriz de 27 Controles de Seguridad Kuota:**\\n\\n' +
                 'Organizada en 5 dominios auditados según Ley N° 29733 (Perú):\\n' +
-                '• **A. Identidad y Sesión (6):** PIN bcrypt, bloqueo 5 intentos, mono-dispositivo, JWT 1h, rotación refresh, step-up biometría.\\n' +
-                '• **B. Webhooks (4):** HMAC SHA-256, anti-replay 5m, timing-safe, Didit KYC.\\n' +
-                '• **C. Idempotencia (4):** Deduplicación PK, Idempotency-Key 24h, ACID payout, marcado atómico.\\n' +
-                '• **D. Tarifas (6):** Tasa 1%, IGV 18%, piso S/ 4.50, vencimiento 48h, sandbox 5m, límite Basic.\\n' +
-                '• **E. Ledger (4):** Doble partida balance 0, hash chaining SHA-256 + HMAC, redacción logs, anclaje WORM.',
+                '• **A. Identidad y Sesión (7):** PIN `scrypt` + pepper, bloqueo 5 intentos / 15 min, mono-dispositivo, token `ks1` 15 min (900s), rotación refresh 90d, step-up 120s, device binding.\\n' +
+                '• **B. Webhooks e Integridad (5):** HMAC SHA-256 360Pay, anti-replay 5m, `timingSafeEqual`, firma Didit KYC, firma digital interna del link.\\n' +
+                '• **C. Idempotencia y ACID (4):** Deduplicación `event_id`, `Idempotency-Key` 24h, liquidación ACID, marcado atómico `PAID`.\\n' +
+                '• **D. Tarifas y Antifraude (7):** Tasa 1%, IGV 18% (`Math.ceil`), piso S/ 4.50, expiración 48h, sandbox 5m, tope Basic S/ 5,000, rate limiting.\\n' +
+                '• **E. Ledger y Auditoría (4):** Partida doble balance 0, hash chaining SHA-256 + HMAC, redacción de secretos, anclaje WORM.',
           action: {{
             label: 'Explorar Matriz Completa en Portal',
             onclick: "switchMainTab('seguridad')"
@@ -4304,14 +4688,14 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
       }}
 
       // 11. Catálogo de 14 Endpoints
-      if (explicitTopic === 'endpoints' || /14\\s*endpoint|rutas|api|cat[aá]logo|post\\s*\\/|get\\s*\\//i.test(q)) {{
+      if (explicitTopic === 'endpoints' || /14\\s*endpoint|rutas|api|cat[aá]logo|post\\s*\\/|get\\s*\\/|put\\s*\\//i.test(q)) {{
         return {{
-          text: '**Catálogo de 14 Endpoints de API Kuota:**\\n\\n' +
-                '• **Seguridad / Auth:** `POST /security/auth/login`, `POST /security/auth/refresh`, `POST /security/auth/step-up`.\\n' +
-                '• **Links de Cobro:** `POST /links`, `GET /links/:id`, `POST /links/:id/cancel`.\\n' +
-                '• **Webhooks:** `POST /webhooks/360pay`, `POST /webhooks/didit`.\\n' +
-                '• **Proveedor:** `GET /provider/orders` (fuente unificada), `PUT /provider/settlement-account` (step-up requerido).\\n' +
-                '• **Sandbox & Conciliación:** `POST /dev/settle-pending` (solo sandbox), `POST /internal/reconciliation/run`.',
+          text: '**Catálogo de 14 Endpoints de API Kuota (`/api/v1/...`):**\\n\\n' +
+                '• **Auth & Seguridad (3):** `POST /api/v1/auth/login`, `POST /api/v1/auth/refresh`, `POST /api/v1/auth/step-up`.\\n' +
+                '• **Links de Pago (3):** `POST /api/v1/payment-links`, `GET /api/v1/payment-links/:id`, `POST /api/v1/payment-links/:id/cancel`.\\n' +
+                '• **Webhooks (2):** `POST /api/v1/webhooks/360pay`, `POST /api/v1/webhooks/didit`.\\n' +
+                '• **Proveedores (3):** `GET /api/v1/providers/me`, `PUT /api/v1/providers/settlement-account` (step-up requerido), `GET /api/v1/providers/orders`.\\n' +
+                '• **Sandbox, Conciliación y Salud (3):** `POST /api/v1/dev/settle-pending`, `POST /api/v1/internal/reconciliation/run`, `GET /api/v1/health`.',
           action: {{
             label: 'Ver Tabla de Endpoints',
             onclick: "switchMainTab('seguridad')"
@@ -4351,7 +4735,7 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
 
       // 13. GUARDRAIL ESTRICTO: Rechazo de consultas externas / ajenas a Kuota
       return {{
-        text: '**Reglas de Alcance y Gobernanza:**\\n\\nComo **Asistente Técnico y Auditor de Backend de Kuota**, mi alcance está **estrictamente delimitado** a la arquitectura de software, seguridad, conciliación y riel de pagos de Kuota. No estoy autorizado para responder consultas sobre temas externos, ocio o ajenos a la infraestructura de este proyecto.\\n\\nPuedo asistirte en cualquiera de estos aspectos técnicos de Kuota:\\n• **Arquitectura del Backend:** Pipeline Express, blindaje perimetral y middlewares\\n• **Riel de Pagos & Comisiones:** Tasa del 1% y piso de S/ 4.50\\n• **Sesión Mono-Dispositivo:** Control CTL-A03 y PIN bcrypt\\n• **Webhooks HMAC:** Verificación SHA-256 de 360Pay y Didit KYC\\n• **Simulación Sandbox 5m:** Endpoint `/dev/settle-pending` vs producción\\n• **Catálogo de Endpoints:** Los 14 endpoints de API y matriz de 24 controles',
+        text: '**Reglas de Alcance y Gobernanza:**\\n\\nComo **Asistente Técnico y Auditor de Backend de Kuota**, mi alcance está **estrictamente delimitado** a la arquitectura de software, seguridad, conciliación y riel de pagos de Kuota. No estoy autorizado para responder consultas sobre temas externos, ocio o ajenos a la infraestructura de este proyecto.\\n\\nPuedo asistirte en cualquiera de estos aspectos técnicos de Kuota:\\n• **Arquitectura del Backend:** Pipeline Express, blindaje perimetral y middlewares\\n• **Riel de Pagos & Comisiones:** Tasa del 1% y piso de S/ 4.50\\n• **Sesión Mono-Dispositivo:** Control CTL-A03, PIN `scrypt` + pepper y token `ks1` (900s)\\n• **Webhooks HMAC:** Verificación SHA-256 de 360Pay y Didit KYC\\n• **Simulación Sandbox 5m:** Endpoint `/api/v1/dev/settle-pending` vs producción\\n• **Catálogo de Endpoints:** Los 14 endpoints `/api/v1/...` y matriz de 27 controles',
         action: {{
           label: 'Ver Documentación del Backend',
           onclick: "openDocTile('backend')"
@@ -4592,10 +4976,63 @@ def generate_portal_html(sha, short_sha, branch, now_iso, docs_data, recent_acti
           }}
         }})
         .catch(() => {{}});
-    }}\n\n    // Inicialización
+    }}
+
+    // Restauración de Estado de Navegación (Hash URL + localStorage)
+    function restoreNavigationState() {{
+      let savedTheme = 'kuota-light';
+      try {{
+        const storedTheme = localStorage.getItem('kuota_theme');
+        if (storedTheme === 'kuota-dark' || storedTheme === 'kuota-light') {{
+          savedTheme = storedTheme;
+        }}
+      }} catch (e) {{}}
+      document.documentElement.setAttribute('data-theme', savedTheme);
+      updateThemeUI(savedTheme);
+
+      let targetTab = 'diagramas';
+      let targetDoc = 'readme';
+      let targetDiagram = 'v1-arquitectura-actual.html';
+
+      try {{
+        const lsTab = localStorage.getItem('kuota_active_tab');
+        if (lsTab && VALID_TABS.has(lsTab)) targetTab = lsTab;
+        const lsDoc = localStorage.getItem('kuota_active_doc');
+        if (lsDoc && TECHNICAL_DOCS[lsDoc]) targetDoc = lsDoc;
+        const lsDiagram = localStorage.getItem('kuota_active_diagram');
+        if (lsDiagram && VALID_DIAGRAMS.has(lsDiagram)) targetDiagram = lsDiagram;
+      }} catch (e) {{}}
+
+      const rawHash = (window.location.hash || '').replace(/^#/, '').trim();
+      if (rawHash) {{
+        const parts = rawHash.split('/');
+        const hashTab = parts[0];
+        const hashSub = parts.slice(1).join('/');
+        if (VALID_TABS.has(hashTab)) {{
+          targetTab = hashTab;
+          if (hashTab === 'documentos' && hashSub && TECHNICAL_DOCS[hashSub]) {{
+            targetDoc = hashSub;
+          }} else if (hashTab === 'diagramas' && hashSub) {{
+            const candidate = hashSub.endsWith('.html') ? hashSub : (hashSub + '.html');
+            if (VALID_DIAGRAMS.has(candidate)) targetDiagram = candidate;
+          }}
+        }}
+      }}
+
+      activeDoc = targetDoc;
+      activeDiagram = targetDiagram;
+      changeDiagram(targetDiagram, null, null, null, false);
+      switchMainTab(targetTab, false);
+    }}
+
+    window.addEventListener('hashchange', restoreNavigationState);
+
+    // Inicialización
     runSim(100);
     restoreNavigationState();
     initBotChatIfEmpty();
+    updateAiStatusLabel();
+    checkUnreadBadge();
     setInterval(refreshActivityFeedSilently, 45000);
   </script>
 </body>
@@ -4690,27 +5127,37 @@ def create_zip_archive():
     source_dir = os.path.join('docs', 'auditoria-archify')
     dest_zip_inside = os.path.join(source_dir, 'auditoria-archify.zip')
     dest_zip_outside = os.path.join('docs', 'auditoria-archify.zip')
+    excluded_dirs = {'.vercel', 'api', '__pycache__', '.git', 'kuota-brand'}
+    excluded_files = {'.gitignore', 'package.json', 'vercel.json'}
 
     if os.path.exists(dest_zip_inside):
         os.remove(dest_zip_inside)
 
     with zipfile.ZipFile(dest_zip_outside, 'w', zipfile.ZIP_DEFLATED) as zipf:
         for root, dirs, files in os.walk(source_dir):
-            for file in files:
-                if file.endswith('.zip'):
+            dirs[:] = sorted(d for d in dirs if d not in excluded_dirs)
+            for file in sorted(files):
+                if file.endswith('.zip') or file in excluded_files:
                     continue
                 file_path = os.path.join(root, file)
-                arcname = os.path.relpath(file_path, source_dir)
+                arcname = os.path.relpath(file_path, source_dir).replace('\\', '/')
                 zipf.write(file_path, arcname)
 
     shutil.copy2(dest_zip_outside, dest_zip_inside)
     print(f"Archive updated at: {dest_zip_inside} & {dest_zip_outside} (Size: {os.path.getsize(dest_zip_inside)} bytes)")
 
 def main():
+    import shutil
     print("=== Kuota Sync Agent ===")
     sha, short_sha, branch, now_iso = get_git_info()
     print(f"Commit: {sha} ({short_sha}) on branch: {branch}")
     print(f"Sync time: {now_iso}")
+
+    src_backend_doc = os.path.join('docs', 'auditoria-archify', '07-arquitectura-backend-logica-completa.md')
+    mirror_backend_doc = os.path.join('docs', '07-arquitectura-backend-logica-completa.md')
+    if os.path.exists(src_backend_doc):
+        shutil.copy2(src_backend_doc, mirror_backend_doc)
+        print(f"Mirrored backend architecture doc to: {mirror_backend_doc}")
     
     docs_data = read_markdown_reports()
     print(f"Loaded {len(docs_data)} technical reports.")

@@ -44,7 +44,7 @@ Los datos procesados y almacenados por Kuota se clasifican en cuatro niveles de 
 ```mermaid
 flowchart TD
   subgraph L4 ["Nivel 4: Secretos y Credenciales"]
-    K1["PIN Hashes (bcrypt)"]
+    K1["PIN Hashes (scrypt + pepper)"]
     K2["Signing Secrets (HMAC)"]
     K3["JWT & Refresh Tokens"]
     K4["Claves Privadas API"]
@@ -80,7 +80,7 @@ flowchart TD
 
 | Clasificación | Ejemplos de Campos | Cifrado en Reposo | Cifrado en Tránsito | Enmascaramiento / Redacción | Política de Retención |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Nivel 4: Secretos** | `pin_hash`, `webhook_secret`, `session_secret`, `token_hash` | Hash bcrypt (costo 10) / SHA-256 / AES-256-GCM | TLS 1.3 obligatorio | **Totalmente redactado**: nunca viaja en logs (`[redacted]` en `audit.ts`) | Indefinido mientras la cuenta esté activa; revocado de inmediato al rotar. |
+| **Nivel 4: Secretos** | `pin_hash`, `webhook_secret`, `session_secret`, `token_hash` | Hash `scrypt` (`N=16384`) + HMAC pepper / SHA-256 / AES-256-GCM | TLS 1.3 obligatorio | **Totalmente redactado**: nunca viaja en logs (`[redacted]` en `audit.ts`) | Indefinido mientras la cuenta esté activa; revocado de inmediato al rotar. |
 | **Nivel 3: Financieros** | `settlement_cci`, `amount_cents`, `fee_cents`, `approved_limit_cents` | Volumen cifrado (LUKS / Postgres TDE) | TLS 1.3 / mTLS | **Enmascarado parcial**: CCI muestra solo los últimos 4 dígitos (`mask(cci, 4)`) | 10 años conforme a exigencias normativas contables y tributarias SUNAT. |
 | **Nivel 2: PII** | `legal_name`, `ruc`, `legal_rep_dni`, `whatsapp` | Cifrado a nivel de columna / volumen | HTTPS TLS 1.2+ | Visibilidad restringida al propietario y soporte autorizado | Conforme a Ley de Protección de Datos Personales de Perú (Ley 29733). |
 | **Nivel 1: Operativos** | `link_id`, `concept`, `created_at`, `status` | Estándar de base de datos | HTTPS | Sin enmascaramiento requerido en pantalla de checkout | Retención histórica para reportería y conciliación (5 años). |

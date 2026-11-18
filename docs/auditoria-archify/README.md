@@ -35,7 +35,7 @@ flowchart LR
 
   subgraph Backend ["Capa de Backend (Express + TypeScript)"]
     B1["API Gateway / Routers"]
-    B2["Capa de Seguridad y Auth (JWT / bcrypt)"]
+    B2["Capa de Seguridad y Auth (ks1 / scrypt)"]
     B3["Motor de Pagos y Webhooks (HMAC SHA-256)"]
     B4["Motor de Conciliación y Ledger (Partida Doble)"]
   end
@@ -115,6 +115,7 @@ Todos los archivos generados residen en el directorio `docs/auditoria-archify/`:
 - **[04-estados-y-riel-de-pagos.md](04-estados-y-riel-de-pagos.md):** Análisis del riel de pagos, desglose de comisión mínima (S/ 4.50 + IGV) y contabilidad de partida doble.
 - **[05-registro-hallazgos.md](05-registro-hallazgos.md):** Registro defensivo de hallazgos (`FND-01` a `FND-06`) con escenarios de abuso y recomendaciones.
 - **[06-comparativa-historica-y-pruebas.md](06-comparativa-historica-y-pruebas.md):** Contraste histórico, inventario de pruebas existentes y preguntas abiertas para 360Pay.
+- **[07-arquitectura-backend-logica-completa.md](07-arquitectura-backend-logica-completa.md):** Arquitectura integral del monolito modular, pipeline Express, blindaje perimetral, motor criptográfico (`scrypt` + `ks1`), ledger de doble partida y diccionario SQL.
 
 ---
 

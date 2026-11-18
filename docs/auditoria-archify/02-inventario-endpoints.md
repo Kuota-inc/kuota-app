@@ -9,45 +9,45 @@ Este inventario documenta los endpoints críticos del backend de Kuota, detallan
 
 ---
 
-## 1. Módulo de Autenticación, Sesiones y Seguridad (`/security`, `/auth`)
+## 1. Módulo de Autenticación, Sesiones y Seguridad (`/api/v1/auth`)
 
-### EP-SEC-01: `POST /security/auth/login`
+### EP-SEC-01: `POST /api/v1/auth/login`
 - **Actor / Rol:** Merchant / Provider
 - **Autenticación:** Pública (requiere teléfono y PIN)
 - **Validación de Entrada:** Teléfono (9 dígitos peruanos), PIN numérico (6 dígitos), `deviceId` (alfanumérico 16-64 chars).
 - **Efectos Secundarios:**
-  - Verifica hash bcrypt en tabla `merchants`/`provider_profiles`.
+  - Verifica hash `scrypt + HMAC-SHA256(pinPepper, pin)` mediante `crypto.timingSafeEqual` en tabla `merchant_credentials` / `provider_profiles`.
   - Dispara revocación mono-dispositivo: `revokeSessions(merchantId, { exceptDeviceId })`.
-  - Emite Access Token JWT (TTL 1h) y Refresh Token rotativo (TTL 90d).
+  - Emite Access Token `ks1.*` firmado con HMAC SHA-256 (TTL 900s / 15 min) y Refresh Token rotativo (TTL 90d).
   - Registra entrada en `audit_log` con acción `AUTH_LOGIN`.
 - **Ubicación en Código:** `backend/src/routes/security.routes.ts:L470-L515` (Commit: `d7bac8b329d817bd6cc39f4fae0e751bda319c5d`)
 
-### EP-SEC-02: `POST /security/auth/refresh`
+### EP-SEC-02: `POST /api/v1/auth/refresh`
 - **Actor / Rol:** Merchant / Provider (Token Holder)
 - **Autenticación:** Refresh Token (en body o cabecera)
-- **Validación de Entrada:** String token de 32 bytes hexadecimales, `deviceId` coincidente.
+- **Validación de Entrada:** String token de 32 bytes base64url, `deviceId` coincidente.
 - **Efectos Secundarios:**
   - Valida hash SHA-256 en tabla `refresh_tokens`.
   - Detección de reuso: si el token ya fue utilizado, revoca inmediatamente toda la familia (`family_id`).
   - Emite nuevo Access Token y nuevo Refresh Token (rotación estricta).
 - **Ubicación en Código:** `backend/src/routes/security.routes.ts:L540-L585` (Commit: `d7bac8b329d817bd6cc39f4fae0e751bda319c5d`)
 
-### EP-SEC-03: `POST /security/auth/step-up`
+### EP-SEC-03: `POST /api/v1/auth/step-up`
 - **Actor / Rol:** Merchant / Provider autenticado
-- **Autenticación:** Bearer JWT + Verificación Biométrica Didit o Reingreso de PIN
-- **Validación de Entrada:** `challenge_id` biométrico o PIN en texto claro verificado contra bcrypt.
+- **Autenticación:** Bearer token `ks1` + Verificación Biométrica Didit o Reingreso de PIN
+- **Validación de Entrada:** `challenge_id` biométrico o PIN en texto claro verificado contra `scrypt` (`verifyPin`).
 - **Efectos Secundarios:**
-  - Emite `step_up_token` firmado con TTL corto de 300 segundos (5 minutos).
+  - Emite `step_up_token` firmado con TTL corto de 120 segundos (`stepUpTtlSec = 120`, 2 minutos).
   - Habilita la ejecución de mutaciones sensibles (ej. cambio de cuenta CCI).
 - **Ubicación en Código:** `backend/src/routes/security.routes.ts:L620-L665` (Commit: `d7bac8b329d817bd6cc39f4fae0e751bda319c5d`)
 
 ---
 
-## 2. Módulo de Links de Pago y Checkout (`/links`, `/pay`)
+## 2. Módulo de Links de Pago y Checkout (`/api/v1/payment-links`, `/pay`)
 
-### EP-LNK-01: `POST /links`
+### EP-LNK-01: `POST /api/v1/payment-links`
 - **Actor / Rol:** Merchant / Provider
-- **Autenticación:** Bearer JWT (`requireMerchant`, `requireFeature('LINK_CREATE')`)
+- **Autenticación:** Bearer `ks1` (`requireMerchant`, `requireFeature('LINK_CREATE')`)
 - **Validación de Entrada:** `amount_cents` (entero positivo), `concept` (máx 140 chars), `customer_phone` (opcional), cabecera `Idempotency-Key`.
 - **Efectos Secundarios:**
   - Aplica control de límites transaccionales según plan (Basic máx S/ 5,000).
@@ -57,29 +57,29 @@ Este inventario documenta los endpoints críticos del backend de Kuota, detallan
   - Registra intención en tabla `payment_links` con estado inicial `ACTIVE`.
 - **Ubicación en Código:** `backend/src/routes/paymentLink.routes.ts:L114-L205` (Commit: `d7bac8b329d817bd6cc39f4fae0e751bda319c5d`)
 
-### EP-LNK-02: `GET /links/:id`
+### EP-LNK-02: `GET /api/v1/payment-links/:id`
 - **Actor / Rol:** Merchant propietario / Admin
-- **Autenticación:** Bearer JWT con filtro tenant `WHERE merchant_id = auth.merchantId`
-- **Validación de Entrada:** UUIDv4 de link en parámetro de ruta.
+- **Autenticación:** Bearer `ks1` con filtro tenant `WHERE merchant_id = auth.merchantId`
+- **Validación de Entrada:** Identificador opaco de link en parámetro de ruta.
 - **Efectos Secundarios:**
   - Consulta estado actualizado. Si está `PAID` pero expiró en pasarela, ejecuta refresco.
 - **Ubicación en Código:** `backend/src/routes/paymentLink.routes.ts:L218-L224` (Commit: `d7bac8b329d817bd6cc39f4fae0e751bda319c5d`)
 
-### EP-LNK-03: `POST /links/:id/cancel`
+### EP-LNK-03: `POST /api/v1/payment-links/:id/cancel`
 - **Actor / Rol:** Merchant propietario
-- **Autenticación:** Bearer JWT
-- **Validación de Entrada:** UUIDv4 de link.
+- **Autenticación:** Bearer `ks1`
+- **Validación de Entrada:** Identificador opaco de link.
 - **Efectos Secundarios:**
   - Verifica que el estado actual sea `ACTIVE`.
-  - Actualiza estado a `CANCELLED`.
-  - Registra auditoría y notifica cancelación.
+  - Actualiza estado a `CANCELLED` (UI **"Anulado"**).
+  - Registra auditoría y notifica anulación.
 - **Ubicación en Código:** `backend/src/routes/paymentLink.routes.ts:L270-L295` (Commit: `d7bac8b329d817bd6cc39f4fae0e751bda319c5d`)
 
 ---
 
-## 3. Módulo de Webhooks de Pasarelas (`/webhooks`)
+## 3. Módulo de Webhooks de Pasarelas (`/api/v1/webhooks`)
 
-### EP-WHK-01: `POST /webhooks/360pay`
+### EP-WHK-01: `POST /api/v1/webhooks/360pay`
 - **Actor / Rol:** Pasarela 360Pay (Gateway externo)
 - **Autenticación:** Firma Criptográfica HMAC SHA-256 en cabecera `X-360Pay-Signature`
 - **Validación de Entrada:**
@@ -94,7 +94,7 @@ Este inventario documenta los endpoints críticos del backend de Kuota, detallan
   - Emite evento `payment.paid` y push notification al comercio.
 - **Ubicación en Código:** `backend/src/routes/webhook.routes.ts:L22-L34` y `backend/src/security/webhook.ts:L110-L245` (Commit: `d7bac8b329d817bd6cc39f4fae0e751bda319c5d`)
 
-### EP-WHK-02: `POST /webhooks/didit`
+### EP-WHK-02: `POST /api/v1/webhooks/didit`
 - **Actor / Rol:** Proveedor Biométrico Didit
 - **Autenticación:** Firma Criptográfica HMAC SHA-256 en cabecera `X-Didit-Signature`
 - **Validación de Entrada:** Objeto JSON con `session_id`, `status: 'Approved' | 'Declined'`, `features`.
@@ -105,40 +105,40 @@ Este inventario documenta los endpoints críticos del backend de Kuota, detallan
 
 ---
 
-## 4. Módulo de Proveedores y Conciliación (`/provider`, `/provider-payments`)
+## 4. Módulo de Proveedores y Conciliación (`/api/v1/providers`)
 
-### EP-PRV-01: `GET /provider/me`
+### EP-PRV-01: `GET /api/v1/providers/me`
 - **Actor / Rol:** Provider autenticado
-- **Autenticación:** Bearer JWT o Token Provider (`X-Provider-Id` + `X-Provider-Token`)
+- **Autenticación:** Token Provider (`X-Provider-Id` + `X-Provider-Token`) / Bearer
 - **Validación de Entrada:** Ninguna.
 - **Efectos Secundarios:**
   - Retorna perfil, RUC, estado KYC, banco y CCI de liquidación enmascarado (`mask(cci, 4)`).
 - **Ubicación en Código:** `backend/src/routes/provider.routes.ts:L798-L830` (Commit: `d7bac8b329d817bd6cc39f4fae0e751bda319c5d`)
 
-### EP-PRV-02: `PUT /provider/settlement-account`
+### EP-PRV-02: `PUT /api/v1/providers/settlement-account`
 - **Actor / Rol:** Provider autenticado
-- **Autenticación:** Bearer JWT + Step-Up Token obligatorio
-- **Validación de Entrada:** `bank_code` (BCP, BBVA, Interbank, Scotiabank, BanBif), `cci` (20 dígitos con algoritmo de dígito de control bancario).
+- **Autenticación:** Bearer + Step-Up Token obligatorio
+- **Validación de Entrada:** `bank` (`BCP`, `BBVA`, `Interbank`, `Scotiabank`, `Banco de la Nación`, `BanBif`), `cci` (20 dígitos con validación interbancaria).
 - **Efectos Secundarios:**
   - Valida algoritmo de CCI bancario peruano (`validateCci`).
   - Actualiza `settlement_bank` y `settlement_cci` en `provider_profiles`.
   - Registra evento de auditoría con alta severidad en `audit_log`.
 - **Ubicación en Código:** `backend/src/routes/provider.routes.ts:L649-L690` (Commit: `d7bac8b329d817bd6cc39f4fae0e751bda319c5d`)
 
-### EP-PRV-03: `GET /provider/orders`
+### EP-PRV-03: `GET /api/v1/providers/orders`
 - **Actor / Rol:** Provider autenticado
-- **Autenticación:** Bearer JWT / Provider Token
-- **Validación de Entrada:** Parámetros opcionales de paginación (`limit`, `offset`).
+- **Autenticación:** Bearer / Provider Token
+- **Validación de Entrada:** Parámetros opcionales de paginación.
 - **Efectos Secundarios:**
-  - Lee pedidos mayoristas y órdenes bajo crédito aKuotas!.
-  - Discrimina estado `settled` para separar órdenes pendientes ("Por cobrar") de liquidadas ("Cancelado").
+  - Fuente Única de Verdad para Inicio y Conciliación: lee pedidos mayoristas **aKuotas!** y links de pago `Kuota Payments`.
+  - Discrimina estado `settled` para separar órdenes liquidadas ("Cancelado") frente a pendientes ("Por confirmar" / "Por cobrar").
 - **Ubicación en Código:** `backend/src/routes/provider.routes.ts:L694-L760` (Commit: `d7bac8b329d817bd6cc39f4fae0e751bda319c5d`)
 
 ---
 
-## 5. Módulo de Sandbox y Simulación (`/dev`)
+## 5. Módulo de Sandbox y Simulación (`/api/v1/dev`)
 
-### EP-DEV-01: `POST /dev/settle-pending`
+### EP-DEV-01: `POST /api/v1/dev/settle-pending`
 - **Actor / Rol:** Desarrollador / Tester QA en Sandbox
 - **Autenticación:** Restringido a entornos no productivos (`config.isProd === false` y `config.sandboxEnabled === true`)
 - **Validación de Entrada:** `window_ms` opcional (por defecto 300,000 ms = 5 minutos).
@@ -152,11 +152,11 @@ Este inventario documenta los endpoints críticos del backend de Kuota, detallan
 
 ---
 
-## 6. Módulo Interno y Reconciliación (`/internal`)
+## 6. Módulo Interno, Reconciliación y Salud (`/api/v1/internal`, `/api/v1/health`)
 
-### EP-INT-01: `POST /internal/reconciliation/run`
+### EP-INT-01: `POST /api/v1/internal/reconciliation/run`
 - **Actor / Rol:** Admin Interno / Cron Job del Sistema
-- **Autenticación:** Clave de API interna (`X-Internal-Key`)
+- **Autenticación:** Clave de API interna (`X-Admin-Token`)
 - **Validación de Entrada:** `businessDate` (YYYY-MM-DD, opcional), `providerReport` (array opcional de extracto 360Pay).
 - **Efectos Secundarios:**
   - Ejecuta `runReconciliation()`.
@@ -164,3 +164,11 @@ Este inventario documenta los endpoints críticos del backend de Kuota, detallan
   - Genera excepciones de descalce si existen cobros capturados no acreditados (`CAPTURED_NOT_CREDITED`).
   - Sella el acta de conciliación y ancla la cadena hash mediante `anchorAuditChain()`.
 - **Ubicación en Código:** `backend/src/routes/internal.routes.ts:L210-L260` y `backend/src/security/reconciliation.ts:L45-L125` (Commit: `d7bac8b329d817bd6cc39f4fae0e751bda319c5d`)
+
+### EP-PUB-01: `GET /api/v1/health`
+- **Actor / Rol:** Público / Monitor de Infraestructura (Railway)
+- **Autenticación:** Pública (exenta del gate de versión mínima de APK)
+- **Validación de Entrada:** Ninguna.
+- **Efectos Secundarios:**
+  - Retorna estado operacional del backend (`status: 'ok'`, `version`, `min_app_version_code`, `sandbox`, `fee_bps` y `timestamp`).
+- **Ubicación en Código:** `backend/src/app.ts:L100-L111` (Commit: `d7bac8b329d817bd6cc39f4fae0e751bda319c5d`)
