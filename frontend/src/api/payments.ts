@@ -95,6 +95,7 @@ export async function openSessionWithPin(pin: string): Promise<void> {
         setProviderToken(r.provider.provider_token);
       }
       session = { token: r.access_token, expiresAt: Date.parse(r.expires_at) };
+      if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('kuota:payments-session'));
 }
 
 function openSession(summary = 'Para cobrar con Kuota confirmamos que eres tú.'): Promise<void> {
@@ -129,6 +130,7 @@ export function ensurePaymentsAccountForProvider(): Promise<void> {
       setMerchantToken(r.identity_token);
       if ((r as any).refresh_token) setRefreshToken((r as any).refresh_token);
       session = { token: r.access_token, expiresAt: Date.parse(r.expires_at) };
+      if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('kuota:payments-session'));
     }
   });
 }
@@ -195,6 +197,14 @@ async function secureRequest<T>(endpoint: string, options: RequestInit & { silen
 // ------------------------------------------------------------- tipos
 export type LinkStatus = 'DRAFT' | 'ACTIVE' | 'ON_HOLD' | 'PAID' | 'CANCELLED' | 'EXPIRED';
 
+export type SettlementStatus =
+  | 'SETTLED'
+  | 'PENDING_SETTLEMENT'
+  | 'CANCELLED'
+  | 'FAILED'
+  | 'EXPIRED'
+  | 'UNPAID';
+
 export interface PaymentLink {
   id: string;
   amount_cents: number;
@@ -207,6 +217,14 @@ export interface PaymentLink {
   created_at: string;
   paid_at: string | null;
   settled_at: string | null;
+  settlement_status?: SettlementStatus;
+  settlement_eta_at?: string | null;
+  settlement_overdue?: boolean;
+  settlement_window_ms?: number;
+  settlement_calendar_mode?: string;
+  settlement_sla_note?: string;
+  last_attempt_failed?: boolean;
+  last_attempt_reason?: string | null;
   url: string | null;
   code?: string;
   /** Código de 360pay para pagar en bancos y agentes. */

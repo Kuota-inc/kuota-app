@@ -113,6 +113,21 @@ export const config = {
   /** Espera para que una subida de límites entre en vigor. */
   limitRaiseDelayHours: 24,
   linkTtlHours: 48,
+  /**
+   * Plazo estimado de liquidación al proveedor (48 horas por defecto).
+   * PENDIENTE DE VALIDAR CON 360PAY: confirmar plazo contractual definitivo y si el cómputo
+   * es en horas hábiles (BUSINESS_HOURS) o horas calendario (CALENDAR_HOURS).
+   */
+  settlementEstimatedHours: intEnv('KUOTA_SETTLEMENT_ESTIMATED_HOURS', 48),
+  settlementCalendarMode: (process.env.KUOTA_SETTLEMENT_CALENDAR_MODE || 'PENDING_360_VALIDATION') as
+    | 'BUSINESS_HOURS'
+    | 'CALENDAR_HOURS'
+    | 'PENDING_360_VALIDATION',
+  /**
+   * Ventana configurable en sandbox para simular las 48 horas previstas de liquidación
+   * (por defecto 5 minutos = 300_000 ms). Solo aplica fuera de producción y sobre datos de prueba.
+   */
+  sandboxSettlementWindowMs: intEnv('KUOTA_SETTLEMENT_WINDOW_MS', 5 * 60 * 1000),
   /** Topes que impone 360pay: siempre se aplica el más restrictivo. */
   partnerLimits: {
     perTxCents: intEnv('KUOTA_PARTNER_MAX_TX_CENTS', 1_000_000),

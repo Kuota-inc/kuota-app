@@ -1,0 +1,210 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "Kuota - Conciliacion Diaria, Discrepancias e Incidentes",
+    "output": "docs/auditoria-archify/v7-conciliacion-incidentes.html",
+    "animation": "trace",
+    "visual_preset": "signal-flow",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "reconciliation-run",
+        "label": "Ejecucion de Conciliacion Diaria",
+        "focus": ["cron_trigger", "fetch_360", "run_reconciliation", "diff_check", "audit_hash", "reconciled_seal"],
+        "note": "Cruce automatizado diario de movimientos contables y estado de saldos en pasarela."
+      },
+      {
+        "id": "discrepancy-circuit",
+        "label": "Deteccion de Descalce y Circuit Breaker",
+        "focus": ["diff_check", "circuit_breaker", "incident_ticket"],
+        "note": "Disparo preventivo que frena liquidaciones masivas ante descalces de saldos detectados."
+      }
+    ]
+  },
+  "lanes": [
+    {
+      "id": "cron",
+      "label": "Planificador y Triggers"
+    },
+    {
+      "id": "reconciler",
+      "label": "Motor de Conciliacion"
+    },
+    {
+      "id": "safety",
+      "label": "Seguridad y Circuit Breaker"
+    },
+    {
+      "id": "ledger",
+      "label": "Ledger y Auditoria Inmutable"
+    }
+  ],
+  "phases": [
+    {
+      "id": "phase_extract",
+      "label": "Extraccion de Saldos",
+      "fromCol": 0,
+      "toCol": 1
+    },
+    {
+      "id": "phase_compare",
+      "label": "Cruce y Evaluacion",
+      "fromCol": 2,
+      "toCol": 3,
+      "variant": "emphasis"
+    },
+    {
+      "id": "phase_seal",
+      "label": "Sellado o Incidente",
+      "fromCol": 4,
+      "toCol": 5,
+      "variant": "dashed"
+    }
+  ],
+  "mainPath": ["cron_trigger", "fetch_360", "run_reconciliation", "diff_check", "audit_hash", "reconciled_seal"],
+  "nodes": [
+    {
+      "id": "cron_trigger",
+      "lane": "cron",
+      "col": 0,
+      "type": "messagebus",
+      "label": "Cron Diario",
+      "sublabel": "corte medianoche",
+      "width": 132
+    },
+    {
+      "id": "fetch_360",
+      "lane": "reconciler",
+      "col": 1,
+      "type": "cloud",
+      "label": "Saldos 360Pay",
+      "sublabel": "reporte pasarela",
+      "width": 132
+    },
+    {
+      "id": "run_reconciliation",
+      "lane": "reconciler",
+      "col": 2,
+      "type": "backend",
+      "label": "Cruzar Ledger",
+      "sublabel": "runReconciliation()",
+      "tag": "partida_doble",
+      "width": 132
+    },
+    {
+      "id": "diff_check",
+      "lane": "reconciler",
+      "col": 3,
+      "type": "backend",
+      "label": "Evaluar Descalce",
+      "sublabel": "delta saldos",
+      "width": 132
+    },
+    {
+      "id": "circuit_breaker",
+      "lane": "safety",
+      "col": 4,
+      "type": "security",
+      "label": "Circuit Breaker",
+      "sublabel": "bloquea payouts",
+      "tag": "alerta_critica",
+      "width": 132
+    },
+    {
+      "id": "audit_hash",
+      "lane": "ledger",
+      "col": 4,
+      "type": "database",
+      "label": "Encadenar Hash",
+      "sublabel": "SHA-256 inmutable",
+      "width": 132
+    },
+    {
+      "id": "incident_ticket",
+      "lane": "safety",
+      "col": 5,
+      "type": "external",
+      "label": "Abrir Incidente",
+      "sublabel": "alerta ops / 360",
+      "width": 132
+    },
+    {
+      "id": "reconciled_seal",
+      "lane": "ledger",
+      "col": 5,
+      "type": "database",
+      "label": "Cierre Conciliado",
+      "sublabel": "acta inmutable",
+      "tag": "audit_ok",
+      "width": 132
+    }
+  ],
+  "edges": [
+    {
+      "id": "e_cron_fetch",
+      "from": "cron_trigger",
+      "to": "fetch_360",
+      "label": "trigger diario",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e_fetch_rec",
+      "from": "fetch_360",
+      "to": "run_reconciliation",
+      "label": "reporte liquidacion",
+      "variant": "default"
+    },
+    {
+      "id": "e_rec_diff",
+      "from": "run_reconciliation",
+      "to": "diff_check",
+      "label": "balance ledger",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e_diff_breaker",
+      "from": "diff_check",
+      "to": "circuit_breaker",
+      "label": "descalce > 0",
+      "variant": "security"
+    },
+    {
+      "id": "e_breaker_incident",
+      "from": "circuit_breaker",
+      "to": "incident_ticket",
+      "label": "alarma ops",
+      "variant": "security"
+    },
+    {
+      "id": "e_diff_hash",
+      "from": "diff_check",
+      "to": "audit_hash",
+      "label": "cuadrado 100%",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e_hash_seal",
+      "from": "audit_hash",
+      "to": "reconciled_seal",
+      "label": "sellado criptografico",
+      "variant": "default"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Motor de Conciliacion",
+      "items": [
+        "runReconciliation() contrasta movimientos del ledger de partida doble con reportes de 360Pay"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Proteccion y Circuit Breaker",
+      "items": [
+        "Cualquier descalce no cuadrado activa el circuit breaker congelando payouts y preservando auditoria"
+      ]
+    }
+  ]
+}

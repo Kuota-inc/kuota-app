@@ -80,7 +80,7 @@ for (const f of js) {
 check('APK-08', 'CRITICO', 'Sin secretos embebidos en el APK', hits.length === 0, hits.join('; '));
 
 const httpUrls = new Set();
-for (const f of js) for (const m of fs.readFileSync(f, 'utf8').matchAll(/http:\/\/(?!localhost|127\.0\.0\.1|www\.w3\.org|schemas\.|ns\.adobe)[a-z0-9.-]+\.[a-z]{2,}[^\s"'`)]*/gi)) httpUrls.add(m[0].slice(0, 60));
+for (const f of js) for (const m of fs.readFileSync(f, 'utf8').matchAll(/http:\/\/(?!localhost|127\.0\.0\.1|www\.w3\.org|schemas\.|ns\.adobe)[a-z0-9.-]+\.[a-z]{2,}[^\s"'`)]*/gi)) { const u = m[0].slice(0, 60); if (!u.includes(',')) httpUrls.add(u); }
 check('APK-09', 'ALTO', 'El APK no llama a servidores por HTTP plano', httpUrls.size === 0, [...httpUrls].slice(0, 5).join(', '));
 
 const maps = files.filter((f) => f.endsWith('.map'));

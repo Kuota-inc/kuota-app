@@ -13,6 +13,7 @@ export type PaymentEventType =
   | 'CANCELLED'
   | 'EXPIRED'
   | 'PAID'
+  | 'SETTLED'
   | 'PAYMENT_REJECTED'
   | 'TAMPER_DETECTED';
 

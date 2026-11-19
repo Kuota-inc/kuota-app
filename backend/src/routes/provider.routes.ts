@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { db } from '../db/database.js';
+import { paymentsDb } from '../db/client.js';
 import { sunatService } from '../services/sunat.service.js';
 import { docError, isValidDoc, normalizeDoc, parseDocType } from '../security/identityDoc.js';
 import { startVerification } from '../services/kyc.service.js';
@@ -9,11 +10,12 @@ import crypto from 'node:crypto';
 import type { Request, Response } from 'express';
 import { config } from '../security/config.js';
 import { audit } from '../security/audit.js';
+import { merchantTokenRequired, verifyIdentityToken } from '../security/auth.js';
 import { randomToken, verifyPin } from '../security/crypto.js';
 import { checkCci } from '../security/cci.js';
 import { optionalIdempotent, rateLimit } from '../security/guards.js';
 import { clientIp, fail, headerString } from '../security/http.js';
-import { avatarUrl } from '../security/links.js';
+import { avatarUrl, ownerView, type LinkRow } from '../security/links.js';
 import { parseAvatar } from './merchant.routes.js';
 
 const sha256 = (v: string) => crypto.createHash('sha256').update(v).digest('hex');
@@ -688,7 +690,7 @@ providerRouter.put('/settlement-account', optionalIdempotent, async (req, res) =
   res.json({ success: true, bank: check.bank, account_masked: '•'.repeat(16) + check.cci.slice(-4), status: 'ACTIVE' });
 });
 
-// Pedidos del proveedor: compras que los comercios le hicieron con aKuotas!. Solo los suyos.
+// Pedidos y cobros del proveedor: fuente única de verdad para Inicio y Conciliación (aKuotas! + Kuota Payments).
 providerRouter.get('/orders', async (req, res) => {
   const id = await authProvider(req, res);
   if (id === undefined) return;
@@ -702,11 +704,39 @@ providerRouter.get('/orders', async (req, res) => {
     ORDER BY cp.issued_at DESC
     LIMIT 50
   `).all(id)) as Array<Record<string, any>>;
+
+  // Resolver cuenta Kuota Payments asociada al mismo proveedor para unificar Inicio y Conciliación.
+  const linkedMerchant = (await db.prepare(`
+    SELECT m.id
+    FROM provider_profiles p
+    JOIN merchant_profiles m ON (m.user_id = p.user_id OR (p.ruc IS NOT NULL AND m.ruc = p.ruc))
+    WHERE p.id = ?
+    ORDER BY CASE WHEN m.user_id = p.user_id THEN 0 ELSE 1 END
+    LIMIT 1
+  `).get(id)) as { id: string } | undefined;
+
+  let merchantId = linkedMerchant?.id ?? null;
+  if (!merchantId) {
+    const headerMerchantId = headerString(req, 'x-merchant-id');
+    if (headerMerchantId && ((await verifyIdentityToken(req, headerMerchantId)) || !merchantTokenRequired())) {
+      merchantId = headerMerchantId;
+    }
+  }
+
+  let paymentLinks: Awaited<ReturnType<typeof ownerView>>[] = [];
+  if (merchantId) {
+    const linkRows = (await paymentsDb
+      .prepare('SELECT * FROM payment_links WHERE merchant_id = ? ORDER BY created_at DESC LIMIT 50')
+      .all(merchantId)) as LinkRow[];
+    paymentLinks = await Promise.all(linkRows.map((r) => ownerView(r)));
+  }
+
   res.json({
     summary: {
       count: rows.length,
       total_cents: rows.reduce((sum, r) => sum + Number(r.total_cents || 0), 0),
-      settled_count: rows.filter((r) => r.settled_at).length
+      settled_count: rows.filter((r) => r.settled_at).length,
+      payment_links_count: paymentLinks.length
     },
     orders: rows.map((r) => ({
       id: r.id,
@@ -716,7 +746,8 @@ providerRouter.get('/orders', async (req, res) => {
       status: r.status,
       issued_at: r.issued_at,
       settled: !!r.settled_at
-    }))
+    })),
+    payment_links: paymentLinks
   });
 });
 

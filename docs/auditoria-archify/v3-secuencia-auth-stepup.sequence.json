@@ -1,0 +1,237 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "Kuota - Autenticacion, Revocacion y Step-Up Biometrico",
+    "quality_profile": "showcase",
+    "output": "docs/auditoria-archify/v3-secuencia-auth-stepup.html",
+    "viewBox": [1080, 580],
+    "column_fit": "spread",
+    "views": [
+      {
+        "id": "login-and-revocation",
+        "label": "Login y Revocacion de Sesiones",
+        "focus": ["merchant", "app", "api", "guards", "db"],
+        "note": "Inicio de sesion con PIN, rotacion de refresh tokens y revocacion de sesiones previas."
+      },
+      {
+        "id": "step-up-challenge",
+        "label": "Step-up con Biometria ECDSA",
+        "focus": ["merchant", "app", "api", "guards"],
+        "note": "Desafio criptografico de biometria local respaldada por clave publica ECDSA P-256."
+      },
+      {
+        "id": "rate-limit-lockout",
+        "label": "Bloqueo por Fallos y Cooldown",
+        "focus": ["merchant", "app", "api", "db"],
+        "note": "Manejo de intentos fallidos de PIN y activacion de cooldown de 24 horas por cambio de dispositivo."
+      }
+    ]
+  },
+  "participants": [
+    {
+      "id": "merchant",
+      "type": "external",
+      "label": "Comercio",
+      "sublabel": "Usuario Movil"
+    },
+    {
+      "id": "app",
+      "type": "frontend",
+      "label": "Kuota App",
+      "sublabel": "React 19 / KeyStore",
+      "brand": "react"
+    },
+    {
+      "id": "api",
+      "type": "backend",
+      "label": "Express API",
+      "sublabel": "security.routes.ts",
+      "brand": "node-js"
+    },
+    {
+      "id": "guards",
+      "type": "security",
+      "label": "Security Guard",
+      "sublabel": "auth.ts / guards.ts"
+    },
+    {
+      "id": "db",
+      "type": "database",
+      "label": "PostgreSQL Core",
+      "sublabel": "public.refresh_tokens",
+      "brand": "postgresql"
+    }
+  ],
+  "segments": [
+    {
+      "from": 160,
+      "to": 295,
+      "label": "Fase 1: Login y Revocacion de Sesion Unica"
+    },
+    {
+      "from": 305,
+      "to": 415,
+      "label": "Fase 2: Operacion Sensible y Step-up ECDSA"
+    },
+    {
+      "from": 425,
+      "to": 505,
+      "label": "Fase 3: Rama Adversa (Bloqueo 5to Intento)"
+    }
+  ],
+  "messages": [
+    {
+      "id": "msg-enter-pin",
+      "from": "merchant",
+      "to": "app",
+      "y": 170,
+      "label": "Ingresa PIN y Dispositivo",
+      "variant": "default"
+    },
+    {
+      "id": "msg-post-sessions",
+      "from": "app",
+      "to": "api",
+      "y": 198,
+      "label": "POST /sessions",
+      "variant": "emphasis"
+    },
+    {
+      "id": "msg-verify-pin",
+      "from": "api",
+      "to": "guards",
+      "y": 226,
+      "label": "verifyPin + checkCooldown",
+      "variant": "security"
+    },
+    {
+      "id": "msg-revoke-others",
+      "from": "guards",
+      "to": "db",
+      "y": 254,
+      "label": "revokeSessions(exceptDeviceId)",
+      "variant": "security"
+    },
+    {
+      "id": "msg-login-return",
+      "from": "api",
+      "to": "app",
+      "y": 282,
+      "label": "200 OK (access 15m, refresh 90d)",
+      "variant": "return"
+    },
+    {
+      "id": "msg-req-challenge",
+      "from": "app",
+      "to": "api",
+      "y": 317,
+      "label": "POST /biometrics/challenge",
+      "variant": "emphasis"
+    },
+    {
+      "id": "msg-return-nonce",
+      "from": "api",
+      "to": "app",
+      "y": 345,
+      "label": "200 OK (nonce TTL 5m)",
+      "variant": "return"
+    },
+    {
+      "id": "msg-sign-biometric",
+      "from": "app",
+      "to": "api",
+      "y": 373,
+      "label": "POST /biometrics/verify (ECDSA)",
+      "variant": "security"
+    },
+    {
+      "id": "msg-stepup-ok",
+      "from": "api",
+      "to": "app",
+      "y": 401,
+      "label": "200 OK (stepUpToken)",
+      "variant": "return"
+    },
+    {
+      "id": "msg-fail-pin",
+      "from": "app",
+      "to": "api",
+      "y": 436,
+      "label": "POST /sessions (PIN erroneo #5)",
+      "variant": "emphasis"
+    },
+    {
+      "id": "msg-lockout-db",
+      "from": "api",
+      "to": "db",
+      "y": 464,
+      "label": "SET lockout_until (15 min)",
+      "variant": "security"
+    },
+    {
+      "id": "msg-429-lockout",
+      "from": "api",
+      "to": "merchant",
+      "y": 492,
+      "label": "429 Too Many Requests (Lockout 15m)",
+      "variant": "return"
+    }
+  ],
+  "activations": [
+    {
+      "participant": "app",
+      "from": 170,
+      "to": 287,
+      "type": "frontend"
+    },
+    {
+      "participant": "api",
+      "from": 198,
+      "to": 282,
+      "type": "backend"
+    },
+    {
+      "participant": "guards",
+      "from": 226,
+      "to": 258,
+      "type": "security"
+    },
+    {
+      "participant": "app",
+      "from": 317,
+      "to": 405,
+      "type": "frontend"
+    },
+    {
+      "participant": "api",
+      "from": 317,
+      "to": 401,
+      "type": "backend"
+    },
+    {
+      "participant": "api",
+      "from": 436,
+      "to": 496,
+      "type": "backend"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "amber",
+      "title": "Revocacion Estricta y Step-Up",
+      "items": [
+        "revokeSessions(id, { exceptDeviceId }) cierra toda sesion previa del comercio",
+        "El step-up verifica firma ECDSA P-256 contra payments.merchant_biometric_keys"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Bloqueo Anti-Fuerza Bruta",
+      "items": [
+        "Tras 5 fallos consecutivos de PIN, se activa bloqueo temporal de 15 minutos",
+        "Cambio de dispositivo impone ventana de enfriamiento de 24 horas"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,201 @@
+{
+  "schema_version": 1,
+  "diagram_type": "lifecycle",
+  "meta": {
+    "title": "Kuota - Ciclo de Vida de Links, Pagos y Liquidacion",
+    "output": "docs/auditoria-archify/v5-ciclo-vida-pagos.html",
+    "viewBox": [1080, 630],
+    "animation": "trace",
+    "visual_preset": "signal-flow",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "promotion-rail",
+        "label": "Riel de Cobro y Liquidacion",
+        "focus": ["link_emitido", "pago_recibido", "por_confirmar", "en_liquidacion", "cancelado_pagado"],
+        "note": "Fases ordenadas desde la emision del link hasta la liquidacion final en cuenta bancaria."
+      },
+      {
+        "id": "waits-and-gaps",
+        "label": "Estados de Espera y Gaps",
+        "focus": ["por_confirmar", "espera_liquidacion", "en_liquidacion", "pendiente_360"],
+        "note": "Estados donde la operacion se pausa en espera de abono o confirmacion de webhook de 360Pay."
+      },
+      {
+        "id": "terminal-exits",
+        "label": "Salidas Terminales y Excepciones",
+        "focus": ["espera_liquidacion", "operacion_anulada", "pendiente_360", "liquidacion_fallida", "comprobante_emitido"],
+        "note": "Diferenciacion entre anulacion, rechazo bancario de CCI y cancelado auditado con comprobante."
+      }
+    ]
+  },
+  "lanes": [
+    {
+      "id": "main",
+      "label": "Fases Principales (Riel de Pagos)"
+    },
+    {
+      "id": "waiting",
+      "label": "Esperas e Interrupciones"
+    },
+    {
+      "id": "terminal",
+      "label": "Salidas Terminales"
+    }
+  ],
+  "states": [
+    {
+      "id": "link_emitido",
+      "type": "start",
+      "label": "Link Emitido",
+      "sublabel": "cupon 360Pay",
+      "lane": "main",
+      "col": 0,
+      "step": "01",
+      "tag": "emision"
+    },
+    {
+      "id": "pago_recibido",
+      "type": "active",
+      "label": "Pago Recibido",
+      "sublabel": "webhook HMAC OK",
+      "lane": "main",
+      "col": 1,
+      "step": "02",
+      "tag": "notificado"
+    },
+    {
+      "id": "por_confirmar",
+      "type": "waiting",
+      "label": "Por Confirmar",
+      "sublabel": "en conciliacion",
+      "lane": "main",
+      "col": 2,
+      "step": "03",
+      "tag": "espera_abono"
+    },
+    {
+      "id": "en_liquidacion",
+      "type": "active",
+      "label": "En Liquidacion",
+      "sublabel": "48h / 5m sandbox",
+      "lane": "main",
+      "col": 3,
+      "step": "04",
+      "tag": "en_transito"
+    },
+    {
+      "id": "cancelado_pagado",
+      "type": "success",
+      "label": "Cancelado",
+      "sublabel": "liquidado en cuenta",
+      "lane": "main",
+      "col": 4,
+      "step": "05",
+      "tag": "completado"
+    },
+    {
+      "id": "espera_liquidacion",
+      "type": "waiting",
+      "label": "Espera Abono",
+      "sublabel": "revision bancaria",
+      "lane": "waiting",
+      "col": 0,
+      "tag": "pausa"
+    },
+    {
+      "id": "pendiente_360",
+      "type": "waiting",
+      "label": "Pendiente 360",
+      "sublabel": "plazo sin webhook",
+      "lane": "waiting",
+      "col": 1,
+      "tag": "gap_validacion"
+    },
+    {
+      "id": "operacion_anulada",
+      "type": "failure",
+      "label": "Anulado / Reversado",
+      "sublabel": "devolucion cliente",
+      "lane": "terminal",
+      "col": 0,
+      "tag": "terminal"
+    },
+    {
+      "id": "liquidacion_fallida",
+      "type": "failure",
+      "label": "Rechazo Payout",
+      "sublabel": "error CCI destino",
+      "lane": "terminal",
+      "col": 1,
+      "tag": "terminal"
+    },
+    {
+      "id": "comprobante_emitido",
+      "type": "success",
+      "label": "Auditado y Sellado",
+      "sublabel": "hash SHA-256 ledger",
+      "lane": "terminal",
+      "col": 2,
+      "tag": "terminal"
+    }
+  ],
+  "transitions": [
+    {
+      "from": "por_confirmar",
+      "to": "espera_liquidacion",
+      "variant": "security",
+      "route": "straight",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "from": "espera_liquidacion",
+      "to": "operacion_anulada",
+      "variant": "security",
+      "route": "straight",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "from": "en_liquidacion",
+      "to": "pendiente_360",
+      "variant": "security",
+      "route": "straight",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "from": "pendiente_360",
+      "to": "liquidacion_fallida",
+      "variant": "security",
+      "route": "straight",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "from": "cancelado_pagado",
+      "to": "comprobante_emitido",
+      "variant": "emphasis",
+      "route": "straight",
+      "fromSide": "bottom",
+      "toSide": "top"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "amber",
+      "title": "Distincion de Fondos",
+      "items": [
+        "Pagos recibidos se reflejan 'Por confirmar' mientras esperan liquidacion bancaria; aKuotas! van bajo 'Por cobrar'"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Semantica 'Cancelado'",
+      "items": [
+        "'Cancelado' denota pagado/liquidado (no anulado); sandbox simula 5m, prod requiere webhook 360Pay"
+      ]
+    }
+  ]
+}
