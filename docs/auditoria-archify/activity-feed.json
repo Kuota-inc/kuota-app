@@ -1,16 +1,42 @@
 {
-  "updated_at": "2026-11-19 04:19 UTC",
-  "branch": "fix/proveedor-inicio-conciliacion",
-  "latest_sha": "e338ff74ea2d633afdca3ff818f92c8ebaaf0578",
-  "latest_short_sha": "e338ff7",
+  "updated_at": "2026-11-19 04:28 UTC",
+  "branch": "main",
+  "latest_sha": "6dc5b4a744cca649b16ca9cc30e65097a63a2538",
+  "latest_short_sha": "6dc5b4a",
   "events": [
+    {
+      "sha": "6dc5b4a744cca649b16ca9cc30e65097a63a2538",
+      "short_sha": "6dc5b4a",
+      "author": "Kuota",
+      "subject": "Merge pull request #21 from Kuota-inc/fix/proveedor-inicio-conciliacion",
+      "timestamp": 1795062519,
+      "rel_time": "Hace un momento",
+      "date": "Wed Nov 18 23:28:39 2026 -0500",
+      "is_agent": false,
+      "tag": "Fix",
+      "badge_class": "fix",
+      "url": "https://github.com/Kuota-inc/kuota-app/commit/6dc5b4a744cca649b16ca9cc30e65097a63a2538"
+    },
+    {
+      "sha": "2416b979c5e175404f13b4cc5194c8346fc3cacc",
+      "short_sha": "2416b97",
+      "author": "kuota-portal-agent[bot]",
+      "subject": "chore(agent): sync portal with commit e338ff7 [skip ci]",
+      "timestamp": 1795061959,
+      "rel_time": "Hace 9 min",
+      "date": "Thu Nov 19 04:19:19 2026 +0000",
+      "is_agent": true,
+      "tag": "Agente Kuota",
+      "badge_class": "agent",
+      "url": "https://github.com/Kuota-inc/kuota-app/commit/2416b979c5e175404f13b4cc5194c8346fc3cacc"
+    },
     {
       "sha": "e338ff74ea2d633afdca3ff818f92c8ebaaf0578",
       "short_sha": "e338ff7",
       "author": "Kuota",
       "subject": "fix(audit): APK-09 excluir URLs con comas (falso positivo de robots.txt en deps)",
       "timestamp": 1795061943,
-      "rel_time": "Hace un momento",
+      "rel_time": "Hace 9 min",
       "date": "Wed Nov 18 23:19:03 2026 -0500",
       "is_agent": false,
       "tag": "Fix",
@@ -23,7 +49,7 @@
       "author": "Kuota",
       "subject": "fix(provider): renombrar badge 'Cancelado' -> 'Liquidado' en ventas liquidadas",
       "timestamp": 1795061881,
-      "rel_time": "Hace un momento",
+      "rel_time": "Hace 10 min",
       "date": "Wed Nov 18 23:18:01 2026 -0500",
       "is_agent": false,
       "tag": "Fix",
@@ -237,32 +263,6 @@
       "tag": "Agente Kuota",
       "badge_class": "agent",
       "url": "https://github.com/Kuota-inc/kuota-app/commit/8653615e4e093b2e5df869545fd9b6b52816a315"
-    },
-    {
-      "sha": "cd3f2b03d483e1cf124b95b9d99ac1d415f34636",
-      "short_sha": "cd3f2b0",
-      "author": "Kuota",
-      "subject": "feat(portal): add floating notification bell and real-time agent activity center with live CI/CD commit feed",
-      "timestamp": 1794717222,
-      "rel_time": "Hace 3 d",
-      "date": "Sat Nov 14 23:33:42 2026 -0500",
-      "is_agent": false,
-      "tag": "Feature",
-      "badge_class": "feat",
-      "url": "https://github.com/Kuota-inc/kuota-app/commit/cd3f2b03d483e1cf124b95b9d99ac1d415f34636"
-    },
-    {
-      "sha": "4141c308dd74dc9369207cae3dcfd59961395bac",
-      "short_sha": "4141c30",
-      "author": "kuota-portal-agent[bot]",
-      "subject": "chore(agent): sync portal with commit 56d30d8 [skip ci]",
-      "timestamp": 1794694855,
-      "rel_time": "Hace 4 d",
-      "date": "Sat Nov 14 22:20:55 2026 +0000",
-      "is_agent": true,
-      "tag": "Agente Kuota",
-      "badge_class": "agent",
-      "url": "https://github.com/Kuota-inc/kuota-app/commit/4141c308dd74dc9369207cae3dcfd59961395bac"
     }
   ]
 }
