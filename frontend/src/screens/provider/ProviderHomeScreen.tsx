@@ -43,7 +43,7 @@ interface SaleItem {
   cents: number;
   feeCents: number;
   netCents: number;
-  status: 'Por confirmar' | 'Cancelado' | 'Por cobrar' | 'Anulado' | 'Fallido' | 'Vencido';
+  status: 'Por confirmar' | 'Liquidado' | 'Por cobrar' | 'Anulado' | 'Fallido' | 'Vencido';
   tone: string;
   detail: string;
   ok: boolean;
@@ -184,7 +184,7 @@ export const ProviderHomeScreen: React.FC<{ onLogout: () => void; onSell: () => 
       const r = await paymentsApi.sandboxSettle();
       toast.success(
         r.settled > 0
-          ? `${r.settled} cobro${r.settled === 1 ? '' : 's'} liquidado${r.settled === 1 ? '' : 's'} (Cancelado).`
+          ? `${r.settled} cobro${r.settled === 1 ? '' : 's'} liquidado${r.settled === 1 ? '' : 's'}.`
           : 'Ningún cobro superó aún la ventana de 5 min en sandbox.'
       );
       await loadProviderData(true);
@@ -260,7 +260,7 @@ export const ProviderHomeScreen: React.FC<{ onLogout: () => void; onSell: () => 
     const unpaidLinks = allLinks.filter(
       (l) => (l.status === 'ACTIVE' || l.status === 'ON_HOLD' || l.status === 'DRAFT') && !l.last_attempt_failed && l.settlement_status !== 'FAILED'
     );
-    // Links anulados o con intento fallido en el periodo (distinguidos de "Cancelado" = liquidado).
+    // Links anulados o con intento fallido en el periodo (distinguidos de "Liquidado" = liquidado al vendedor).
     const cancelledOrFailed = allLinks.filter(
       (l) => inPeriod(l.created_at) && (l.status === 'CANCELLED' || l.last_attempt_failed || l.settlement_status === 'FAILED')
     );
@@ -300,9 +300,8 @@ export const ProviderHomeScreen: React.FC<{ onLogout: () => void; onSell: () => 
           cents: l.amount_cents,
           feeCents: l.fee_cents,
           netCents: l.net_cents,
-          // "Cancelado" = liquidación pagada/completada al vendedor (compatible con "Cobrado" al cliente).
-          // "Por confirmar" = pago recibido del cliente en espera de liquidación.
-          status: isSettled ? 'Cancelado' : 'Por confirmar',
+          // "Liquidado" = liquidación completada al vendedor. "Por confirmar" = pago recibido, pendiente de liquidación.
+          status: isSettled ? 'Liquidado' : 'Por confirmar',
           tone: isSettled
             ? 'bg-emerald-100 text-emerald-800'
             : isOverdue
@@ -349,7 +348,7 @@ export const ProviderHomeScreen: React.FC<{ onLogout: () => void; onSell: () => 
         cents: o.total_cents,
         feeCents: 0,
         netCents: o.total_cents,
-        status: o.settled ? 'Cancelado' : 'Por cobrar',
+        status: o.settled ? 'Liquidado' : 'Por cobrar',
         tone: o.settled ? 'bg-emerald-100 text-emerald-800' : 'bg-indigo-100 text-indigo-800',
         detail: o.settled ? 'Pedido aKuotas! liquidado' : 'Pedido aKuotas! pendiente de cobro',
         ok: o.settled,
