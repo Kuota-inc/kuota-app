@@ -12,7 +12,7 @@ import { PaywallSheet } from './screens/dashboard/PaywallSheet';
 import { getActiveProfile, profilesApi, setActiveProfile, type ProfileKind } from './api/profiles';
 import { isBiometricEnabled, resetSettings, setBiometricEnabled } from './services/appSettings';
 import { refreshListener, setCaptureHandler } from './services/paymentListener';
-import { apiRequest, getMerchantId, getProviderId, setMerchantId, setProviderId } from './api/client';
+import { API_BASE, apiRequest, getMerchantId, getProviderId, setMerchantId, setProviderId } from './api/client';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { useDeviceMode } from './hooks/useDeviceMode';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -1144,7 +1144,7 @@ function AppShell() {
         <div className="pt-2 border-t border-slate-700 flex items-center justify-between text-[11px] text-slate-400">
           <div className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            <span>API Backend: <strong>http://localhost:3001/api/v1</strong></span>
+            <span>API Backend: <strong>{API_BASE}</strong></span>
           </div>
           <span className="text-[10px] bg-slate-700 px-2 py-0.5 rounded text-slate-300">PEN (Soles)</span>
         </div>

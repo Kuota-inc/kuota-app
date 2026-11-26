@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.provider.Settings
 import android.text.TextUtils
+import androidx.core.content.ContextCompat
 import com.getcapacitor.JSObject
 import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
@@ -31,7 +32,7 @@ class KuotaNotificationsPlugin : Plugin() {
                 notifyListeners("notificationCaptured", payload)
             }
         }
-        activity.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        ContextCompat.registerReceiver(activity, receiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
     }
 
     override fun handleOnDestroy() {

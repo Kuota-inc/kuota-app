@@ -4,6 +4,7 @@ import android.app.Notification
 import android.content.Intent
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
+import java.math.BigDecimal
 import java.util.regex.Pattern
 
 class KuotaNotificationService : NotificationListenerService() {
@@ -17,7 +18,7 @@ class KuotaNotificationService : NotificationListenerService() {
 
         // Apps de pago peruanas conocidas
         private val PAYMENT_APPS = setOf(
-            "pe.com.yape.android",
+            "com.bcp.innovacxion.yapeapp",
             "pe.bhp.interbank.homebanking",
             "pe.bbva.homebanking",
             "com.bcp.bank.bcp",
@@ -26,17 +27,21 @@ class KuotaNotificationService : NotificationListenerService() {
         )
 
         // Detecta monto en soles: "S/ 150.00", "S/50", "150 soles"
+        // Admite miles ("1,250.00") y decimales con punto o coma ("150,50")
+        private const val NUMBER = """((?:\d{1,3}(?:,\d{3})+|\d{1,6})(?:[.,]\d{1,2})?)(?!\d)"""
         private val AMOUNT_PATTERNS = listOf(
-            Pattern.compile("""S/\s*(\d{1,6}(?:[.,]\d{1,2})?)"""),
-            Pattern.compile("""(\d{1,6}(?:[.,]\d{1,2})?)\s*soles""", Pattern.CASE_INSENSITIVE)
+            Pattern.compile("""S/\s*$NUMBER"""),
+            Pattern.compile("""(?<![\d.,])$NUMBER\s*soles""", Pattern.CASE_INSENSITIVE)
         )
+        private val THOUSANDS_COMMA = Regex(""",(?=\d{3}(?!\d))""")
 
         fun extractAmountCents(text: String): Int {
             for (p in AMOUNT_PATTERNS) {
                 val m = p.matcher(text)
                 if (m.find()) {
-                    val raw = m.group(1)!!.replace(',', '.')
-                    return (raw.toDouble() * 100).toInt()
+                    val raw = m.group(1)!!.replace(THOUSANDS_COMMA, "").replace(',', '.')
+                    // BigDecimal evita perder un céntimo por redondeo (0.29 -> 29)
+                    return BigDecimal(raw).movePointRight(2).toInt()
                 }
             }
             return 0
